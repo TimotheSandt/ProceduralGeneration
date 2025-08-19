@@ -10,7 +10,7 @@ Game::~Game() {
 void Game::init() {
     int *w = window.GetWidthptr();
 	int *h = window.GetHeightptr();
-	this->camera = Camera(w, h, glm::vec3(0.0f, 0.0f, 2.0f));
+	this->camera = Camera(w, h, glm::vec3(0.0f, 1.0f, 0.0f));
 
     this->world.Init();
 }

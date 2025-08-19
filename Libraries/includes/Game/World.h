@@ -4,8 +4,9 @@
 
 #include "glm/glm.hpp"
 #include "glm/gtx/hash.hpp"
-#include <unordered_map>
 
+
+#include "Grid.h"
 
 
 struct Light 
@@ -33,7 +34,7 @@ public:
     void Render(Camera& camera);
 
 private:
-
+    Grid grid = Grid{};
     std::vector<Light> Light;
     AmbiantLight AmbiantLight;
 };

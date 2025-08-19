@@ -17,10 +17,29 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
 void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib, std::vector<GLfloat> instances, std::vector<GLuint> SizeAttribInstance) {
     this->vertices = vertices;
     this->indices = indices;
-    this->instancing = (instances.empty()) ? 1 : instances.size();
+    //this->instancing = (instances.empty()) ? 1 : instances.size();
+    /**/
+    if (instances.empty()) {
+        this->instancing = 1;
+    } else {
+        // Calculate instances based on total components per instance
+        int componentsPerInstance = 0;
+        for (GLuint size : SizeAttribInstance) {
+            componentsPerInstance += size;
+        }
+        this->instancing = (componentsPerInstance > 0) ? instances.size() / componentsPerInstance : 1;
+    }
+    /**/
+    
+    
+    this->VAO.initialize();
+    if (glGetError() != GL_NO_ERROR) { 
+        std::cout << "VAO initialization failed" << std::endl; 
+        throw std::runtime_error("VAO initialization failed");
+    }
+    this->VAO.Generate();
+    this->VAO.Bind();
 
-    VAO.Generate();
-    VAO.Bind();
     VBO bVBO(this->vertices);
     EBO EBO(this->indices);
 
@@ -86,7 +105,8 @@ void Mesh::AddTexture(const char* image, const char* name, GLenum format, GLenum
     this->textures.push_back(Texture(image, name, slot, format, pixelType));
 }
 
-void Mesh::Draw(Camera& camera)
+
+void Mesh::Render(Camera& camera)
 {
     glGetError(); // Clear any previous errors
 
@@ -119,11 +139,8 @@ void Mesh::Draw(Camera& camera)
         return;
     }
 
-    if (this->instancing > 1) {
-        glDrawElementsInstanced(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, 0, this->instancing);
-    } else {
-        glDrawElements(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, 0);
-    }
+    Draw(camera.IsWireframe());
+    
     if (glGetError() != GL_NO_ERROR) {
         std::cerr << "Error drawing mesh" << std::endl;
         return;
@@ -133,6 +150,29 @@ void Mesh::Draw(Camera& camera)
     if (glGetError() != GL_NO_ERROR) {
         std::cerr << "Error unbinding VAO" << std::endl;
         return;
+    }
+}
+
+void Mesh::Draw(bool wireframe) {
+    if (wireframe) {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        // Optional: disable depth testing for wireframe to avoid z-fighting
+        glDisable(GL_DEPTH_TEST);
+    } else {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glEnable(GL_DEPTH_TEST);
+    }
+
+    if (this->instancing > 1) {
+        glDrawElementsInstanced(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, 0, this->instancing);
+    } else {
+        glDrawElements(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, 0);
+    }
+
+    // Reset to fill mode after drawing
+    if (wireframe) {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glEnable(GL_DEPTH_TEST);
     }
 }
 

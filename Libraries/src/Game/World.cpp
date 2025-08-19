@@ -11,6 +11,10 @@ void World::Init()
                     glm::vec3(0.99f, 0.98f, 1.0f),
                     5.0f });
     this->AmbiantLight = {glm::vec3(1.0f, 1.0f, 1.0f), 0.15f};
+
+    this->grid.init(10.0f, 10.0f, 20, 20);
+    this->grid.GenerateMesh();
+
 }
 
 void World::Update()
@@ -21,5 +25,5 @@ void World::Update()
 
 void World::Render(Camera& camera)
 {
-
+    this->grid.Render(camera);
 }

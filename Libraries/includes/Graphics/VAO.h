@@ -6,7 +6,9 @@
 class VAO
 {
 public:
-    VAO();
+    VAO() {};
+
+    void initialize();
 
     void Generate();
 

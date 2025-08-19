@@ -40,4 +40,13 @@ private:
     float sensitivity = 100.0f;
 
     bool firstClick = true;
+
+    void SetWireframe(bool enabled);
+    bool GetWireframe() const;
+    void ToggleWireframe();
+    bool isWireframe = false;
+
+public:
+    bool IsWireframe() { return this->isWireframe; }
+
 };

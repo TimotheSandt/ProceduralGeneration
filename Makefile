@@ -1,3 +1,5 @@
+
+
 # Variables
 CXX = g++
 CC = gcc
@@ -24,6 +26,7 @@ LIBRARIES_LIB_DIR = Libraries/libs
 MAIN_SRC_DIR = src
 OBJ_DIR = obj
 BIN_DIR = bin
+RES_DIR = res
 
 # Target Executable
 TARGET = $(BIN_DIR)/normal/$(PROJECT_NAME)
@@ -99,23 +102,38 @@ copy_libs_release: | $(BIN_DIR)/release
 	@cp $(LIBRARIES_DLL_SOURCES) $(BIN_DIR)/release/
 	@cp $(LIBRARIES_LIB_SOURCES) $(BIN_DIR)/release/
 
+copy_res_normal: | $(BIN_DIR)/normal
+	@echo "Copying resources to $(BIN_DIR)/normal"
+	@cp -r $(RES_DIR) $(BIN_DIR)/normal
+
+copy_res_debug: | $(BIN_DIR)/debug
+	@echo "Copying resources to $(BIN_DIR)/debug"
+	@cp -r $(RES_DIR) $(BIN_DIR)/debug
+
+copy_res_release: | $(BIN_DIR)/release
+	@echo "Copying resources to $(BIN_DIR)/release"
+	@cp -r $(RES_DIR) $(BIN_DIR)/release
+
+all_copy_normal: copy_libs_normal copy_res_normal
+all_copy_debug: copy_libs_debug copy_res_debug
+all_copy_release: copy_libs_release copy_res_release
  
 # Build all objects
 # Normal build
 $(TARGET): CXXFLAGS += -DNDEBUG -O1
-$(TARGET): $(ALL_OBJECTS_NORMAL) copy_libs_normal | $(BIN_DIR)/normal
+$(TARGET): $(ALL_OBJECTS_NORMAL) all_copy_normal | $(BIN_DIR)/normal
 	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS_NORMAL) $(LDFLAGS) -o $@
 	@echo "Compilation successful for: $(TARGET)"
 
 # Debug build
 $(TARGET_DEBUG): CXXFLAGS += -DDEBUG -g3 -O0
-$(TARGET_DEBUG): $(ALL_OBJECTS_DEBUG) copy_libs_debug | $(BIN_DIR)/debug
+$(TARGET_DEBUG): $(ALL_OBJECTS_DEBUG) all_copy_debug | $(BIN_DIR)/debug
 	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS_DEBUG) $(LDFLAGS) -o $@
 	@echo "Debug compilation successful for: $(TARGET_DEBUG)"
 
 # Release build
 $(TARGET_RELEASE): CXXFLAGS += -DNDEBUG -O3
-$(TARGET_RELEASE): $(ALL_OBJECTS_RELEASE) copy_libs_release | $(BIN_DIR)/release
+$(TARGET_RELEASE): $(ALL_OBJECTS_RELEASE) all_copy_release | $(BIN_DIR)/release
 	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS_RELEASE) $(LDFLAGS) -o $@
 	@echo "Release compilation successful for: $(TARGET_RELEASE)"
 
@@ -236,7 +254,7 @@ info:
 	@echo "C++ Flags: $(CXXFLAGS)"
 	@echo "C Flags: $(CFLAGS)"
 	@echo "Includes Directories: $(INCLUDES_DIRS)"
-	@echo "Includes: $(INCLUDES)"
+	@echo "LIBS : $(notdir $(LIB_SOURCES))"
 	@echo "Targets: $(TARGET), $(TARGET_DEBUG), $(TARGET_RELEASE)"
 
 # Phony Rules

@@ -44,7 +44,8 @@ public:
     void InitUniformMatrix4f(const char* uniform, const GLfloat* data);
 
 
-    void Draw(Camera& camera);
+    void Render(Camera& camera);
+    void Draw(bool wireframe = false);
 
     glm::vec3& GetPosition() { return this->position; }
     glm::vec3& GetScale() { return this->scale; }

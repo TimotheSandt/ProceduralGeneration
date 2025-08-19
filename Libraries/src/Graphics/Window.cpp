@@ -47,10 +47,14 @@ int Window::Init() {
 
     // Initialize GLAD to load all OpenGL function pointers
     gladLoadGL();
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return -1;
+    }
 
     // Define the viewport dimensions
     glViewport(0, 0, this->parameters.width, this->parameters.height);
-    glfwWindowHint(GLFW_REFRESH_RATE, GLFW_REFRESH_RATE);
+    glfwWindowHint(GLFW_REFRESH_RATE, this->parameters.maxFPS);
     glfwSwapInterval(this->parameters.vsync);
 
     

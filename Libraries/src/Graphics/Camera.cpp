@@ -75,4 +75,26 @@ void Camera::Inputs(GLFWwindow* window, float ElapseTime) {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         firstClick = true;
     }
+
+#if defined(_DEBUG) || defined(DEBUG)
+    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
+        SetWireframe(true);
+    } else if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_RELEASE) {
+        SetWireframe(false);
+    }
+#endif
+}
+
+
+
+void Camera::SetWireframe(bool enabled) {
+    this->isWireframe = enabled;
+}
+
+bool Camera::GetWireframe() const {
+    return this->isWireframe;
+}
+
+void Camera::ToggleWireframe() {
+    SetWireframe(!this->isWireframe);
 }
