@@ -139,7 +139,14 @@ void Mesh::Render(Camera& camera)
         return;
     }
 
-    Draw(camera.IsWireframe());
+    this->Draw();
+    if (camera.IsWireframe()) {
+        GLint wireframe = GL_TRUE;
+        this->InitUniform1i("wireframe", &wireframe);
+        this->Draw(true);
+        wireframe = GL_FALSE;
+        this->InitUniform1i("wireframe", &wireframe);
+    }
     
     if (glGetError() != GL_NO_ERROR) {
         std::cerr << "Error drawing mesh" << std::endl;
@@ -157,10 +164,10 @@ void Mesh::Draw(bool wireframe) {
     if (wireframe) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         // Optional: disable depth testing for wireframe to avoid z-fighting
-        glDisable(GL_DEPTH_TEST);
+        // glDisable(GL_DEPTH_TEST);
     } else {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glEnable(GL_DEPTH_TEST);
+        // glEnable(GL_DEPTH_TEST);
     }
 
     if (this->instancing > 1) {

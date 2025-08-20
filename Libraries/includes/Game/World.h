@@ -6,14 +6,16 @@
 #include "glm/gtx/hash.hpp"
 
 
-#include "Grid.h"
+#include "TerrainGenerator.h"
 
+enum LightType { DIRECTIONAL, POINT, SPOT };
 
 struct Light 
 {
-    glm::ivec3 position;
+    glm::vec3 position_direction;
     glm::vec3 color;
     float strength;
+    LightType type;
 };
 
 struct AmbiantLight
@@ -34,7 +36,7 @@ public:
     void Render(Camera& camera);
 
 private:
-    Grid grid = Grid{};
+    TerrainGenerator terrain;
     std::vector<Light> Light;
     AmbiantLight AmbiantLight;
 };

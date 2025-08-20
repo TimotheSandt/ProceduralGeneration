@@ -4,30 +4,40 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include <array>
+#include <functional>
 
 #include "Mesh.h"
+
+struct Vertex
+{
+    glm::vec3 Position;
+    glm::vec3 Normal;
+};
 
 class Grid
 {
 public:
     Grid();
-    Grid(float size_x, float size_y, int resolution_x, int resolution_y);
+    Grid(float size_x, float size_z, int resolution_x, int resolution_z);
     Grid(const Grid& other);
     ~Grid();
 
-    void init(float size_x, float size_y, int resolution_x, int resolution_y);
+    void init(float size_x, float size_z, int resolution_x, int resolution_z);
 
     void GeneratePoints();
     void GenerateTriangles();
+    void GenerateNormals();
     void GenerateMesh();
+
+    void TransformPoints(std::function<void(Vertex&, unsigned int)> func);
 
     void Render(Camera& camera);
 
     unsigned int GetResolutionX() { return this->resolution_x; }
-    unsigned int GetResolutionY() { return this->resolution_y; }
-    std::vector<glm::vec3> GetPoints() { return this->points; }
+    unsigned int GetResolutionY() { return this->resolution_z; }
+    std::vector<Vertex> GetPoints() { return this->points; }
     std::vector<std::array<unsigned int, 3>> GetTriangles() { return this->triangles; }
-    Mesh GetMesh() { return this->mesh; }
+    Mesh& GetMesh() { return this->mesh; }
 
 
     unsigned int GetPointCount() { return this->points.size(); }
@@ -35,10 +45,10 @@ public:
 
 private:
     float size_x;
-    float size_y;
+    float size_z;
     unsigned int resolution_x;
-    unsigned int resolution_y;
-    std::vector<glm::vec3> points;
+    unsigned int resolution_z;
+    std::vector<Vertex> points;
     std::vector<std::array<unsigned int, 3>> triangles;
 
     Mesh mesh;
