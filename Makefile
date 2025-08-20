@@ -18,7 +18,7 @@ INCLUDES_DIRS := $(notdir $(wildcard $(INCLUDES_BASE)/*))
 INCLUDES := -I$(INCLUDES_BASE) $(foreach dir,$(INCLUDES_DIRS),-I$(INCLUDES_BASE)/$(dir))
 
 # Linker
-LDFLAGS = -LLibraries/libs/ThirdParty/ -lglfw3dll -lstb_image -lpsapi
+LDFLAGS = -LLibraries/libs/ThirdParty/ -lglfw3dll -lstb_image -lpsapi -lwinmm
 
 # Directories
 LIBRARIES_SRC_DIR = Libraries/src

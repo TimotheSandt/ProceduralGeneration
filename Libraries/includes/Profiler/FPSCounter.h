@@ -1,77 +1,122 @@
+#pragma once
+
 #include <thread>
 #include <chrono>
+#include <atomic>
 
 #include "RingBuffer.h"
+
+// Platform-specific includes for high-resolution sleep
+#ifdef _WIN32
+#include <windows.h>
+#elif defined(__linux__)
+#include <time.h>
+#include <unistd.h>
+#endif
 
 class FPSCounter
 {
 public:
     FPSCounter();
+    ~FPSCounter();
     void Destroy();
 
     void newFrame(unsigned int maxFPS);
     
-public:
-    double getFPS() { return this->fps; };
-
-    int getFrame() { return this->frame; };
-
-    std::chrono::time_point<std::chrono::high_resolution_clock> getLastTime() { return this->lastTime; };
-    std::chrono::time_point<std::chrono::high_resolution_clock> getTime() { return std::chrono::high_resolution_clock::now(); };
+    // High-precision timing control
+    void setFrameRateLimitingMode(int mode); // 0=none, 1=hybrid, 2=adaptive, 3=vsync-like
+    void setSpinThreshold(std::chrono::nanoseconds threshold);
     
-    std::chrono::duration<double, std::nano> getElapseTime() { return this->elapseTime; };
-    double getElapseTimeInSeconds() { return this->elapseTime.count() / 1e9; };
-    double getElapseTimeInMilliseconds() { return this->elapseTime.count() / 1e6; };
-    double getElapseTimeInMicroseconds() { return this->elapseTime.count() / 1e3; };
-    double getElapseTimeInNanoseconds() { return this->elapseTime.count(); };
-
-    void UpdateStat();
+    // Current frame metrics
+    double getFPS() const noexcept { return this->fps.load(std::memory_order_relaxed); }
+    int getFrame() const noexcept { return this->frame.load(std::memory_order_relaxed); }
     
-    double getAverageFPS() { return this->avgFps; };
-    double getMaxFPS() { return this->maxFps; };
-    double getMinFPS() { return this->minFps; };
+    // Timing accessors
+    std::chrono::high_resolution_clock::time_point getLastTime() const noexcept { return this->lastTime; }
+    std::chrono::high_resolution_clock::time_point getTime() const noexcept { return std::chrono::high_resolution_clock::now(); }
+    
+    // Elapsed time accessors
+    std::chrono::nanoseconds getElapseTime() const noexcept { return this->elapseTime; }
+    double getElapseTimeInSeconds() const noexcept { return this->elapseTime.count() * 1e-9; }
+    double getElapseTimeInMilliseconds() const noexcept { return this->elapseTime.count() * 1e-6; }
+    double getElapseTimeInMicroseconds() const noexcept { return this->elapseTime.count() * 1e-3; }
+    double getElapseTimeInNanoseconds() const noexcept { return this->elapseTime.count(); }
 
-    double getAverageElapseTime() { return this->avgElapseTimens; };
-    double getAverageElapseTimeInSeconds() { return this->avgElapseTimens / 1e9; };
-    double getAverageElapseTimeInMilliseconds() { return this->avgElapseTimens / 1e6; };
-    double getAverageElapseTimeInMicroseconds() { return this->avgElapseTimens / 1e3; };
-    double getAverageElapseTimeInNanoseconds() { return this->avgElapseTimens; };
+    // Statistics
+    void updateStat();
+    
+    double getAverageFPS() const noexcept { return this->avgFps; }
+    double getMaxFPS() const noexcept { return this->maxFps; }
+    double getMinFPS() const noexcept { return this->minFps; }
 
-    double getMaxElapseTime() { return this->maxElapseTimens; };
-    double getMaxElapseTimeInSeconds() { return this->maxElapseTimens / 1e9; };
-    double getMaxElapseTimeInMilliseconds() { return this->maxElapseTimens / 1e6; };
-    double getMaxElapseTimeInMicroseconds() { return this->maxElapseTimens / 1e3; };
-    double getMaxElapseTimeInNanoseconds() { return this->maxElapseTimens; };
+    double getAverageElapseTime() const noexcept { return this->avgElapseTimens; }
+    double getAverageElapseTimeInSeconds() const noexcept { return this->avgElapseTimens * 1e-9; }
+    double getAverageElapseTimeInMilliseconds() const noexcept { return this->avgElapseTimens * 1e-6; }
+    double getAverageElapseTimeInMicroseconds() const noexcept { return this->avgElapseTimens * 1e-3; }
+    double getAverageElapseTimeInNanoseconds() const noexcept { return this->avgElapseTimens; }
 
-    double getMinElapseTime() { return this->minElapseTimens; };
-    double getMinElapseTimeInSeconds() { return this->minElapseTimens / 1e9; };
-    double getMinElapseTimeInMilliseconds() { return this->minElapseTimens / 1e6; };
-    double getMinElapseTimeInMicroseconds() { return this->minElapseTimens / 1e3; };
-    double getMinElapseTimeInNanoseconds() { return this->minElapseTimens; };
+    double getMaxElapseTime() const noexcept { return this->maxElapseTimens; }
+    double getMaxElapseTimeInSeconds() const noexcept { return this->maxElapseTimens * 1e-9; }
+    double getMaxElapseTimeInMilliseconds() const noexcept { return this->maxElapseTimens * 1e-6; }
+    double getMaxElapseTimeInMicroseconds() const noexcept { return this->maxElapseTimens * 1e-3; }
+    double getMaxElapseTimeInNanoseconds() const noexcept { return this->maxElapseTimens; }
 
+    double getMinElapseTime() const noexcept { return this->minElapseTimens; }
+    double getMinElapseTimeInSeconds() const noexcept { return this->minElapseTimens * 1e-9; }
+    double getMinElapseTimeInMilliseconds() const noexcept { return this->minElapseTimens * 1e-6; }
+    double getMinElapseTimeInMicroseconds() const noexcept { return this->minElapseTimens * 1e-3; }
+    double getMinElapseTimeInNanoseconds() const noexcept { return this->minElapseTimens; }
+
+    // Performance metrics
+    double getSleepAccuracy() const noexcept { return this->sleepAccuracy; }
+    int64_t getTotalFramesDropped() const noexcept { return this->framesDropped; }
 
 private:
+    // Frame rate limiting strategies
+    void hybridSleep(std::chrono::nanoseconds sleepTime);
+    void adaptiveSleep(std::chrono::nanoseconds sleepTime);
+    void vsyncLikePacing(unsigned int maxFPS);
+    void platformOptimizedSleep(std::chrono::nanoseconds sleepTime);
+    
+    // Helper methods
     void updateBuffers();
-
-private:
-    // Real Time fps, elapse time and frame
-    double fps;
-    std::chrono::duration<double, std::nano> elapseTime;
-    int frame = 0;
+    void initializePlatformTimer();
+    void cleanupPlatformTimer();
     
-    // Time
-    std::chrono::time_point<std::chrono::high_resolution_clock> lastTime;
+    // Core timing data (atomic for thread safety)
+    std::atomic<double> fps{0.0};
+    std::atomic<int> frame{0};
+    std::chrono::nanoseconds elapseTime{0};
+    std::chrono::high_resolution_clock::time_point lastTime;
+    std::chrono::high_resolution_clock::time_point frameStartTime;
     
-    // Stat
-    double avgFps;
-    double maxFps;
-    double minFps;
-    double avgElapseTimens;
-    double maxElapseTimens;
-    double minElapseTimens;
+    // Frame rate limiting configuration
+    int frameRateLimitingMode{1}; // Default to hybrid
+    std::chrono::nanoseconds spinThreshold{500000}; // 0.5ms default
+    std::chrono::nanoseconds targetFrameTime{0};
+    std::chrono::high_resolution_clock::time_point nextFrameTime;
+    
+    // Adaptive sleep learning
+    std::chrono::nanoseconds sleepOffset{0};
+    int adaptiveCounter{0};
+    double sleepAccuracy{0.0};
+    std::atomic<int64_t> framesDropped{0};
+    
+    // Statistics
+    double avgFps{0.0};
+    double maxFps{0.0};
+    double minFps{0.0};
+    double avgElapseTimens{0.0};
+    double maxElapseTimens{0.0};
+    double minElapseTimens{0.0};
 
-
-    int BufferSize = 30;
+    // Ring buffers for statistics
+    static const int BufferSize = 30;
     RingBuffer<double> fpsBuffer;
     RingBuffer<double> elapseTimeBuffer;
+    
+    // Platform-specific data
+#ifdef _WIN32
+    bool timerInitialized{false};
+#endif
 };

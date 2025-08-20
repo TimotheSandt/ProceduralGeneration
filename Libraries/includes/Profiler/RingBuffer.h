@@ -1,3 +1,5 @@
+#define MIN_CAPACITY 10
+
 template <typename Type>
 class RingBuffer 
 {
@@ -12,7 +14,8 @@ public:
     }
 
     void Init(int capacity) {
-        this->capacity = capacity;
+
+        this->capacity = std::max(capacity, MIN_CAPACITY);
         if (this->buffer != nullptr)
             delete[] this->buffer;
         this->buffer = new Type[this->capacity] { Type(0) };
@@ -32,6 +35,7 @@ public:
     };
 
     void resize(int size) {
+        size = std::max(size, MIN_CAPACITY);
         Type *newBuffer = new Type[size] { Type(0) };
         for (int i = 0; i < this->capacity && i < size; i++) {
             newBuffer[i] = this->buffer[i];
