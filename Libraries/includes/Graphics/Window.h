@@ -11,22 +11,30 @@
 
 #include "FPSCounter.h"
 
+enum WindowState { WINDOWED, BORDERLESS, FULLSCREEN, FULLSCREEN_UNFOCUSED};
 
 struct Parameters
 {
+    std::string title;
     int width;
     int height;
+    int posX;
+    int posY;
     int majorVersion;
     int minorVersion;
     bool IsDepthEnable;
     
     int maxFPS;
     bool vsync;
-    bool fullscreen;
+    WindowState windowState;
 
     double trueEveryms;
 
     glm::vec4 clearColor;
+
+    
+    int windowedWidth, windowedHeight, windowedPosX, windowedPosY;
+    bool isFocus;
 };
 
 
@@ -39,11 +47,15 @@ public:
 
     int Init();
     void Update();
-    void ProcessInput();
+    void ProcessInput(GLFWwindow* window, int action, int key);
     bool NewFrame();
     void SwapBuffers();
     
     void Close();
+
+    void ChangeWindowState(WindowState state);
+    void ToggleFullscreen();
+    void ToggleBorderless();
 
     int GetWidth() { return this->parameters.width; }
     int GetHeight() { return this->parameters.height; }
@@ -59,7 +71,7 @@ public:
     GLFWwindow* GetWindow() { return this->window; }
 
     int GetFrame() { return this->fpsCounter.getFrame(); }
-    void trueEvery(double ms);
+    void trueEvery(double ms) { this->parameters.trueEveryms = ms; };
     double GetFPS() { return this->fpsCounter.getFPS(); }
     double GetAverageFPS() { return this->fpsCounter.getAverageFPS(); }
     double GetMaxFPS() { return this->fpsCounter.getMaxFPS(); }
@@ -74,6 +86,23 @@ public:
     double GetAverageElapseTimeMillisecond() { return this->fpsCounter.getAverageElapseTimeInMilliseconds(); }
     double GetMaxElapseTimeMillisecond() { return this->fpsCounter.getMaxElapseTimeInMilliseconds(); }
     double GetMinElapseTimeMillisecond() { return this->fpsCounter.getMinElapseTimeInMilliseconds(); }
+
+
+private:
+    void PostWindowStateChange();
+    void SaveWindowedParameters();
+    
+    void ActivateFullscreen();
+    void ActivateWindowed();
+    void ActivateBorderless();
+
+
+    void CallbackFocus(GLFWwindow* window, int focused);
+
+    
+    void SetupErrorHandling();
+    void SetupCallbacks();
+    bool IsWindowHealthy();
 
 private:
     GLFWwindow* window;

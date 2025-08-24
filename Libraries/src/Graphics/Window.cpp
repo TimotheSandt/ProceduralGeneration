@@ -1,20 +1,35 @@
 #include "Window.h"
 
 #include <iostream>
+#include "PriorityHelper.h"
 
 Window::Window() {
     this->window = nullptr;
+    this->parameters.title = "Window";
     this->parameters.width = 800;
     this->parameters.height = 600;
+    this->parameters.posX = 100;
+    this->parameters.posY = 100;
     this->parameters.majorVersion = 3;
     this->parameters.minorVersion = 3;
     this->parameters.IsDepthEnable = true;
     this->parameters.maxFPS = 60;
     this->parameters.vsync = false;
-    this->parameters.fullscreen = false;
+#ifdef DEBUG
+    this->parameters.windowState = WindowState::WINDOWED;
+#else
+    this->parameters.windowState = WindowState::FULLSCREEN;
+#endif // DEBUG
     this->parameters.clearColor = glm::vec4(0.07f, 0.13f, 0.17f, 1.0f);
     this->parameters.trueEveryms = 500;
     this->lastTime = this->fpsCounter.getLastTime();
+
+
+    
+    this->parameters.windowedWidth = this->parameters.width;
+    this->parameters.windowedHeight = this->parameters.height;
+    this->parameters.windowedPosX = this->parameters.posX;
+    this->parameters.windowedPosY = this->parameters.posY;
 }
 
 Window::~Window() {
@@ -22,26 +37,44 @@ Window::~Window() {
 }
 
 int Window::Init() {
-    // Initialize GLFW
-    glfwInit();
+    // Set High Priority
+    if (PriorityHelper::RequestHighPriority()) {
+        PriorityHelper::ApplyPerformanceTweaks();
+        PriorityHelper::DisplayCurrentPriority();
+    }
 
-    // Tell GLFW what version of OpenGL we want to use
+
+    // Initialize GLFW
+    if (!glfwInit()) {
+        std::cout << "Failed to initialize GLFW" << std::endl;
+        return -1;
+    }
+
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, this->parameters.majorVersion);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, this->parameters.minorVersion);
-    // Tell GLFW we are using the core profile (Only the modern functions will be available)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
-    // Center the window
     glfwWindowHint(GLFW_CENTER_CURSOR, GLFW_TRUE);
+    glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+    glfwWindowHint(GLFW_FOCUSED, GLFW_TRUE);
+
+    glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
+    glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_TRUE);
+
+#ifdef DEBUG
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+#endif
 
 
     // Create a window of size 800x800 and called "OpenGL"
-    this->window = glfwCreateWindow(this->parameters.width, this->parameters.height, "OpenGL", NULL, NULL);
-    if (this->window == NULL) {
+    this->window = glfwCreateWindow(this->parameters.width, this->parameters.height, this->parameters.title.c_str(), NULL, NULL);
+    if (!this->window) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
     }
+
     // Make the window's context current
     glfwMakeContextCurrent(this->window);
 
@@ -49,53 +82,109 @@ int Window::Init() {
     gladLoadGL();
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cout << "Failed to initialize GLAD" << std::endl;
+        this->Close();
         return -1;
     }
 
     // Define the viewport dimensions
     glViewport(0, 0, this->parameters.width, this->parameters.height);
-    glfwWindowHint(GLFW_REFRESH_RATE, this->parameters.maxFPS);
-    glfwSwapInterval(this->parameters.vsync);
-
+    glfwSwapInterval(this->parameters.vsync ? 1 : 0);
     
-    glEnable(GL_DEPTH_TEST);
+    if (this->parameters.IsDepthEnable) { 
+        glEnable(GL_DEPTH_TEST);
+    }
+
+    this->Update();
+    glfwSetWindowPos(this->window, this->parameters.posX, this->parameters.posY);
+
+    glfwSetWindowUserPointer(this->window, this);
+
+    this->SetupCallbacks();
+    this->SetupErrorHandling();
+      
+
+    this->ChangeWindowState(this->parameters.windowState);
 
     return 0;
 }
 
+void Window::ProcessInput(GLFWwindow* window, int action, int key) {
+    if (key == GLFW_KEY_LEFT_SUPER || key == GLFW_KEY_RIGHT_SUPER || 
+        key < 0 || key > GLFW_KEY_LAST) {
+        return;
+    }
+    
+
+    if (action == GLFW_PRESS) {
+        switch (key) {
+            case GLFW_KEY_F11:
+                this->ToggleFullscreen();
+                break;
+            case GLFW_KEY_F12:
+                this->ToggleBorderless();
+                break;
+            case GLFW_KEY_ESCAPE:
+                glfwSetWindowShouldClose(window, true);
+                break;
+        }
+    }
+}
+
 
 void Window::Close() {
+    if (!this->window) return;
+
     glfwDestroyWindow(this->window);
+    this->window = nullptr;
     glfwTerminate();
+
+#ifdef _WIN32
+    ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_SHOW);
+#endif
 }
 
 void Window::Update() {
+    if (!this->window) return; 
+
     int w, h;
     glfwGetWindowSize(this->window, &w, &h);
+    glfwGetWindowPos(this->window, &this->parameters.posX, &this->parameters.posY);
 
     if (w != this->parameters.width || h != this->parameters.height) {
         this->parameters.width = w;
         this->parameters.height = h;
         glViewport(0, 0, this->parameters.width, this->parameters.height);
+        glfwSwapInterval(this->parameters.vsync ? 1 : 0);
     }
 }
 
 bool Window::NewFrame() {
+    if (!IsWindowHealthy()) {
+        std::cerr << "Window is not healthy" << std::endl;
+        return false;
+    }
+
     this->fpsCounter.newFrame(this->parameters.maxFPS);
     glfwPollEvents();
-    this->ProcessInput();
     this->Update();
 
     
-    glClearColor(0.07f, 0.13f, 0.17f, 1.0f);
+    glClearColor(
+        this->parameters.clearColor.r, 
+        this->parameters.clearColor.g, 
+        this->parameters.clearColor.b, 
+        this->parameters.clearColor.a
+    );
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     if (this->parameters.trueEveryms == 0) {
         this->fpsCounter.updateStat();
         return true;
     }
+
     auto now = this->fpsCounter.getTime();
-    if (std::chrono::duration_cast<std::chrono::milliseconds>(now - this->lastTime).count() >= this->parameters.trueEveryms) {
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - this->lastTime).count();
+    if (elapsed >= this->parameters.trueEveryms) {
         this->fpsCounter.updateStat();
         this->lastTime = now;
         return true;
@@ -104,13 +193,9 @@ bool Window::NewFrame() {
     return false;
 }
 
-void Window::ProcessInput() {
-    if (glfwGetKey(this->window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        glfwSetWindowShouldClose(this->window, true);
-    }
-}
-
 void Window::SwapBuffers() {
+    if (!this->window) return;
+
     glfwSwapBuffers(this->window);
 }
 
@@ -119,14 +204,324 @@ void Window::ChangeDepth(bool IsDepthEnable) {
     this->parameters.IsDepthEnable = IsDepthEnable;
     if (IsDepthEnable) {
         glEnable(GL_DEPTH_TEST);
-    }
-    else {
+    } else {
         glDisable(GL_DEPTH_TEST);
     }
 }
 
 
+void Window::ChangeWindowState(WindowState state) {
+    switch (state) {
+        case WindowState::FULLSCREEN:
+        case WindowState::FULLSCREEN_UNFOCUSED:
+            this->ActivateFullscreen();
+            break;
+        case WindowState::BORDERLESS:
+            this->ActivateBorderless();
+            break;
+        case WindowState::WINDOWED:
+        default:
+            this->ActivateWindowed();
+            break;
+    }
+}
 
-void Window::trueEvery(double ms) {
-    this->parameters.trueEveryms = ms;
+
+void Window::ToggleFullscreen() {
+    if (this->parameters.windowState == WindowState::FULLSCREEN || 
+        this->parameters.windowState == WindowState::FULLSCREEN_UNFOCUSED) {
+        this->ActivateWindowed();
+    } else {
+        this->ActivateFullscreen();
+    }
+}
+
+void Window::ToggleBorderless() {
+    if (this->parameters.windowState == WindowState::BORDERLESS) {
+        this->ActivateWindowed();
+    } else {
+        this->ActivateBorderless();
+    }
+}
+
+
+void Window::ActivateFullscreen() {
+    if (this->parameters.windowState == WindowState::FULLSCREEN) return;
+
+    if (!IsWindowHealthy()) {
+        std::cout << "Window not healthy, skipping fullscreen toggle" << std::endl;
+        return;
+    }
+
+    if (this->parameters.windowState == WindowState::WINDOWED) {
+        this->SaveWindowedParameters();
+    }
+    
+    // Get primary monitor
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    if (!monitor) {
+        std::cout << "Failed to get primary monitor" << std::endl;
+        return;
+    }
+    
+    // Get monitor's video mode
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    if (!mode) {
+        std::cout << "Failed to get video mode" << std::endl;
+        return;
+    }
+
+    // Switch to fullscreen
+    glfwSetWindowMonitor(this->window, monitor, 0, 0, 
+        mode->width, mode->height, mode->refreshRate);
+    
+    // Update internal parameters
+    this->parameters.width = mode->width;
+    this->parameters.height = mode->height;
+    this->parameters.windowState = WindowState::FULLSCREEN;
+    
+    
+    PostWindowStateChange();
+    std::cout << "Switched to fullscreen: " << mode->width << "x" << mode->height 
+                << " @ " << mode->refreshRate << "Hz" << std::endl;
+}
+
+void Window::ActivateWindowed() {
+    if (this->parameters.windowState == WindowState::WINDOWED) return;
+
+    if (!IsWindowHealthy()) {
+        std::cout << "Window not healthy, skipping windowed toggle" << std::endl;
+        return;
+    }
+
+#ifdef _WIN32
+    ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_SHOW);
+#endif
+
+    
+
+    glfwSetWindowMonitor(this->window, nullptr, this->parameters.windowedPosX, this->parameters.windowedPosY,
+            this->parameters.windowedWidth, this->parameters.windowedHeight, GLFW_DONT_CARE);
+    glfwSetWindowAttrib(this->window, GLFW_DECORATED, GLFW_TRUE);
+
+    // Update internal parameters
+    this->parameters.width = this->parameters.windowedWidth;
+    this->parameters.height = this->parameters.windowedHeight;
+    this->parameters.windowState = WindowState::WINDOWED;
+    
+    
+    PostWindowStateChange();
+    std::cout << "Switched to windowed: " << this->parameters.windowedWidth << "x" << this->parameters.windowedHeight << std::endl;
+}
+
+
+void Window::ActivateBorderless() {
+    if (this->parameters.windowState == WindowState::BORDERLESS) return;
+    if (!IsWindowHealthy()) {
+        std::cout << "Window not healthy, skipping fullscreen toggle" << std::endl;
+        return;
+    }
+
+    if (this->parameters.windowState == WindowState::WINDOWED) {
+        SaveWindowedParameters();
+    }
+
+    // Get primary monitor
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    if (!monitor) {
+        std::cout << "Failed to get primary monitor" << std::endl;
+        return;
+    }
+
+    // Get monitor's video mode
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    if (!mode) {
+        std::cout << "Failed to get video mode" << std::endl;
+        return;
+    }
+
+    int width = mode->width;
+    int height = mode->height + 1;
+
+    // On Windows, we need to hide the taskbar
+#ifdef _WIN32
+    ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_HIDE);
+#endif
+
+    
+
+    glfwSetWindowAttrib(this->window, GLFW_DECORATED, GLFW_FALSE);
+    glfwSetWindowMonitor(this->window, nullptr, 0, 0, width, height, GLFW_DONT_CARE);
+    
+    // Update internal parameters
+    this->parameters.width = width;
+    this->parameters.height = height;
+    this->parameters.windowState = WindowState::BORDERLESS;
+    
+
+    PostWindowStateChange();
+    std::cout << "Switched to borderless: " << width << "x" << height << std::endl;
+}
+
+void Window::SaveWindowedParameters() {
+    if (!this->window) return;
+
+    glfwGetWindowSize(this->window, &this->parameters.windowedWidth, 
+                     &this->parameters.windowedHeight);
+    glfwGetWindowPos(this->window, &this->parameters.windowedPosX, 
+                    &this->parameters.windowedPosY);
+}
+
+
+void Window::PostWindowStateChange() {
+    if (!this->window) return;
+    
+    // Brief pause to let window transition complete
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    glfwMakeContextCurrent(this->window);
+    glViewport(0, 0, this->parameters.width, this->parameters.height);
+    glfwSwapInterval(this->parameters.vsync ? 1 : 0);
+
+    if (this->parameters.IsDepthEnable) {
+        glEnable(GL_DEPTH_TEST);
+    } else {
+        glDisable(GL_DEPTH_TEST);
+    }
+
+    glClearColor(
+        this->parameters.clearColor.r, 
+        this->parameters.clearColor.g, 
+        this->parameters.clearColor.b, 
+        this->parameters.clearColor.a
+    );
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glfwSwapBuffers(this->window);
+
+    glfwFocusWindow(this->window);
+}
+
+
+void Window::SetupErrorHandling() {
+#ifdef _WIN32
+    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | 
+                 SEM_NOALIGNMENTFAULTEXCEPT | SEM_NOOPENFILEERRORBOX);
+#endif
+    
+    // Callback d'erreur GLFW global
+    glfwSetErrorCallback([](int error_code, const char* description) {
+        std::cerr << "GLFW Error " << error_code << ": " << description << std::endl;
+        
+        // Log plus détaillé pour certaines erreurs critiques
+        switch (error_code) {
+            case GLFW_INVALID_ENUM:
+                std::cerr << "Invalid enum parameter" << std::endl;
+                break;
+            case GLFW_INVALID_VALUE:
+                std::cerr << "Invalid value parameter" << std::endl;
+                break;
+            case GLFW_OUT_OF_MEMORY:
+                std::cerr << "Out of memory" << std::endl;
+                break;
+            case GLFW_API_UNAVAILABLE:
+                std::cerr << "API unavailable" << std::endl;
+                break;
+            case GLFW_VERSION_UNAVAILABLE:
+                std::cerr << "Version unavailable" << std::endl;
+                break;
+            case GLFW_PLATFORM_ERROR:
+                std::cerr << "Platform error" << std::endl;
+                break;
+            case GLFW_FORMAT_UNAVAILABLE:
+                std::cerr << "Format unavailable" << std::endl;
+                break;
+        }
+    });
+}
+
+
+
+void Window::CallbackFocus(GLFWwindow* window, int focused) {
+    if (!focused) {
+        std::cout << "Window lost focus" << std::endl;
+        if (this->parameters.windowState == WindowState::FULLSCREEN) { 
+            std::this_thread::sleep_for(std::chrono::milliseconds(75));
+            this->ActivateBorderless();
+            this->parameters.windowState = WindowState::FULLSCREEN_UNFOCUSED;
+        }
+#ifdef _WIN32
+        // Rendre la barre de tâches visible
+        ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_SHOW);
+#endif
+    } else {
+        std::cout << "Window regained focus" << std::endl;
+        if (this->parameters.windowState == WindowState::FULLSCREEN || this->parameters.windowState == WindowState::FULLSCREEN_UNFOCUSED) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(75));
+            this->ActivateFullscreen();
+        }
+#ifdef _WIN32
+        else if (this->parameters.windowState == WindowState::BORDERLESS) {
+            ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_HIDE);
+        }
+#endif
+    }
+}
+
+
+void Window::SetupCallbacks() {
+    glfwSetKeyCallback(this->window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+        try {
+            Window* windowObj = static_cast<Window*>(glfwGetWindowUserPointer(window));
+            if (!windowObj) return;
+            windowObj->ProcessInput(window, action, key);
+            
+        }
+        catch (const std::exception& e) {
+            std::cerr << "Error in key callback: " << e.what() << std::endl;
+        }
+        catch (...) {
+            std::cerr << "Unknown error in key callback" << std::endl;
+        }
+    });
+    
+    // Callback pour gérer la perte de focus (peut aider avec la touche Windows)
+    glfwSetWindowFocusCallback(this->window, [](GLFWwindow* window, int focused) {
+        try {
+            Window* windowObj = static_cast<Window*>(glfwGetWindowUserPointer(window));
+            if (!windowObj) return;
+            windowObj->CallbackFocus(window, focused);
+        }
+        catch (...) {
+            // Ignorer les erreurs dans ce callback
+        }
+    });
+
+    // Callback d'erreur GLFW pour diagnostiquer les problèmes
+    glfwSetErrorCallback([](int error_code, const char* description) {
+        std::cerr << "GLFW Error " << error_code << ": " << description << std::endl;
+    });
+}
+
+
+// Fonction pour vérifier l'état de la fenêtre
+bool Window::IsWindowHealthy() {
+    if (!this->window) {
+        return false;
+    }
+    
+    // Vérifier si le contexte OpenGL est toujours valide
+    GLFWwindow* currentContext = glfwGetCurrentContext();
+    if (currentContext != this->window) {
+        std::cout << "Warning: OpenGL context mismatch" << std::endl;
+        glfwMakeContextCurrent(this->window);
+    }
+    
+    // Vérifier les erreurs OpenGL
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) {
+        std::cout << "OpenGL Error detected: " << error << std::endl;
+        return false;
+    }
+    
+    return true;
 }

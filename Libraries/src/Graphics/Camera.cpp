@@ -47,6 +47,12 @@ void Camera::Inputs(GLFWwindow* window, float ElapseTime) {
         this->speed = 6.0f;
     }
 
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+        this->speed = 25.0f;
+    } else if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_RELEASE) {
+        this->speed = 6.0f;
+    }
+
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 

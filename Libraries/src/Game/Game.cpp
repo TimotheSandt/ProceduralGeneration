@@ -27,7 +27,6 @@ void Game::run() {
 							", Avg Elapsed Time: " + std::to_string(window.GetAverageElapseTimeMillisecond()) + "ms";
 		glfwSetWindowTitle(window.GetWindow(), title.c_str());
 
-        processInput();
         update();
         render();
 
@@ -37,7 +36,7 @@ void Game::run() {
 }
 
 void Game::processInput() {
-    this->window.ProcessInput();
+
 }
 
 void Game::update() {

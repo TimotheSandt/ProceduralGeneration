@@ -9,7 +9,7 @@ PROJECT_NAME = ProceduralGeneration
 CFLAGS = -Wall -Wextra -Werror -m64
 CXXFLAGS = $(CFLAGS) -std=c++23
 # dev flags
-CFLAGS_DEV = -Wall -Wextra -m64
+CFLAGS_DEV = -Wall -Wextra -m64 -DDEBUG
 CXXFLAGS_DEV = $(CFLAGS_DEV) -std=c++23
 
 # Includes
@@ -18,7 +18,7 @@ INCLUDES_DIRS := $(notdir $(wildcard $(INCLUDES_BASE)/*))
 INCLUDES := -I$(INCLUDES_BASE) $(foreach dir,$(INCLUDES_DIRS),-I$(INCLUDES_BASE)/$(dir))
 
 # Linker
-LDFLAGS = -LLibraries/libs/ThirdParty/ -lglfw3dll -lstb_image -lpsapi -lwinmm
+LDFLAGS = -LLibraries/libs/ThirdParty/ -lglfw3dll -lstb_image -lpsapi -lwinmm 
 
 # Directories
 LIBRARIES_SRC_DIR = Libraries/src
@@ -74,11 +74,8 @@ ALL_OBJECTS_RELEASE = $(LIBRARIES_CPP_OBJECTS_RELEASE) $(LIBRARIES_C_OBJECTS_REL
 # Build Rules
 all: $(TARGET)
 
-debug: CXXFLAGS = $(CXXFLAGS_DEV)
-debug: CFLAGS = $(CFLAGS_DEV)
-
-dev: CXXFLAGS = $(CXXFLAGS_DEV)
-dev: CFLAGS = $(CFLAGS_DEV)
+debug dev run-dev: CXXFLAGS = $(CXXFLAGS_DEV)
+debug dev run-dev: CFLAGS = $(CFLAGS_DEV)
 
 
 # Executable Rules
@@ -120,13 +117,13 @@ all_copy_release: copy_libs_release copy_res_release
  
 # Build all objects
 # Normal build
-$(TARGET): CXXFLAGS += -DNDEBUG -O1
+$(TARGET): CXXFLAGS += -O1
 $(TARGET): $(ALL_OBJECTS_NORMAL) all_copy_normal | $(BIN_DIR)/normal
 	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS_NORMAL) $(LDFLAGS) -o $@
 	@echo "Compilation successful for: $(TARGET)"
 
 # Debug build
-$(TARGET_DEBUG): CXXFLAGS += -DDEBUG -g3 -O0
+$(TARGET_DEBUG): CXXFLAGS += -g3 -O0
 $(TARGET_DEBUG): $(ALL_OBJECTS_DEBUG) all_copy_debug | $(BIN_DIR)/debug
 	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS_DEBUG) $(LDFLAGS) -o $@
 	@echo "Debug compilation successful for: $(TARGET_DEBUG)"
@@ -226,7 +223,7 @@ fclean: clean
 re: fclean all
 
 # Execution Rules
-run: $(TARGET)
+run run-dev: $(TARGET)
 	./$(TARGET)
 
 run-debug: $(TARGET_DEBUG)
@@ -258,7 +255,7 @@ info:
 	@echo "Targets: $(TARGET), $(TARGET_DEBUG), $(TARGET_RELEASE)"
 
 # Phony Rules
-.PHONY: all clean fclean re debug release dev run run-debug run-release check info
+.PHONY: all clean fclean re debug release dev run run-dev run-debug run-release check info
 
 # Dependencies
 -include $(ALL_OBJECTS_NORMAL:.o=.d) $(ALL_OBJECTS_DEBUG:.o=.d) $(ALL_OBJECTS_RELEASE:.o=.d)
