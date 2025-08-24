@@ -94,42 +94,19 @@ int Window::Init() {
         glEnable(GL_DEPTH_TEST);
     }
 
-    this->Update();
-    glfwSetWindowPos(this->window, this->parameters.posX, this->parameters.posY);
+    glfwGetWindowPos(this->window, &this->parameters.posX, &this->parameters.posY);
 
     glfwSetWindowUserPointer(this->window, this);
 
     this->SetupCallbacks();
     this->SetupErrorHandling();
-      
+    
+    
 
     this->ChangeWindowState(this->parameters.windowState);
 
     return 0;
 }
-
-void Window::ProcessInput(GLFWwindow* window, int action, int key) {
-    if (key == GLFW_KEY_LEFT_SUPER || key == GLFW_KEY_RIGHT_SUPER || 
-        key < 0 || key > GLFW_KEY_LAST) {
-        return;
-    }
-    
-
-    if (action == GLFW_PRESS) {
-        switch (key) {
-            case GLFW_KEY_F11:
-                this->ToggleFullscreen();
-                break;
-            case GLFW_KEY_F12:
-                this->ToggleBorderless();
-                break;
-            case GLFW_KEY_ESCAPE:
-                glfwSetWindowShouldClose(window, true);
-                break;
-        }
-    }
-}
-
 
 void Window::Close() {
     if (!this->window) return;
@@ -143,20 +120,6 @@ void Window::Close() {
 #endif
 }
 
-void Window::Update() {
-    if (!this->window) return; 
-
-    int w, h;
-    glfwGetWindowSize(this->window, &w, &h);
-    glfwGetWindowPos(this->window, &this->parameters.posX, &this->parameters.posY);
-
-    if (w != this->parameters.width || h != this->parameters.height) {
-        this->parameters.width = w;
-        this->parameters.height = h;
-        glViewport(0, 0, this->parameters.width, this->parameters.height);
-        glfwSwapInterval(this->parameters.vsync ? 1 : 0);
-    }
-}
 
 bool Window::NewFrame() {
     if (!IsWindowHealthy()) {
@@ -166,7 +129,6 @@ bool Window::NewFrame() {
 
     this->fpsCounter.newFrame(this->parameters.maxFPS);
     glfwPollEvents();
-    this->Update();
 
     
     glClearColor(
@@ -199,7 +161,6 @@ void Window::SwapBuffers() {
     glfwSwapBuffers(this->window);
 }
 
-
 void Window::ChangeDepth(bool IsDepthEnable) {
     this->parameters.IsDepthEnable = IsDepthEnable;
     if (IsDepthEnable) {
@@ -209,6 +170,13 @@ void Window::ChangeDepth(bool IsDepthEnable) {
     }
 }
 
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////// Window state functions ///////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////
 
 void Window::ChangeWindowState(WindowState state) {
     switch (state) {
@@ -375,12 +343,8 @@ void Window::SaveWindowedParameters() {
 
 void Window::PostWindowStateChange() {
     if (!this->window) return;
-    
-    // Brief pause to let window transition complete
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
     glfwMakeContextCurrent(this->window);
-    glViewport(0, 0, this->parameters.width, this->parameters.height);
+
     glfwSwapInterval(this->parameters.vsync ? 1 : 0);
 
     if (this->parameters.IsDepthEnable) {
@@ -401,6 +365,151 @@ void Window::PostWindowStateChange() {
     glfwFocusWindow(this->window);
 }
 
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////        CALLBACK        ///////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////
+
+
+void Window::SetupCallbacks() {
+    glfwSetKeyCallback(this->window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+        UNREFERENCED_PARAMETER(scancode);
+        UNREFERENCED_PARAMETER(mods);
+
+        try {
+            Window* windowObj = static_cast<Window*>(glfwGetWindowUserPointer(window));
+            if (!windowObj) return;
+            windowObj->CallbackInput(window, action, key);
+            
+        }
+        catch (const std::exception& e) {
+            std::cerr << "Error in key callback: " << e.what() << std::endl;
+        }
+        catch (...) {
+            std::cerr << "Unknown error in key callback" << std::endl;
+        }
+    });
+    
+    // Callback pour gérer la perte de focus (peut aider avec la touche Windows)
+    glfwSetWindowFocusCallback(this->window, [](GLFWwindow* window, int focused) {
+        try {
+            Window* windowObj = static_cast<Window*>(glfwGetWindowUserPointer(window));
+            if (!windowObj) return;
+            windowObj->CallbackFocus(window, focused);
+        }
+        catch (...) {
+            // Ignorer les erreurs dans ce callback
+        }
+    });
+
+    // Callback d'erreur GLFW pour diagnostiquer les problèmes
+    glfwSetErrorCallback([](int error_code, const char* description) {
+        std::cerr << "GLFW Error " << error_code << ": " << description << std::endl;
+    });
+    
+    glfwSetWindowSizeCallback(this->window, [](GLFWwindow* window, int width, int height) {
+        try {
+            Window* windowObj = static_cast<Window*>(glfwGetWindowUserPointer(window));
+            if (!windowObj) return;
+            windowObj->CallbackResize(window, width, height);
+        }
+        catch (...) {
+            // Ignorer les erreurs dans ce callback
+        }
+    });
+
+
+    glfwSetWindowPosCallback(this->window, [](GLFWwindow* window, int x, int y) {
+        try {
+            Window* windowObj = static_cast<Window*>(glfwGetWindowUserPointer(window));
+            if (!windowObj) return;
+            windowObj->CallbackPosition(window, x, y);
+        }
+        catch (...) {
+            // Ignorer les erreurs dans ce callback
+        }
+    });
+}
+
+
+void Window::CallbackInput(GLFWwindow* window, int action, int key) {
+    if (key == GLFW_KEY_LEFT_SUPER || key == GLFW_KEY_RIGHT_SUPER || 
+        key < 0 || key > GLFW_KEY_LAST) {
+        return;
+    }
+    
+
+    if (action == GLFW_PRESS) {
+        switch (key) {
+            case GLFW_KEY_F11:
+                this->ToggleFullscreen();
+                break;
+            case GLFW_KEY_F12:
+                this->ToggleBorderless();
+                break;
+            case GLFW_KEY_ESCAPE:
+                glfwSetWindowShouldClose(window, true);
+                break;
+        }
+    }
+}
+
+
+void Window::CallbackResize(GLFWwindow* window, int width, int height) {
+    UNREFERENCED_PARAMETER(window);
+
+    this->parameters.width = width;
+    this->parameters.height = height;
+    glViewport(0, 0, this->parameters.width, this->parameters.height);
+}
+
+void Window::CallbackPosition(GLFWwindow* window, int x, int y) {
+    UNREFERENCED_PARAMETER(window);
+
+    this->parameters.posX = x;
+    this->parameters.posY = y;
+}
+
+void Window::CallbackFocus(GLFWwindow* window, int focused) {
+    UNREFERENCED_PARAMETER(window);
+
+    if (!focused) {
+        std::cout << "Window lost focus" << std::endl;
+        if (this->parameters.windowState == WindowState::FULLSCREEN) { 
+            std::this_thread::sleep_for(std::chrono::milliseconds(75));
+            this->ActivateBorderless();
+            this->parameters.windowState = WindowState::FULLSCREEN_UNFOCUSED;
+        }
+#ifdef _WIN32
+        // Rendre la barre de tâches visible
+        ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_SHOW);
+#endif
+    } else {
+        std::cout << "Window regained focus" << std::endl;
+        if (this->parameters.windowState == WindowState::FULLSCREEN || this->parameters.windowState == WindowState::FULLSCREEN_UNFOCUSED) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(75));
+            this->ActivateFullscreen();
+        }
+#ifdef _WIN32
+        else if (this->parameters.windowState == WindowState::BORDERLESS) {
+            ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_HIDE);
+        }
+#endif
+    }
+}
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////     ERROR HANDLING     ///////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////
 
 void Window::SetupErrorHandling() {
 #ifdef _WIN32
@@ -436,69 +545,6 @@ void Window::SetupErrorHandling() {
                 std::cerr << "Format unavailable" << std::endl;
                 break;
         }
-    });
-}
-
-
-
-void Window::CallbackFocus(GLFWwindow* window, int focused) {
-    if (!focused) {
-        std::cout << "Window lost focus" << std::endl;
-        if (this->parameters.windowState == WindowState::FULLSCREEN) { 
-            std::this_thread::sleep_for(std::chrono::milliseconds(75));
-            this->ActivateBorderless();
-            this->parameters.windowState = WindowState::FULLSCREEN_UNFOCUSED;
-        }
-#ifdef _WIN32
-        // Rendre la barre de tâches visible
-        ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_SHOW);
-#endif
-    } else {
-        std::cout << "Window regained focus" << std::endl;
-        if (this->parameters.windowState == WindowState::FULLSCREEN || this->parameters.windowState == WindowState::FULLSCREEN_UNFOCUSED) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(75));
-            this->ActivateFullscreen();
-        }
-#ifdef _WIN32
-        else if (this->parameters.windowState == WindowState::BORDERLESS) {
-            ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_HIDE);
-        }
-#endif
-    }
-}
-
-
-void Window::SetupCallbacks() {
-    glfwSetKeyCallback(this->window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
-        try {
-            Window* windowObj = static_cast<Window*>(glfwGetWindowUserPointer(window));
-            if (!windowObj) return;
-            windowObj->ProcessInput(window, action, key);
-            
-        }
-        catch (const std::exception& e) {
-            std::cerr << "Error in key callback: " << e.what() << std::endl;
-        }
-        catch (...) {
-            std::cerr << "Unknown error in key callback" << std::endl;
-        }
-    });
-    
-    // Callback pour gérer la perte de focus (peut aider avec la touche Windows)
-    glfwSetWindowFocusCallback(this->window, [](GLFWwindow* window, int focused) {
-        try {
-            Window* windowObj = static_cast<Window*>(glfwGetWindowUserPointer(window));
-            if (!windowObj) return;
-            windowObj->CallbackFocus(window, focused);
-        }
-        catch (...) {
-            // Ignorer les erreurs dans ce callback
-        }
-    });
-
-    // Callback d'erreur GLFW pour diagnostiquer les problèmes
-    glfwSetErrorCallback([](int error_code, const char* description) {
-        std::cerr << "GLFW Error " << error_code << ": " << description << std::endl;
     });
 }
 

@@ -15,26 +15,27 @@ enum WindowState { WINDOWED, BORDERLESS, FULLSCREEN, FULLSCREEN_UNFOCUSED};
 
 struct Parameters
 {
+    // Window
     std::string title;
-    int width;
-    int height;
-    int posX;
-    int posY;
-    int majorVersion;
-    int minorVersion;
+    WindowState windowState;
+    int width, height;
+    int posX, posY;
+    
+    // OpenGL
+    int majorVersion, minorVersion;
     bool IsDepthEnable;
     
+    // Timing
     int maxFPS;
     bool vsync;
-    WindowState windowState;
-
+    
+    // Color
+    glm::vec4 clearColor;
     double trueEveryms;
 
-    glm::vec4 clearColor;
-
-    
-    int windowedWidth, windowedHeight, windowedPosX, windowedPosY;
-    bool isFocus;
+    // Windowed
+    int windowedWidth, windowedHeight;
+    int windowedPosX, windowedPosY;
 };
 
 
@@ -46,30 +47,31 @@ public:
     ~Window();
 
     int Init();
-    void Update();
-    void ProcessInput(GLFWwindow* window, int action, int key);
     bool NewFrame();
     void SwapBuffers();
-    
     void Close();
 
+
+    // Window state
     void ChangeWindowState(WindowState state);
     void ToggleFullscreen();
     void ToggleBorderless();
 
+    // Setters
+    void ChangeDepth(bool IsDepthEnable);
+
+    // Getters
     int GetWidth() { return this->parameters.width; }
     int GetHeight() { return this->parameters.height; }
     int* GetWidthptr() { return &this->parameters.width; }
     int* GetHeightptr() { return &this->parameters.height; }
-
-    void ChangeDepth(bool IsDepthEnable);
     bool IsDepthEnable() { return this->parameters.IsDepthEnable; }
-
     bool ShouldClose() { return glfwWindowShouldClose(this->window); }
     double GetAspectRatio () { return (double)this->parameters.width / (double)this->parameters.height; }
-
     GLFWwindow* GetWindow() { return this->window; }
 
+
+    // Performance
     int GetFrame() { return this->fpsCounter.getFrame(); }
     void trueEvery(double ms) { this->parameters.trueEveryms = ms; };
     double GetFPS() { return this->fpsCounter.getFPS(); }
@@ -89,6 +91,7 @@ public:
 
 
 private:
+    // Window state
     void PostWindowStateChange();
     void SaveWindowedParameters();
     
@@ -97,11 +100,15 @@ private:
     void ActivateBorderless();
 
 
-    void CallbackFocus(GLFWwindow* window, int focused);
-
-    
-    void SetupErrorHandling();
+    // Callbacks
     void SetupCallbacks();
+    void CallbackInput(GLFWwindow* window, int action, int key);
+    void CallbackFocus(GLFWwindow* window, int focused);
+    void CallbackResize(GLFWwindow* window, int width, int height);
+    void CallbackPosition(GLFWwindow* window, int x, int y);
+
+    // Error handling
+    void SetupErrorHandling();
     bool IsWindowHealthy();
 
 private:

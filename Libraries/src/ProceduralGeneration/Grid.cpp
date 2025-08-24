@@ -132,7 +132,7 @@ void Grid::GenerateMesh() {
 
 
 void Grid::TransformPoints(std::function<void(Vertex&, unsigned int)> func) {
-    for (int i = 0; i < points.size(); ++i) {
+    for (unsigned int i = 0; i < points.size(); ++i) {
         func(points[i], i);
     }
     GenerateNormals();

@@ -44,7 +44,6 @@ void Game::update() {
     this->camera.updateMatrix(75.0f, 0.1f, 1000.0f);
 
     this->world.Update();
-    this->window.Update();
 }
 
 void Game::render() {
