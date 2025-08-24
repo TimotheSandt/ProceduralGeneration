@@ -6,6 +6,7 @@ uniform int wireframe;
 
 in vec3 normal;
 in vec3 crntPos;
+in vec3 color;
 
 
 
@@ -39,7 +40,7 @@ vec4 wireframeRender() {
 }
 
 vec4 fillRender() {
-   return vec4(1.0f) * (directLight() + vec4(AmbientLight, 1.0f));
+   return vec4(color, 1.0f) * (directLight() + vec4(AmbientLight, 1.0f));
 }
 
 void main()

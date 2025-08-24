@@ -111,6 +111,10 @@ void Grid::GenerateMesh() {
         vertices.push_back(vec.Normal.x);
         vertices.push_back(vec.Normal.y);
         vertices.push_back(vec.Normal.z);
+
+        vertices.push_back(vec.Color.x);
+        vertices.push_back(vec.Color.y);
+        vertices.push_back(vec.Color.z);
     }
 
     std::vector<GLuint> indices;
@@ -121,7 +125,7 @@ void Grid::GenerateMesh() {
         indices.push_back(triangle[2]);
     }
 
-    this->mesh.Initialize(vertices, indices, { 3, 3 });
+    this->mesh.Initialize(vertices, indices, { 3, 3, 3 });
     this->mesh.SetShader("res/shader/default.vert", "res/shader/default.frag");
     this->mesh.InitUniform();
 }

@@ -25,10 +25,7 @@ public:
     void GenerateRandomTerrain(float height = 1.0f);
     
     void GeneratePerlinTerrain(float scale, float height, int octaves, float persistence, float lacunarity);
-    void GeneratePerlinTerrain(float scale_x, float scale_z, float height, int octaves, float persistence, float lacunarity);
-    
     void GenerateFractalTerrain(float scale, float height, int octaves, float persistence, float lacunarity);
-    void GenerateFractalTerrain(float scale_x, float scale_z, float height, int octaves, float persistence, float lacunarity);
 
 
     // Terrain Modification
@@ -38,7 +35,7 @@ public:
 
     Grid& GetGrid() { return grid; }
     Mesh& GetMesh() { return grid.GetMesh(); }
-    
+
     void SetNoiseSeed(int seed) { noise.SetSeed(seed); }
     
 
