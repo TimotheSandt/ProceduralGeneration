@@ -8,6 +8,7 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/vector_angle.hpp> 
 
+#include "FBO.h"
 
 #include "FPSCounter.h"
 #include "Profiler.h"
@@ -36,6 +37,12 @@ struct Parameters
     // Windowed
     int windowedWidth, windowedHeight;
     int windowedPosX, windowedPosY;
+    
+
+    // Upscaling
+    float renderScale;
+    int renderWidth, renderHeight;
+    bool enableUpscaling;
 };
 
 
@@ -58,6 +65,15 @@ public:
     void ChangeWindowState(WindowState state);
     void ToggleFullscreen();
     void ToggleBorderless();
+
+    // Resolution Scaling methods
+    void SetRenderScale(float scale);
+    void EnableUpscaling(bool enable);
+    float GetRenderScale() const { return parameters.renderScale; }
+    void GetRenderResolution(int& width, int& height) const {
+        width = parameters.renderWidth;
+        height = parameters.renderHeight;
+    }
 
     // Setters
     void SetClearColor(glm::vec4 color) { this->parameters.clearColor = color; }
@@ -103,6 +119,14 @@ private:
     void ActivateBorderless();
 
 
+    // Resolution Scaling methods
+    void InitFBOs();
+    void StartRenderFBO();
+    void EndRenderFBO();
+    void UpdateFBOResotution();
+
+
+
     // Callbacks
     void SetupCallbacks();
     void CallbackInput(GLFWwindow* window, int action, int key);
@@ -116,6 +140,9 @@ private:
 
 private:
     GLFWwindow* window;
+
+    FBO fboRendering;
+    FBO fboUpscaled;
 
     Parameters parameters;
 

@@ -28,6 +28,12 @@ Window::Window() {
     this->parameters.windowedHeight = this->parameters.height;
     this->parameters.windowedPosX = this->parameters.posX;
     this->parameters.windowedPosY = this->parameters.posY;
+
+    // Initialize resolution scaling parameters
+    this->parameters.renderScale = 1.0f;
+    this->parameters.enableUpscaling = false;
+    this->parameters.renderWidth = this->parameters.width;
+    this->parameters.renderHeight = this->parameters.height;
 }
 
 Window::~Window() {
@@ -88,7 +94,7 @@ int Window::Init() {
     glViewport(0, 0, this->parameters.width, this->parameters.height);
     glfwSwapInterval(this->parameters.vsync ? 1 : 0);
     
-        glEnable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
     
 
     glfwGetWindowPos(this->window, &this->parameters.posX, &this->parameters.posY);
@@ -100,6 +106,7 @@ int Window::Init() {
     
 
     this->ChangeWindowState(this->parameters.windowState);
+    this->InitFBOs();
 
     return 0;
 }
@@ -117,14 +124,13 @@ void Window::Close() {
 }
 
 void Window::Clear() {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClearColor(
         this->parameters.clearColor.r, 
         this->parameters.clearColor.g, 
         this->parameters.clearColor.b, 
         this->parameters.clearColor.a
     );
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 }
 
 
@@ -138,9 +144,10 @@ bool Window::NewFrame() {
 
     this->fpsCounter.newFrame(this->parameters.maxFPS);
 
-   
+    if (this->parameters.enableUpscaling) {
+        this->StartRenderFBO();
+    }
     
-
     if (this->parameters.trueEveryms == 0) {
         this->fpsCounter.updateStat();
         return true;
@@ -159,6 +166,10 @@ bool Window::NewFrame() {
 
 void Window::SwapBuffers() {
     if (!this->window) return;
+
+    if (this->parameters.enableUpscaling) {
+        Profiler::ProfileGPU("Upscale", &Window::EndRenderFBO, this);
+    }
 
     glfwSwapBuffers(this->window);
 }
@@ -338,7 +349,7 @@ void Window::PostWindowStateChange() {
 
     glfwSwapInterval(this->parameters.vsync ? 1 : 0);
 
-        glEnable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
 
     glClearColor(
         this->parameters.clearColor.r, 
@@ -443,6 +454,24 @@ void Window::CallbackInput(GLFWwindow* window, int action, int key) {
             case GLFW_KEY_F12:
                 this->ToggleFullscreen();
                 break;
+            
+            // Resolution
+            case GLFW_KEY_1:
+                this->SetRenderScale(0.25f);  // 25%
+                break;
+            case GLFW_KEY_2:
+                this->SetRenderScale(0.5f);   // 50%
+                break;
+            case GLFW_KEY_3:
+                this->SetRenderScale(0.75f);  // 75%
+                break;
+            case GLFW_KEY_4:
+                this->SetRenderScale(1.0f);   // 100% (native)
+                break;
+            case GLFW_KEY_5:
+                this->EnableUpscaling(!parameters.enableUpscaling);
+                break;
+
 #endif
         }
     }
@@ -454,6 +483,9 @@ void Window::CallbackResize(GLFWwindow* window, int width, int height) {
 
     this->parameters.width = width;
     this->parameters.height = height;
+
+    UpdateFBOResotution();
+
     glViewport(0, 0, this->parameters.width, this->parameters.height);
 }
 
