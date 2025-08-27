@@ -17,7 +17,7 @@ void World::Init()
             );
     this->AmbiantLight = {glm::vec3(1.0f, 1.0f, 1.0f), 0.15f};
 
-    this->terrain.init(500.0f, 500.0f, 2000, 2000);
+    this->terrain.init(500.0f, 500.0f, 500, 500);
     // this->terrain.GenerateRandomTerrain(2.0f);
     this->terrain.GenerateFractalTerrain(0.01f, 50.0f, 10, 0.5f, 2.0f);
 

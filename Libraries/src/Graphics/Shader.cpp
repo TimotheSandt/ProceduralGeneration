@@ -67,7 +67,7 @@ void Shader::CompileShader()
 	this->isCompiled = true;
 }
 
-void Shader::Activate()
+void Shader::Bind()
 {
 	if (this->isCompiled)
     	glUseProgram(this->ID);
@@ -75,9 +75,15 @@ void Shader::Activate()
 		std::cout << "Shader not compiled" << std::endl;
 }
 
+void Shader::Unbind()
+{
+	glUseProgram(0);
+}
+
 void Shader::Destroy()
 {
-    glDeleteProgram(this->ID);
+    if (this->ID != 0) glDeleteProgram(this->ID);
+	this->ID = 0;
 	this->isCompiled = false;
 }
 

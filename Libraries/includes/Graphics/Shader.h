@@ -17,9 +17,12 @@ public:
     Shader() = default;
 
     void SetShader(const char* vertexPath, const char* fragmentPath);
+    void SetShaderCode(std::string vertexCode, std::string fragmentCode);
+    void SetShaderCode(const char* vertexCode, const char* fragmentCode);
     void CompileShader();
 
-    void Activate();
+    void Bind();
+    void Unbind();
     void Destroy();
 
     GLuint GetID() { return this->ID; }
@@ -29,6 +32,8 @@ private:
 
     const char* vertexShaderPath;
     const char* fragmentShaderPath;
+    const char* vertexSource;
+    const char* fragmentSource;
 
     bool isCompiled = false;
 

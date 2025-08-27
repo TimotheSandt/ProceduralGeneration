@@ -43,7 +43,7 @@ Texture::Texture(const char* image, const char* name, GLuint slot, GLenum format
 
 void Texture::texUnit(Shader &shader)
 {
-    shader.Activate();
+    shader.Bind();
     glUniform1i(glGetUniformLocation(shader.GetID(), this->UniformName), this->slot);
 }
 
@@ -60,5 +60,6 @@ void Texture::Unbind()
 
 void Texture::Destroy()
 {
-    glDeleteTextures(1, &this->ID);
+    if (this->ID != 0) glDeleteTextures(1, &this->ID);
+    this->ID = 0;
 }

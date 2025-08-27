@@ -12,8 +12,7 @@ Window::Window() {
     this->parameters.posY = 100;
     this->parameters.majorVersion = 3;
     this->parameters.minorVersion = 3;
-    this->parameters.IsDepthEnable = true;
-    this->parameters.maxFPS = 60;
+    this->parameters.maxFPS = 0;
     this->parameters.vsync = false;
 #ifdef DEBUG
     this->parameters.windowState = WindowState::WINDOWED;
@@ -24,8 +23,7 @@ Window::Window() {
     this->parameters.trueEveryms = 500;
     this->lastTime = this->fpsCounter.getLastTime();
 
-
-    
+    // Windowed
     this->parameters.windowedWidth = this->parameters.width;
     this->parameters.windowedHeight = this->parameters.height;
     this->parameters.windowedPosX = this->parameters.posX;
@@ -90,9 +88,8 @@ int Window::Init() {
     glViewport(0, 0, this->parameters.width, this->parameters.height);
     glfwSwapInterval(this->parameters.vsync ? 1 : 0);
     
-    if (this->parameters.IsDepthEnable) { 
         glEnable(GL_DEPTH_TEST);
-    }
+    
 
     glfwGetWindowPos(this->window, &this->parameters.posX, &this->parameters.posY);
 
@@ -100,7 +97,6 @@ int Window::Init() {
 
     this->SetupCallbacks();
     this->SetupErrorHandling();
-    
     
 
     this->ChangeWindowState(this->parameters.windowState);
@@ -120,17 +116,8 @@ void Window::Close() {
 #endif
 }
 
-
-bool Window::NewFrame() {
-    if (!IsWindowHealthy()) {
-        std::cerr << "Window is not healthy" << std::endl;
-        return false;
-    }
-
-    this->fpsCounter.newFrame(this->parameters.maxFPS);
-    glfwPollEvents();
-
-    
+void Window::Clear() {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClearColor(
         this->parameters.clearColor.r, 
         this->parameters.clearColor.g, 
@@ -138,6 +125,21 @@ bool Window::NewFrame() {
         this->parameters.clearColor.a
     );
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+
+bool Window::NewFrame() {
+    Profiler::Profile("PollEvents", &glfwPollEvents);
+
+    if (!Profiler::Profile("HealthCheck", &Window::IsWindowHealthy, this)) {
+        std::cerr << "Window is not healthy" << std::endl;
+        return false;
+    }
+
+    this->fpsCounter.newFrame(this->parameters.maxFPS);
+
+   
+    
 
     if (this->parameters.trueEveryms == 0) {
         this->fpsCounter.updateStat();
@@ -160,17 +162,6 @@ void Window::SwapBuffers() {
 
     glfwSwapBuffers(this->window);
 }
-
-void Window::ChangeDepth(bool IsDepthEnable) {
-    this->parameters.IsDepthEnable = IsDepthEnable;
-    if (IsDepthEnable) {
-        glEnable(GL_DEPTH_TEST);
-    } else {
-        glDisable(GL_DEPTH_TEST);
-    }
-}
-
-
 
 
 
@@ -347,11 +338,7 @@ void Window::PostWindowStateChange() {
 
     glfwSwapInterval(this->parameters.vsync ? 1 : 0);
 
-    if (this->parameters.IsDepthEnable) {
         glEnable(GL_DEPTH_TEST);
-    } else {
-        glDisable(GL_DEPTH_TEST);
-    }
 
     glClearColor(
         this->parameters.clearColor.r, 
@@ -445,15 +432,18 @@ void Window::CallbackInput(GLFWwindow* window, int action, int key) {
 
     if (action == GLFW_PRESS) {
         switch (key) {
-            case GLFW_KEY_F11:
-                this->ToggleFullscreen();
-                break;
-            case GLFW_KEY_F12:
-                this->ToggleBorderless();
-                break;
             case GLFW_KEY_ESCAPE:
                 glfwSetWindowShouldClose(window, true);
                 break;
+            case GLFW_KEY_F11:
+                this->ToggleBorderless();
+                break;
+
+#ifdef DEBUG
+            case GLFW_KEY_F12:
+                this->ToggleFullscreen();
+                break;
+#endif
         }
     }
 }
@@ -562,12 +552,14 @@ bool Window::IsWindowHealthy() {
         glfwMakeContextCurrent(this->window);
     }
     
-    // Vérifier les erreurs OpenGL
+#ifdef DEBUG
+    // Vérifier les erreurs OpenGL*
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
         std::cout << "OpenGL Error detected: " << error << std::endl;
         return false;
     }
+#endif
     
     return true;
 }

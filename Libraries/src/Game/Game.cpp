@@ -17,21 +17,21 @@ void Game::init() {
 
 void Game::run() {
     while (!window.ShouldClose()) {
-        this->window.NewFrame();
+        
+        if (this->window.NewFrame()) {
+            std::string title = "fps: " + std::to_string(window.GetFPS()) + 
+                                ", Avg fps: " + std::to_string(window.GetAverageFPS()) +
+                                ", Avg Elapsed Time: " + std::to_string(window.GetAverageElapseTimeMillisecond()) + "ms" +
+                                ", Render Time: " + std::to_string(Profiler::GetAverageTime("Render").count() * 1e-6) + "ms" +
+                                ", Upscale Time: " + std::to_string(Profiler::GetAverageTime("Upscale").count() * 1e-6) + "ms" +
+                                ", Swap Buffers Time: " + std::to_string(Profiler::GetAverageTime("SwapBuffers").count() * 1e-6) + "ms";
+            glfwSetWindowTitle(window.GetWindow(), title.c_str());
+        }
 
-        std::string title = "fps: " + std::to_string(window.GetFPS()) + 
-							", min fps: " + std::to_string(window.GetMinFPS()) +
-							", max fps: " + std::to_string(window.GetMaxFPS()) +
-							", Avg fps: " + std::to_string(window.GetAverageFPS()) +
-							", Elapsed Time: " + std::to_string(window.GetElapseTimeMillisecond()) + "ms" +
-							", Avg Elapsed Time: " + std::to_string(window.GetAverageElapseTimeMillisecond()) + "ms";
-		glfwSetWindowTitle(window.GetWindow(), title.c_str());
+        Profiler::ProfileGPU("Render", &Game::render, this);
+        this->update();
 
-        update();
-        render();
-
-
-        this->window.SwapBuffers();
+        Profiler::ProfileGPU("SwapBuffers", &Window::SwapBuffers, window);
     }
 }
 
@@ -47,7 +47,6 @@ void Game::update() {
 }
 
 void Game::render() {
-
+    Profiler::ProfileGPU("Clear", &Window::Clear, window);
     this->world.Render(this->camera);
-
 }

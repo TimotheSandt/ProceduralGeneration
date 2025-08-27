@@ -1,11 +1,15 @@
+#pragma once
+
 #define MIN_CAPACITY 10
+#define MAX_CAPACITY 0b10000000000
+#define DEFAULT_CAPACITY 50
 
 template <typename Type>
 class RingBuffer 
 {
 public:
     RingBuffer() {
-        this->Init(50);
+        this->Init(DEFAULT_CAPACITY);
     }
 
     RingBuffer(int capacity)
@@ -15,7 +19,7 @@ public:
 
     void Init(int capacity) {
 
-        this->capacity = std::max(capacity, MIN_CAPACITY);
+        this->capacity = std::min(std::max(capacity, MIN_CAPACITY), MAX_CAPACITY);
         if (this->buffer != nullptr)
             delete[] this->buffer;
         this->buffer = new Type[this->capacity] { Type(0) };
@@ -35,7 +39,7 @@ public:
     };
 
     void resize(int size) {
-        size = std::max(size, MIN_CAPACITY);
+        size = std::min(std::max(size, MIN_CAPACITY), MAX_CAPACITY);
         Type *newBuffer = new Type[size] { Type(0) };
         for (int i = 0; i < this->capacity && i < size; i++) {
             newBuffer[i] = this->buffer[i];

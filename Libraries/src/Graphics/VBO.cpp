@@ -31,5 +31,6 @@ void VBO::Unbind()
 
 void VBO::Destroy()
 {
-    glDeleteBuffers(1, &this->ID);
+    if (this->ID != 0) glDeleteBuffers(1, &this->ID);
+    this->ID = 0;
 }

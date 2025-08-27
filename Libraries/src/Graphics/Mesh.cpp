@@ -108,35 +108,14 @@ void Mesh::AddTexture(const char* image, const char* name, GLenum format, GLenum
 
 void Mesh::Render(Camera& camera)
 {
-    glGetError(); // Clear any previous errors
-
-    this->shader.Activate();
-    if (glGetError() != GL_NO_ERROR) {
-        std::cerr << "Error activating shader" << std::endl;
-        return;
-    }
-
+    this->shader.Bind();
     this->VAO.Bind();
-    if (glGetError() != GL_NO_ERROR) {
-        std::cerr << "Error binding VAO" << std::endl;
-        return;
-    }
-    
     this->InitUniform3f("camPos", glm::value_ptr(camera.GetPosition()));
     camera.Matrix(this->shader, "camMatrix");
-    if (glGetError() != GL_NO_ERROR) {
-        std::cerr << "Error setting camera matrix" << std::endl;
-        return;
-    }
-
     for (GLuint i = 0; i < this->textures.size(); i++) {
         this->textures[i].texUnit(this->shader);
         
         this->textures[i].Bind();
-    }
-    if (glGetError() != GL_NO_ERROR) {
-        std::cerr << "Error binding textures" << std::endl;
-        return;
     }
 
     this->Draw();
@@ -148,15 +127,10 @@ void Mesh::Render(Camera& camera)
         this->InitUniform1i("wireframe", &wireframe);
     }
     
-    if (glGetError() != GL_NO_ERROR) {
-        std::cerr << "Error drawing mesh" << std::endl;
-        return;
-    }
-
     this->VAO.Unbind();
-    if (glGetError() != GL_NO_ERROR) {
-        std::cerr << "Error unbinding VAO" << std::endl;
-        return;
+    this->shader.Unbind();
+    for (GLuint i = 0; i < this->textures.size(); i++) {
+        this->textures[i].Unbind();
     }
 }
 

@@ -10,6 +10,7 @@
 
 
 #include "FPSCounter.h"
+#include "Profiler.h"
 
 enum WindowState { WINDOWED, BORDERLESS, FULLSCREEN, FULLSCREEN_UNFOCUSED};
 
@@ -23,7 +24,6 @@ struct Parameters
     
     // OpenGL
     int majorVersion, minorVersion;
-    bool IsDepthEnable;
     
     // Timing
     int maxFPS;
@@ -51,6 +51,8 @@ public:
     void SwapBuffers();
     void Close();
 
+    void Clear();
+
 
     // Window state
     void ChangeWindowState(WindowState state);
@@ -58,14 +60,15 @@ public:
     void ToggleBorderless();
 
     // Setters
-    void ChangeDepth(bool IsDepthEnable);
+    void SetClearColor(glm::vec4 color) { this->parameters.clearColor = color; }
+    void SetMaxFPS(int fps) { this->parameters.maxFPS = fps; }
+    void SetTrueEvery(double ms) { this->parameters.trueEveryms = ms; }
 
     // Getters
     int GetWidth() { return this->parameters.width; }
     int GetHeight() { return this->parameters.height; }
     int* GetWidthptr() { return &this->parameters.width; }
     int* GetHeightptr() { return &this->parameters.height; }
-    bool IsDepthEnable() { return this->parameters.IsDepthEnable; }
     bool ShouldClose() { return glfwWindowShouldClose(this->window); }
     double GetAspectRatio () { return (double)this->parameters.width / (double)this->parameters.height; }
     GLFWwindow* GetWindow() { return this->window; }
