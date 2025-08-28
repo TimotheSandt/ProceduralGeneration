@@ -177,6 +177,12 @@ void FBO::Setup() {
 
 
 void FBO::RenderScreenQuad() {
+    RenderScreenQuad(width, height);
+}
+
+void FBO::RenderScreenQuad(int fWidth, int fHeight) {
+    glViewport(0, 0, fWidth, fHeight);
+    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_DEPTH_TEST);
 
@@ -194,9 +200,4 @@ void FBO::RenderScreenQuad() {
     
 
     glEnable(GL_DEPTH_TEST);
-}
-
-void FBO::RenderScreenQuad(int fWidth, int fHeight) {
-    glViewport(0, 0, fWidth, fHeight);
-    RenderScreenQuad();
 }

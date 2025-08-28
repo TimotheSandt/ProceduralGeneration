@@ -35,12 +35,14 @@ public:
     int GetHeight() const { return height; }
 
 private:
+    void Setup();
+
+private:
     GLuint ID;
     GLuint depthBuffer;
     Texture TextureColor;
     int width, height;
 
-    void Setup();
     VAO screenQuadVAO;
     Shader screenQuadShader;
 };
