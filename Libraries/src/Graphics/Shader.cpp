@@ -21,6 +21,7 @@ std::string get_file_contents(const char* filename)
 Shader::Shader(const char* vertexFile, const char* fragmentFile)
 	: vertexShaderPath(vertexFile), fragmentShaderPath(fragmentFile)
 {
+	this->SetShader(vertexFile, fragmentFile);
 	this->CompileShader();
 }
 
@@ -28,28 +29,42 @@ void Shader::SetShader(const char* vertexPath, const char* fragmentPath)
 {
 	this->vertexShaderPath = vertexPath;
 	this->fragmentShaderPath = fragmentPath;
+	
+	vertexSource = get_file_contents(this->vertexShaderPath);
+    fragmentSource = get_file_contents(this->fragmentShaderPath);
+
+	this->CompileShader();
+}
+
+void Shader::SetShaderCode(std::string vertexCode, std::string fragmentCode)
+{
+	this->vertexShaderPath = nullptr;
+	this->fragmentShaderPath = nullptr;
+
+	
+	this->vertexSource = vertexCode;
+	this->fragmentSource = fragmentCode;
+	
 	this->CompileShader();
 }
 
 void Shader::CompileShader()
 {
-	if (this->isCompiled)
-		this->Destroy();
-	std::string vertexCode = get_file_contents(this->vertexShaderPath);
-    std::string fragmentCode = get_file_contents(this->fragmentShaderPath);
+	this->Destroy();
 
-    const char* vertexSource = vertexCode.c_str();
-    const char* fragmentSource = fragmentCode.c_str();
+	const char* vSource = this->vertexSource.c_str();
+	const char* fSource = this->fragmentSource.c_str();
+
 
     // Build and compile the vertex shader
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexSource, NULL);
+    glShaderSource(vertexShader, 1, &vSource, NULL);
     glCompileShader(vertexShader);
     this->compileErrors(vertexShader, "VERTEX");
 
     // Build and compile the fragment shader
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
+    glShaderSource(fragmentShader, 1, &fSource, NULL);
     glCompileShader(fragmentShader);
     this->compileErrors(fragmentShader, "FRAGMENT");
     
@@ -63,28 +78,26 @@ void Shader::CompileShader()
     // Delete the shaders as they're linked into our program now and no longer necessary
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
-
-	this->isCompiled = true;
 }
 
 void Shader::Bind()
 {
-	if (this->isCompiled)
-    	glUseProgram(this->ID);
-	else 
-		std::cout << "Shader not compiled" << std::endl;
+	if (this->ID == 0 || this->ID == CurrentBoundShader()) return;
+	CurrentBoundShader() = this->ID;
+	glUseProgram(this->ID);
 }
 
 void Shader::Unbind()
 {
 	glUseProgram(0);
+	CurrentBoundShader() = 0;
 }
 
 void Shader::Destroy()
 {
-    if (this->ID != 0) glDeleteProgram(this->ID);
+    if (this->ID != 0) 
+		glDeleteProgram(this->ID);
 	this->ID = 0;
-	this->isCompiled = false;
 }
 
 

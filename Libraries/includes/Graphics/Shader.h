@@ -18,7 +18,6 @@ public:
 
     void SetShader(const char* vertexPath, const char* fragmentPath);
     void SetShaderCode(std::string vertexCode, std::string fragmentCode);
-    void SetShaderCode(const char* vertexCode, const char* fragmentCode);
     void CompileShader();
 
     void Bind();
@@ -28,15 +27,18 @@ public:
     GLuint GetID() { return this->ID; }
 
 private:
-    GLuint ID;
+    GLuint ID = 0;
 
     const char* vertexShaderPath;
     const char* fragmentShaderPath;
-    const char* vertexSource;
-    const char* fragmentSource;
-
-    bool isCompiled = false;
+    std::string vertexSource;
+    std::string fragmentSource;
 
 private:
 	void compileErrors(unsigned int shader, const char* type);
+
+    static GLuint& CurrentBoundShader() {
+        static GLuint currentBoundShader = 0;
+        return currentBoundShader;
+    } ;
 };
