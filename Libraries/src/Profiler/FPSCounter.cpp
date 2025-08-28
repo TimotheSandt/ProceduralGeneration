@@ -7,8 +7,8 @@ FPSCounter::FPSCounter() :
     frameStartTime(std::chrono::high_resolution_clock::now()),
     nextFrameTime(std::chrono::high_resolution_clock::now())
 {
-    this->fpsBuffer.Init(this->BufferSize);
-    this->elapseTimeBuffer.Init(this->BufferSize);
+    this->fpsBuffer.init(this->BufferSize);
+    this->elapseTimeBuffer.init(this->BufferSize);
     this->initializePlatformTimer();
 }
 
@@ -18,8 +18,8 @@ FPSCounter::~FPSCounter() {
 
 void FPSCounter::Destroy() {
     this->cleanupPlatformTimer();
-    this->fpsBuffer.Destroy();
-    this->elapseTimeBuffer.Destroy();
+    this->fpsBuffer.destroy();
+    this->elapseTimeBuffer.destroy();
 }
 
 void FPSCounter::newFrame(unsigned int maxFPS) {

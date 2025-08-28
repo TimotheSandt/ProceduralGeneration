@@ -5,11 +5,15 @@
 #include <unordered_map>
 #include <functional>
 #include <queue>
+#include <vector>
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 #include "RingBuffer.h"
 
 #define MAX_QUERIES 12
+#define BUFFER_SIZE 512
+#define SAVE_HISTORY_EVERY_MS 3000
+#define QUERY_TIMEOUT_MS 10000
 
 class Profiler
 {
@@ -98,19 +102,33 @@ public:
         }
     }
 
+    static void Process() {
+        for (auto& [name, queriesData] : getQueryData()) {
+            ProcessQueries(name);
+        }
 
-    // TODO : Profile GPU
+        for (auto& [name, profilerData] : getProfilerData()) {
+            auto now = std::chrono::high_resolution_clock::now();
+            if (profilerData.history.size() != 0 && 
+            (now - profilerData.history.back().time) > std::chrono::milliseconds(SAVE_HISTORY_EVERY_MS)) {
+                profilerData.buffer.clear();
+            }
+        }
+    }
 
-    static std::chrono::nanoseconds GetLastTime(std::string name) { return getTimers()[name].get(0); }
-    static std::chrono::nanoseconds GetAverageTime(std::string name) { return getTimers()[name].getAverage(); }
-    static std::chrono::nanoseconds GetMaxTime(std::string name) { return getTimers()[name].getMax(); }
-    static std::chrono::nanoseconds GetMinTime(std::string name) { return getTimers()[name].getMin(); }
+
+
+
+    static std::chrono::nanoseconds GetLastTime(std::string name) { return getTimer(name).get(0); }
+    static std::chrono::nanoseconds GetAverageTime(std::string name) { return getTimer(name).getAverage(); }
+    static std::chrono::nanoseconds GetMaxTime(std::string name) { return getTimer(name).getMax(); }
+    static std::chrono::nanoseconds GetMinTime(std::string name) { return getTimer(name).getMin(); }
 
 private:
     static void ProcessQueries(std::string name) {
-        while (!getQueries()[name].empty()) {
+        while (!getQueries(name).empty()) {
             GLint available;
-            std::array<GLuint, 2> q = getQueries()[name].front();
+            std::array<GLuint, 2> q = getQueries(name).front();
             glGetQueryObjectiv(q[1], GL_QUERY_RESULT_AVAILABLE, &available);
             if (available == GL_TRUE) {
                 GLuint64 startTime, endTime;
@@ -124,40 +142,76 @@ private:
                 glDeleteQueries(1, &q[1]);
                 PopQuery(name);
             } else {
-                break;
+                auto now = std::chrono::high_resolution_clock::now();
+                if ((now - getQueryData()[name].lastUpdate) >= std::chrono::milliseconds(QUERY_TIMEOUT_MS)) {
+                    glDeleteQueries(1, &q[0]);
+                    glDeleteQueries(1, &q[1]);
+                    PopQuery(name);
+                } else {
+                    break;
+                }
             }
         }
     }
 
     static void AddTime(std::string name, std::chrono::nanoseconds time) { 
-        getTimers()[name].push(time); 
+        getTimer(name).push(time);
+        auto now = std::chrono::high_resolution_clock::now();
+        if ( getProfilerData()[name].history.size() == 0 || (now - getProfilerData()[name].history.back().time).count() >= SAVE_HISTORY_EVERY_MS) {
+            getProfilerData()[name].history.push_back({now, getTimer(name).getAverage(), getTimer(name).getMax(), getTimer(name).getMin()});
+        }
     }
 
     static void AddQuery(std::string name, std::array<GLuint, 2> queries) { 
-        if (getQueries()[name].size() >= MAX_QUERIES) {
-            glDeleteQueries(2, getQueries()[name].front().data());
-            getQueries()[name].pop();
+        if (getQueries(name).size() >= MAX_QUERIES) {
+            glDeleteQueries(2, getQueries(name).front().data());
+            getQueries(name).pop();
         }
-        getQueries()[name].push(queries); 
+        getQueries(name).push(queries); 
+        getQueryData()[name].lastUpdate = std::chrono::high_resolution_clock::now();
     }
 
     static void PopQuery(std::string name) { 
-        getQueries()[name].pop();
-        if (getQueries()[name].empty()) {
-            getQueries().erase(name);
-        }
+        getQueries(name).pop();
+        getQueryData()[name].lastUpdate = std::chrono::high_resolution_clock::now();
     }
 
 
+    struct TimerData
+    {
+        std::chrono::high_resolution_clock::time_point time;
+        std::chrono::nanoseconds avg;
+        std::chrono::nanoseconds max;
+        std::chrono::nanoseconds min;
+    };
 
+    struct ProfilerData
+    {
+        RingBuffer<std::chrono::nanoseconds> buffer{BUFFER_SIZE};
+        std::vector<TimerData> history;
+    };
 
+    struct QueryData
+    {
+        std::queue<std::array<GLuint, 2>> queries;
+        std::chrono::high_resolution_clock::time_point lastUpdate;
+    };
 
-    static std::unordered_map<std::string, RingBuffer<std::chrono::nanoseconds>>& getTimers() {
-        static std::unordered_map<std::string, RingBuffer<std::chrono::nanoseconds>> timers;
-        return timers;
+    static std::unordered_map<std::string, ProfilerData>& getProfilerData() {
+        static std::unordered_map<std::string, ProfilerData> profilerData;
+        return profilerData;
     }
-    static std::unordered_map<std::string, std::queue<std::array<GLuint, 2>>>& getQueries() {
-        static std::unordered_map<std::string, std::queue<std::array<GLuint, 2>>> queries;
-        return queries;
+
+    static std::unordered_map<std::string, QueryData>& getQueryData() {
+        static std::unordered_map<std::string, QueryData> queryData;
+        return queryData;
+    }
+
+    static RingBuffer<std::chrono::nanoseconds>& getTimer(std::string name) {
+        return getProfilerData()[name].buffer;
+    }
+
+    static std::queue<std::array<GLuint, 2>>& getQueries(std::string name) {
+        return getQueryData()[name].queries;
     }
 };

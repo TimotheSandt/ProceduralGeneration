@@ -36,8 +36,8 @@ void World::Render(Camera& camera)
         this->terrain.GetMesh().InitUniform3f("SunDirection", glm::value_ptr(this->Light[0].position_direction));
         this->terrain.GetMesh().InitUniform3f("SunColor", glm::value_ptr(this->Light[0].color));
         this->terrain.GetMesh().InitUniform1f("SunIntensity", &this->Light[0].strength);
-    }    
-    this->terrain.GetMesh().InitUniform3f("ambientColor", glm::value_ptr(this->AmbiantLight.color * this->AmbiantLight.strength));
+    }
+    this->terrain.GetMesh().InitUniform3f("AmbientLight", glm::value_ptr(this->AmbiantLight.color * this->AmbiantLight.strength));
     this->terrain.GetMesh().InitUniform3f("camPos", glm::value_ptr(camera.GetPosition()));
 
     this->terrain.Render(camera);

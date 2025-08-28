@@ -12,7 +12,7 @@ Window::Window() {
     this->parameters.posY = 100;
     this->parameters.majorVersion = 3;
     this->parameters.minorVersion = 3;
-    this->parameters.maxFPS = 0;
+    this->parameters.maxFPS = 60;
     this->parameters.vsync = false;
 #ifdef DEBUG
     this->parameters.windowState = WindowState::WINDOWED;
@@ -166,6 +166,8 @@ bool Window::NewFrame() {
 
 void Window::SwapBuffers() {
     if (!this->window) return;
+
+    Profiler::Process();
 
     if (this->parameters.enableUpscaling) {
         Profiler::ProfileGPU("Upscale", &Window::EndRenderFBO, this);
