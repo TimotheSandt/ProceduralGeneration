@@ -94,6 +94,7 @@ void Mesh::Destroy() {
     for (GLuint i = 0; i < this->textures.size(); i++) {
         this->textures[i].Destroy();
     }
+    this->FreeCache();
 }
 
 void Mesh::AddTexture(Texture texture) { 

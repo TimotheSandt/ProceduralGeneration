@@ -1,6 +1,8 @@
 #pragma once
 
 #include <vector>
+#include <array>
+#include <unordered_map>
 #include <string>
 
 #include "VAO.h"
@@ -43,7 +45,6 @@ public:
     void InitUniform1i(const char* uniform, const GLint* data);
     void InitUniformMatrix4f(const char* uniform, const GLfloat* data);
 
-
     void Render(Camera& camera);
     void Draw(bool wireframe = false);
 
@@ -64,4 +65,19 @@ private:
     GLuint instancing;
 
     VAO VAO;
+
+
+private:
+    struct UniformCache {
+        std::array<uint8_t, 64> data; // Up to mat4
+        size_t size;
+        GLint location;
+        GLuint shaderID;
+
+        UniformCache() : data({0}), size(0), location(-2), shaderID(0) {}
+    };
+    std::unordered_map<std::string, UniformCache> uniformCache {};
+    bool CacheUniform(const std::string& uniform, void* data, size_t size);
+    GLint GetCachedUniformLocation(const std::string& uniform);
+    void FreeCache();
 };
