@@ -9,17 +9,20 @@
 #include <glm/gtx/vector_angle.hpp>
 
 #include "Shader.h"
+#include "UBO.h"
 
 class Camera
 {
 public:
     Camera() = default;
     Camera(int *width, int *height, glm::vec3 position);
+    void initialize(int *width, int *height, glm::vec3 position);
 
     void updateMatrix(float FOVdeg, float nearPlane, float farPlane);
-    void Matrix(Shader& shader, const char* uniform);
 
     void Inputs(GLFWwindow* window, float ElapseTime);
+
+    void BindUBO();
 
 public:
     glm::vec3& GetPosition() { return this->position; }
@@ -27,6 +30,8 @@ public:
     glm::vec3& GetUp() { return this->up; }
     glm::mat4& GetMatrix() { return this->camMatrix; }
     glm::mat4 GetViewMatrix() { return glm::lookAt(this->position, this->position + this->Orientation, this->up); }
+    bool IsWireframe() { return this->isWireframe; }
+
 
 private:
     glm::vec3 position;
@@ -41,12 +46,14 @@ private:
 
     bool firstClick = true;
 
+    UBO UBO;
+    bool isWireframe = false;
+
+private:
     void SetWireframe(bool enabled);
     bool GetWireframe() const;
     void ToggleWireframe();
-    bool isWireframe = false;
 
-public:
-    bool IsWireframe() { return this->isWireframe; }
+    void UpdateUBO();
 
 };

@@ -8,6 +8,7 @@
 #include "VAO.h"
 #include "VBO.h"
 #include "EBO.h"
+#include "UBO.h"
 #include "Texture.h"
 #include "Shader.h"
 #include "Camera.h"
@@ -34,7 +35,8 @@ public:
     void SetScale(glm::vec3 scale) { this->scale = scale; }
     void SetRotation(glm::vec3 rotation) { this->rotation = rotation; }
 
-    void InitUniform();
+    void UpdateUBO();
+    
     void InitUniform4f(const char* uniform, const GLfloat* data);
     void InitUniform3f(const char* uniform, const GLfloat* data);
     void InitUniform2f(const char* uniform, const GLfloat* data);
@@ -65,6 +67,7 @@ private:
     GLuint instancing;
 
     VAO VAO;
+    UBO UBO;
 
 
 private:

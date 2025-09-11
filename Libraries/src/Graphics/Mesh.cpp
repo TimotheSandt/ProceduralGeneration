@@ -85,6 +85,8 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
         bVBO.Unbind();
         EBO.Unbind();
     }
+
+    this->UBO.initialize(sizeof(glm::mat4), MESH_MODEL_BINDING_POINT);
 }
 
 
@@ -109,16 +111,18 @@ void Mesh::AddTexture(const char* image, const char* name, GLenum format, GLenum
 
 void Mesh::Render(Camera& camera)
 {
+    if (!this->shader.IsCompiled()) {
+        // std::cout << "Shader not compiled" << std::endl;
+        return;
+    }
     this->shader.Bind();
     this->VAO.Bind();
-    this->InitUniform3f("camPos", glm::value_ptr(camera.GetPosition()));
-    camera.Matrix(this->shader, "camMatrix");
     for (GLuint i = 0; i < this->textures.size(); i++) {
         this->textures[i].texUnit(this->shader);
         
         this->textures[i].Bind();
     }
-
+    this->UBO.BindToBindingPoint();
     this->Draw();
     if (camera.IsWireframe()) {
         GLint wireframe = GL_TRUE;
@@ -130,6 +134,7 @@ void Mesh::Render(Camera& camera)
     
     this->VAO.Unbind();
     this->shader.Unbind();
+    this->UBO.Unbind();
     for (GLuint i = 0; i < this->textures.size(); i++) {
         this->textures[i].Unbind();
     }
@@ -158,7 +163,7 @@ void Mesh::Draw(bool wireframe) {
     }
 }
 
-void Mesh::InitUniform()
+void Mesh::UpdateUBO()
 {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, this->position);
@@ -167,5 +172,5 @@ void Mesh::InitUniform()
     model = glm::rotate(model, glm::radians(this->rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
     model = glm::scale(model, this->scale);
 
-    this->InitUniformMatrix4f("model", glm::value_ptr(model));
+    this->UBO.uploadData(glm::value_ptr(model), sizeof(glm::mat4));
 }

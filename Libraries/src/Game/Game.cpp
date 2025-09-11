@@ -10,12 +10,13 @@ Game::~Game() {
 void Game::init() {
     int *w = window.GetWidthptr();
 	int *h = window.GetHeightptr();
-	this->camera = Camera(w, h, glm::vec3(0.0f, 1.0f, 0.0f));
+	this->camera.initialize(w, h, glm::vec3(0.0f, 1.0f, 0.0f));
 
     this->world.Init();
 }
 
 void Game::run() {
+    glGetError();
     while (!window.ShouldClose()) {
         
         if (this->window.NewFrame()) {
@@ -48,5 +49,6 @@ void Game::update() {
 
 void Game::render() {
     Profiler::ProfileGPU("Clear", &Window::Clear, window);
+    this->camera.BindUBO();
     this->world.Render(this->camera);
 }

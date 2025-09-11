@@ -25,6 +25,7 @@ public:
     void Destroy();
 
     GLuint GetID() { return this->ID; }
+    bool IsCompiled() { return this->ID != 0; }
 
 private:
     GLuint ID = 0;
@@ -35,7 +36,7 @@ private:
     std::string fragmentSource;
 
 private:
-	void compileErrors(unsigned int shader, const char* type);
+	bool compileErrors(unsigned int shader, const char* type);
 
     static GLuint& CurrentBoundShader() {
         static GLuint currentBoundShader = 0;

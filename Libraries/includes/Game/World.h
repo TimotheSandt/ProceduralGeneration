@@ -7,25 +7,7 @@
 
 
 #include "TerrainGenerator.h"
-namespace lght
-{
-    enum LightType { DIRECTIONAL, POINT, SPOT };
-
-    struct Light 
-    {
-        glm::vec3 position_direction;
-        glm::vec3 color;
-        float strength;
-        LightType type;
-    };
-
-    struct AmbiantLight
-    {
-        glm::vec3 color;
-        float strength;
-    };
-};
-
+#include "Light.h"
 
 
 
@@ -42,6 +24,5 @@ public:
 
 private:
     TerrainGenerator terrain;
-    std::vector<lght::Light> Light;
-    lght::AmbiantLight AmbiantLight;
+    LightManager lightManager;
 };

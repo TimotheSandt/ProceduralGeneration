@@ -12,7 +12,6 @@ TerrainGenerator::TerrainGenerator(float sizeX, float sizeZ, int resX, int resZ,
 
 void TerrainGenerator::init(float sizeX, float sizeZ, int resX, int resZ) {
     grid.init(sizeX, sizeZ, resX, resZ);
-    grid.GenerateMesh();
 }
 
 void TerrainGenerator::Render(Camera& camera) {

@@ -1,8 +1,22 @@
 #include "Camera.h"
 
-Camera::Camera(int *width, int *height, glm::vec3 position)
-    : position(position), width(width), height(height) {}
+struct CameraUBO {
+    glm::vec3 position;
+    float padding;
+    glm::mat4 matrix;
+};
 
+Camera::Camera(int *width, int *height, glm::vec3 position)
+    : position(position), width(width), height(height) {
+        this->initialize(width, height, position);
+    }
+
+void Camera::initialize(int *width, int *height, glm::vec3 position) {
+    this->position = position;
+    this->width = width;
+    this->height = height;
+    this->UBO.initialize(sizeof(CameraUBO), CAMERA_BINDING_POINT, GL_DYNAMIC_DRAW);
+}
 
 
 void Camera::updateMatrix(float FOVdeg, float nearPlane, float farPlane) {
@@ -13,10 +27,8 @@ void Camera::updateMatrix(float FOVdeg, float nearPlane, float farPlane) {
     projection = glm::perspective(glm::radians(FOVdeg), (float)(*this->width) / *this->height, nearPlane, farPlane);
 
     this->camMatrix = projection * view;
-}
-
-void Camera::Matrix(Shader& shader, const char* uniform) {
-    glUniformMatrix4fv(glGetUniformLocation(shader.GetID(), uniform), 1, GL_FALSE, glm::value_ptr(this->camMatrix));
+    
+    this->UpdateUBO();
 }
 
 void Camera::Inputs(GLFWwindow* window, float ElapseTime) {
@@ -89,6 +101,15 @@ void Camera::Inputs(GLFWwindow* window, float ElapseTime) {
         SetWireframe(false);
     }
 #endif
+}
+
+void Camera::UpdateUBO() {
+    CameraUBO data = { this->position, 0, this->camMatrix };
+    this->UBO.uploadData(&data, sizeof(CameraUBO));
+}
+
+void Camera::BindUBO() {
+    this->UBO.BindToBindingPoint();
 }
 
 

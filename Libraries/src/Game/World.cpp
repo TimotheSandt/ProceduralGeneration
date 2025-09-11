@@ -7,15 +7,18 @@ World::World()
 
 void World::Init()
 {
-    this->Light.push_back(
-                {
-                    glm::vec3(1.0f, -3.0f, 0.5f),
-                    glm::vec3(0.99f, 0.98f, 1.0f),
-                    1.0f,
-                    lght::LightType::DIRECTIONAL
-                }
-            );
-    this->AmbiantLight = {glm::vec3(1.0f, 1.0f, 1.0f), 0.15f};
+    this->lightManager.initSSBO();
+    this->lightManager.SetAmbientLight(glm::vec3(1.0f, 1.0f, 1.0f), 0.85f);
+    this->lightManager.AddLight(
+                    lght::DirectionalLight(
+                        glm::vec3(2.0f, -3.0f, 0.5f),
+                        glm::vec3(0.0f, 0.0f, 1.0f),
+                        1.0f
+                    ));
+    
+
+    this->lightManager.updateSSBO();
+    
 
     this->terrain.init(500.0f, 500.0f, 500, 500);
     std::cout << "Triangle count: " << this->terrain.GetGrid().GetTriangleCount() << std::endl;
@@ -32,13 +35,6 @@ void World::Update()
 
 void World::Render(Camera& camera)
 {
-    if (this->Light[0].type == lght::LightType::DIRECTIONAL) {
-        this->terrain.GetMesh().InitUniform3f("SunDirection", glm::value_ptr(this->Light[0].position_direction));
-        this->terrain.GetMesh().InitUniform3f("SunColor", glm::value_ptr(this->Light[0].color));
-        this->terrain.GetMesh().InitUniform1f("SunIntensity", &this->Light[0].strength);
-    }
-    this->terrain.GetMesh().InitUniform3f("AmbientLight", glm::value_ptr(this->AmbiantLight.color * this->AmbiantLight.strength));
-    this->terrain.GetMesh().InitUniform3f("camPos", glm::value_ptr(camera.GetPosition()));
-
+    this->lightManager.BindSSBO();
     this->terrain.Render(camera);
 }

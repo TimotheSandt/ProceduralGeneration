@@ -127,7 +127,7 @@ void Grid::GenerateMesh() {
 
     this->mesh.Initialize(vertices, indices, { 3, 3, 3 });
     this->mesh.SetShader("res/shader/default.vert", "res/shader/default.frag");
-    this->mesh.InitUniform();
+    this->mesh.UpdateUBO();
 }
 
 

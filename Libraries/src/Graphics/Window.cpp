@@ -10,9 +10,9 @@ Window::Window() {
     this->parameters.height = 600;
     this->parameters.posX = 100;
     this->parameters.posY = 100;
-    this->parameters.majorVersion = 3;
+    this->parameters.majorVersion = 4;
     this->parameters.minorVersion = 3;
-    this->parameters.maxFPS = 60;
+    this->parameters.maxFPS = 0;
     this->parameters.vsync = false;
 #ifdef DEBUG
     this->parameters.windowState = WindowState::WINDOWED;

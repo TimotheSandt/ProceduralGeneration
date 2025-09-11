@@ -1,6 +1,10 @@
 #include "Shader.h"
 #include <cstring>
 
+#define COMPILE_SUCCESS 0
+#define COMPILE_ERRORS 1
+
+
 // Reads a text file and outputs a string with everything in the text file
 std::string get_file_contents(const char* filename)
 {
@@ -73,7 +77,9 @@ void Shader::CompileShader()
     glAttachShader(this->ID, vertexShader);
     glAttachShader(this->ID, fragmentShader);
     glLinkProgram(this->ID);
-    this->compileErrors(this->ID, "PROGRAM");
+    if (this->compileErrors(this->ID, "PROGRAM") == COMPILE_ERRORS) {
+		this->Destroy();
+	}
 
     // Delete the shaders as they're linked into our program now and no longer necessary
     glDeleteShader(vertexShader);
@@ -102,7 +108,7 @@ void Shader::Destroy()
 
 
 // Checks if the different Shaders have compiled properly
-void Shader::compileErrors(unsigned int shader, const char* type)
+bool Shader::compileErrors(unsigned int shader, const char* type)
 {
 	// Stores status of compilation
 	GLint hasCompiled;
@@ -126,4 +132,5 @@ void Shader::compileErrors(unsigned int shader, const char* type)
 			std::cout << "SHADER_LINKING_ERROR for:" << type << "\n" << infoLog << std::endl;
 		}
 	}
+	return (hasCompiled) ? COMPILE_SUCCESS : COMPILE_ERRORS;
 }
