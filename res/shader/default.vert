@@ -10,7 +10,7 @@ layout(binding = 0, std140) uniform CamBlock {
    mat4 matrix;
 } camera;
 
-layout(binding = 4, std140) uniform ModelBlock {
+layout(binding = 3, std140) uniform ModelBlock {
    mat4 model;
 } model;
 

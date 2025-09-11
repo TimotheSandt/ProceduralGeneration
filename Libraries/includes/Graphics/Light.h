@@ -3,6 +3,7 @@
 #include "glm/glm.hpp"
 
 #include <vector>
+#include <iostream>
 
 #include "SSBO.h"
 #include "UBO.h"
@@ -27,7 +28,6 @@ namespace lght
         float b;
 
         Light(const Light& other) = default;
-        Light operator=(const Light& other) { return other; }
 
         bool operator==(const Light& other) const
         {
@@ -91,9 +91,8 @@ namespace lght
         AmbientLightBlock() = default;
         AmbientLightBlock(const lght::Light& light) { *this = light; }
 
-        AmbientLightBlock operator=(const lght::Light& light) {
-            if (light.type != lght::AMBIENT) return *this;
-            
+        AmbientLightBlock& operator=(const lght::Light& light) { 
+            if (light.type != lght::AMBIENT) return *this;           
             color = glm::vec4(light.color, 1.0f);
             strength = light.strength;
             return *this;
@@ -267,7 +266,6 @@ private:
     int size = 0;
 
     SSBO LightSSBO;
-    UBO AmbientLightUBO;
 
 private:
     std::vector<bool> LightChanged;

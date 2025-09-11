@@ -67,6 +67,7 @@ void UBO::Unbind()
 
 void UBO::uploadData(const void* data, size_t size, size_t offset)
 {
+    if (this->ID == 0) return;
     glBindBuffer(GL_UNIFORM_BUFFER, this->ID);
     glBufferSubData(GL_UNIFORM_BUFFER, offset, size, data);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);

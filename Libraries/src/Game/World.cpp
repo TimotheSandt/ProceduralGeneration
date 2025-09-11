@@ -8,11 +8,11 @@ World::World()
 void World::Init()
 {
     this->lightManager.initSSBO();
-    this->lightManager.SetAmbientLight(glm::vec3(1.0f, 1.0f, 1.0f), 0.85f);
+    this->lightManager.SetAmbientLight(glm::vec3(1.0f, 1.0f, 1.0f), 0.2f);
     this->lightManager.AddLight(
                     lght::DirectionalLight(
                         glm::vec3(2.0f, -3.0f, 0.5f),
-                        glm::vec3(0.0f, 0.0f, 1.0f),
+                        glm::vec3(0.99f, 0.76f, 0.81f),
                         1.0f
                     ));
     

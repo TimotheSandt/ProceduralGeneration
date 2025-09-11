@@ -2,14 +2,16 @@
 
 struct alignas(16) Header {
     int size;
-    int padding[3];
+    int padding[3] = {0, 0, 0};
+
+    lght::AmbientLightBlock ambientLight;
 };
 
 
 
 
 LightManager::LightManager() {
-    this->SetAmbientLight(glm::vec3(0.0f, 0.0f, 0.0f), 0.0f);
+    this->ResetAmbientLight();
 }
 
 LightManager::LightManager(glm::vec3 color, float strength) {
@@ -17,24 +19,24 @@ LightManager::LightManager(glm::vec3 color, float strength) {
 }
 
 LightManager::~LightManager() {
-    this->AmbientLightUBO.Destroy();
     this->LightSSBO.destroy();
 }
 
 void LightManager::initSSBO() { 
     this->LightSSBO.destroy();
     this->LightSSBO.initialize(sizeof(Header) + sizeof(lght::LightBlock) * this->lLight.size(), LIGHT_BINDING_POINT); 
-
-    this->AmbientLightUBO.Destroy();
-    this->AmbientLightUBO.initialize(sizeof(lght::AmbientLightBlock), AMBIENT_LIGHT_BINDING_POINT);
 }
 
 void LightManager::updateSSBO() {
     if (this->LightsChanged) {
         this->LightSSBO.resizePreserveData(sizeof(Header) + sizeof(lght::LightBlock) * this->lLight.size());
-        Header hHeader = { this->size, 0 };
+    }
+
+    if (this->LightsChanged || this->AmbientLightChanged) {
+        Header hHeader = { .size = this->size, .ambientLight = this->ambientLight };
         this->LightSSBO.uploadData(&hHeader, sizeof(Header), 0);
         this->LightsChanged = false;
+        this->AmbientLightChanged = false;
     }
 
     for (size_t i = 0; i < this->lLight.size(); i++) {
@@ -43,17 +45,10 @@ void LightManager::updateSSBO() {
         this->LightSSBO.uploadData(&l, sizeof(lght::LightBlock), i * sizeof(lght::LightBlock) + sizeof(Header)); 
         this->LightChanged[i] = false;
     } 
-
-    if (this->AmbientLightChanged) {
-        lght::AmbientLightBlock l = this->ambientLight;
-        this->AmbientLightUBO.uploadData(&l, sizeof(lght::AmbientLightBlock), 0);
-        this->AmbientLightChanged = false;
-    }
 }
 
 void LightManager::BindSSBO() { 
     this->LightSSBO.bindToPoint();
-    this->AmbientLightUBO.BindToBindingPoint(); 
 }
 
 

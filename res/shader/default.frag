@@ -31,13 +31,12 @@ struct LightStruct
    float _pad[3];
 };
 
-layout(binding = 1, std140) uniform AmbientLightBlock {
-   vec3 color;
-   float strength;
-} AmbientLight;
-
-layout(std430, binding = 2) buffer LightBlock {
+layout(std430, binding = 1) buffer LightBlock {
    int size;
+   
+   vec4 AmbientLightColor;
+   float AmbientLightStrength;
+
    LightStruct lights[];   
 } lights;
 
@@ -65,7 +64,7 @@ vec4 wireframeRender() {
 
 vec4 fillRender() {
 
-   vec4 l = vec4(AmbientLight.color.rgb * AmbientLight.strength, 1.0f);
+   vec4 l = vec4(lights.AmbientLightColor.rgb * lights.AmbientLightStrength, 1.0f);
    for(int i = 0; i < lights.size; i++) {
       LightStruct lght = lights.lights[i];
       if (lght.type == 1) {
