@@ -4,4 +4,6 @@
 .vs/
 bin/
 obj/
+logs/
+*.log
 imgui.ini
