@@ -1,7 +1,5 @@
 #include "SSBO.h"
 
-#include <iostream>
-
 SSBO::SSBO() : ID(0), bindingPoint(0), size(0), usage(DYNAMIC_DRAW) {}
 
 SSBO::SSBO(size_t size, GLuint bindingPoint, Usage usage) : ID(0), bindingPoint(bindingPoint), size(size), usage(usage)
@@ -54,7 +52,7 @@ bool SSBO::initialize(size_t size, GLuint bindingPoint, Usage usage)
 
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
-        std::cout << "Error initializing SSBO: " << error << std::endl;
+        LOG_ERROR(error, "Error initializing SSBO");
         return false;
     }
 
@@ -81,7 +79,7 @@ void SSBO::bindToPoint() const
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, this->bindingPoint, this->ID);
 #ifdef DEBUG
     GLenum error = glGetError();
-    if (error != GL_NO_ERROR) std::cout << "Error binding SSBO to binding point: " << error << std::endl;
+    if (error != GL_NO_ERROR) LOG_ERROR(error, "Error binding SSBO to binding point");
 #endif
 }
 
@@ -100,7 +98,7 @@ void SSBO::uploadData(const void* data, size_t size, size_t offset)
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 #ifdef DEBUG
     GLenum error = glGetError();
-    if (error != GL_NO_ERROR) std::cout << "Error uploading data to SSBO: " << error << std::endl;
+    if (error != GL_NO_ERROR) LOG_ERROR(error, "Error uploading data to SSBO");
 #endif
 }
 
@@ -112,7 +110,7 @@ void SSBO::downloadData(void* data, size_t size, size_t offset) const
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 #ifdef DEBUG
     GLenum error = glGetError();
-    if (error != GL_NO_ERROR) std::cout << "Error downloading data from SSBO: " << error << std::endl;
+    if (error != GL_NO_ERROR) LOG_ERROR(error, "Error downloading data from SSBO");
 #endif
 }
 

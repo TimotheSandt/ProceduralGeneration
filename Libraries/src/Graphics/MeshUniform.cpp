@@ -78,7 +78,7 @@ GLint Mesh::GetCachedUniformLocation(const std::string& uniform) {
     if (cache.location != -2 && cache.shaderID == ID) return cache.location;
     cache.shaderID = ID;
     cache.location = glGetUniformLocation(ID, uniform.c_str());
-    if (cache.location == -1) std::cout << "Uniform " << uniform << " not found" << std::endl;
+    if (cache.location == -1) LOG_ERROR(1, "Uniform ", uniform, " not found");
     return cache.location;
 }
 

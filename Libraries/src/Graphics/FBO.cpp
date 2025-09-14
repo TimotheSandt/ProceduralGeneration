@@ -1,6 +1,6 @@
 #include "FBO.h"
 
-#include <iostream>
+#include "Logger.h"
 
 FBO::FBO() : width(0), height(0) {}
 FBO::FBO(int width, int height)
@@ -41,7 +41,7 @@ void FBO::Init(int width, int height) {
 
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
-        std::cout << "FBO incomplete: " << status << std::endl;
+        LOG_ERROR(status, "FBO incomplete");
         return;
     }
     
@@ -79,7 +79,7 @@ void FBO::Resize(int newWidth, int newHeight) {
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
-        std::cout << "FBO incomplete after resize: " << status << std::endl;
+        LOG_ERROR(status, "FBO incomplete after resize: ");
     }
     
     Unbind();
@@ -92,7 +92,7 @@ void FBO::BlitFBO(FBO& oFBO) {
     int oHeight = oFBO.GetHeight();
 
     if (oID == 0 || ID == 0) {
-        std::cout << "Invalid FBO IDs" << std::endl;
+        LOG_ERROR(1, "Invalid FBO IDs");
         return;
     }
     
@@ -106,7 +106,7 @@ void FBO::BlitFBO(FBO& oFBO) {
 #ifdef DEBUG
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
-        std::cout << "glBlitFramebuffer error: " << error << std::endl;
+        LOG_ERROR(error, "glBlitFramebuffer error");
     }
 #endif
     
@@ -115,7 +115,7 @@ void FBO::BlitFBO(FBO& oFBO) {
 
 void FBO::BlitToScreen(int sWidth, int sHeight) {
     if (ID == 0) {
-        std::cout << "Invalid FBO ID" << std::endl;
+        LOG_ERROR(1, "Invalid FBO ID");
         return;
     }
     
@@ -129,7 +129,7 @@ void FBO::BlitToScreen(int sWidth, int sHeight) {
 #ifdef DEBUG
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
-        std::cout << "CopyToScreen error: " << error << std::endl;
+        LOG_ERROR(error, "glBlitFramebuffer to screen error");
     }
 #endif
     
@@ -153,8 +153,7 @@ void FBO::Setup() {
 
     this->screenQuadVAO.initialize();
     if (glGetError() != GL_NO_ERROR) { 
-        std::cout << "VAO initialization failed" << std::endl; 
-        throw std::runtime_error("VAO initialization failed");
+        LOG_ERROR(1, "VAO initialization failed");
     }
     this->screenQuadVAO.Generate();
     this->screenQuadVAO.Bind();
@@ -166,8 +165,7 @@ void FBO::Setup() {
     this->screenQuadVAO.LinkAttrib(bVBO, 1, 2, GL_FLOAT, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
 
     if (glGetError() != GL_NO_ERROR) { 
-        std::cout << "VAO linking failed" << std::endl; 
-        throw std::runtime_error("VAO linking failed");
+        LOG_ERROR(1, "VAO linking failed");
     }
 
     this->screenQuadVAO.Unbind();

@@ -2,6 +2,9 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+
+#include "Logger.h"
+
 #include <stdexcept>
 #include <vector>
 #include <cstring>

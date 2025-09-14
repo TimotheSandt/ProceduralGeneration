@@ -1,8 +1,19 @@
 #include "Logger.h"
+
 #include <iostream>
 #include <iomanip>
-#include <unistd.h>
+#include <sstream>
 #include <filesystem>
+#include <algorithm>
+
+#ifdef _WIN32
+    #include <windows.h>
+    #include <io.h>
+#else
+    #include <sys/ioctl.h>
+    #include <unistd.h>
+#endif
+
 
 std::vector<Logger::LogMessage> Logger::logs;
 std::mutex Logger::logMutex;
@@ -168,27 +179,154 @@ void Logger::FlushToFile() {
 #endif
 }
 
+size_t getTerminalWidth() {
+#ifdef _WIN32
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    int columns;
+    
+    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
+        columns = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+        return columns > 0 ? columns : 80;
+    }
+    return 80; // Défaut si échec
+#else
+    struct winsize w;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0 && w.ws_col > 0) {
+        return w.ws_col;
+    }
+    return 80; // Défaut si échec
+#endif
+}
+
+size_t Logger::CalculateLogLength(const LogMessage& log) {
+    size_t length = 4;
+    length += FormatTimestamp(log.time).size() + 2;  // +2 for "[]"
+    if (log.repetition > 1) {
+        length += std::to_string(log.repetition).size() + 2;  // +2 for "[]"
+    }
+    length += LevelToString(log.level).size() + 2;  // +2 for "[]"
+#ifdef DEBUG
+    length += log.file.size() + 1;  // +1 for ":"
+    length += std::to_string(log.line).size();  // +1 for ":"
+#endif
+    length += log.message.size();
+    return length;
+}
+
+
+size_t Logger::CalculateNumberOfLines(const LogMessage& log) {
+    size_t terminalWidth = getTerminalWidth();
+    if (terminalWidth == 0) return 1;
+    
+    // Calculer la longueur du préfixe (tout sauf le message)
+    size_t prefixLength = 4;
+    prefixLength += FormatTimestamp(log.time).size() + 2;
+    if (log.repetition > 1) {
+        prefixLength += std::to_string(log.repetition).size() + 2;
+    }
+    prefixLength += LevelToString(log.level).size() + 2;
+#ifdef DEBUG
+    prefixLength += log.file.size() + 1;
+    prefixLength += std::to_string(log.line).size();
+#endif
+    
+    // Diviser le message par les \n
+    std::vector<std::string> messageLines;
+    std::stringstream ss(log.message);
+    std::string line;
+    
+    while (std::getline(ss, line)) {
+        messageLines.push_back(line);
+    }
+    
+    // Si pas de \n dans le message, ajouter le message complet
+    if (messageLines.empty()) {
+        messageLines.push_back(log.message);
+    }
+    
+    size_t totalLines = 0;
+    
+    for (size_t i = 0; i < messageLines.size(); i++) {
+        size_t lineLength;
+        
+        if (i == 0) {
+            // Première ligne : préfixe + contenu
+            lineLength = prefixLength + messageLines[i].size();
+        } else {
+            // Lignes suivantes : seulement le contenu (avec indentation possible)
+            lineLength = messageLines[i].size();
+        }
+        
+        // Calculer combien de lignes cette partie prend
+        if (lineLength == 0) {
+            totalLines++; // Ligne vide
+        } else {
+            totalLines += (lineLength + terminalWidth - 1) / terminalWidth;
+        }
+    }
+    
+    return totalLines > 0 ? totalLines : 1;
+}
 
 
 
 void Logger::AddLog(LogMessage&& log) {
-    LogLevel msgLevel;
-    bool shouldPrint;
-    {
-        std::lock_guard<std::mutex> lock(logMutex);
-        msgLevel = log.level;
-        shouldPrint = (logs.empty() || logs.back() != log);
+    std::lock_guard<std::mutex> lock(logMutex);
+
+    auto timeLimit = std::chrono::system_clock::now() - std::chrono::seconds(3);
+    
+    bool isDuplicate = false;
+    size_t duplicateIndex = 0;
+    size_t dstUp = 0;
+    
+    // Chercher en partant de la fin, sécurisé contre les vecteurs vides
+    if (!logs.empty()) {
+        for (size_t i = logs.size(); i > 0; i--) {
+            size_t idx = i - 1;  // Index réel
+            
+            if (logs[idx].time < timeLimit) {
+                break;  // Trop ancien, arrêter la recherche
+            }
+            
+            dstUp += CalculateNumberOfLines(logs[idx]);
+            
+            if (logs[idx] == log) {
+                logs[idx].repetition++;  // Modifier l'original dans le vecteur
+                duplicateIndex = idx;
+                isDuplicate = true;
+                break;
+            }
+        }
+    }
+
+    if (isDuplicate) {        
+        // Remonter à la ligne du duplicate
+        std::cout << "\033[" << dstUp << "F";
+        
+        const auto& duplicateLog = logs[duplicateIndex];
+        bool needFullRewrite = std::to_string(duplicateLog.repetition).size() != 
+                              std::to_string(duplicateLog.repetition - 1).size() ||
+                              duplicateLog.repetition == 2;
+        
+        if (needFullRewrite) {
+            PrintLog(duplicateLog);
+        } else {
+            // Mise à jour partielle du compteur de répétition
+            std::string timestamp = FormatTimestamp(duplicateLog.time);
+            int prefixLen = timestamp.size() + 4; // timestamp + "] ["
+            std::cout << "\033[" << prefixLen << "C";
+            std::cout << duplicateLog.repetition;
+        }
+        
+        // Redescendre à la position originale
+        std::cout << "\033[" << dstUp - (needFullRewrite ? 1 : 0) << "E";
+    } else {
         logs.push_back(std::move(log));
-    }
-
-    if (shouldPrint) PrintLog(logs.back());
-
-    if (msgLevel >= L_ERROR) {
-        FlushToFile();
-    }
-
-    if (msgLevel == L_FATAL) {
-        std::exit(1);
+        PrintLog(logs.back());
+        
+        if (logs.back().level == L_FATAL) {
+            std::exit(1);
+        }
     }
 }
 
@@ -209,20 +347,26 @@ void Logger::PrintLog(const LogMessage& log) {
     if (log.level < lLevelPrinted) return;
 
     std::cout << "[" << FormatTimestamp(log.time) << "] ";
+    if (log.repetition > 1) {
+        std::cout << "[" << log.repetition << "x] ";
+    }
     ChangeColor(log.level);
     std::cout << "[" << LevelToString(log.level) << "]";
     
     #ifdef DEBUG
     ResetColor();
-    std::cout << " " << log.file << ":" << log.line << ": ";
+    std::cout << " " << log.file << ":" << log.line << " ";
     ChangeColor(log.level);
-    std::cout << log.message;
+    if (log.level >= L_WARNING)
+        std::cerr << log.message;
+    else
+        std::cout << log.message;
     #else
     std::cout << " " << log.message;
     #endif
 
     if (log.errorCode != 0) {
-        std::cout << " (Error: " << log.errorCode << ")";
+        std::cerr << " (Error: " << log.errorCode << ")";
     }
 
     ResetColor();

@@ -1,7 +1,5 @@
 #include "UBO.h"
 
-#include <iostream>
-
 UBO::UBO(size_t size, GLuint bindingPoint, GLenum usage) : bindingPoint(bindingPoint), size(size), usage(usage)
 {
     initialize(size, bindingPoint);
@@ -28,7 +26,7 @@ bool UBO::initialize(size_t size, GLuint bindingPoint, GLenum usage)
 
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) {
-        std::cout << "Error initializing UBO: " << error << std::endl;
+        LOG_ERROR(error, "Error initializing UBO");
         return false;
     }
 
@@ -56,7 +54,7 @@ void UBO::BindToBindingPoint()
 #ifdef DEBUG
     GLenum error = glGetError();
     if (error != GL_NO_ERROR) 
-        std::cout << "Error binding UBO to binding point: " << error << std::endl;
+        LOG_ERROR(error, "Error binding UBO to binding point");
 #endif
 }
 
@@ -73,7 +71,7 @@ void UBO::uploadData(const void* data, size_t size, size_t offset)
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 #ifdef DEBUG
     GLenum error = glGetError();
-    if (error != GL_NO_ERROR) std::cout << "Error uploading data to UBO: " << error << std::endl;
+    if (error != GL_NO_ERROR) LOG_ERROR(error, "Error uploading data to UBO");
 #endif
 }
 

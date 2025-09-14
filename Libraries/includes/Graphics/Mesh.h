@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <string>
 
+#include "Logger.h"
+
 #include "VAO.h"
 #include "VBO.h"
 #include "EBO.h"

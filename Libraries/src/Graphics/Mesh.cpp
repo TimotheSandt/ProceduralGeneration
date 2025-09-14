@@ -34,8 +34,7 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
     
     this->VAO.initialize();
     if (glGetError() != GL_NO_ERROR) { 
-        std::cout << "VAO initialization failed" << std::endl; 
-        throw std::runtime_error("VAO initialization failed");
+        LOG_ERROR(1, "VAO initialization failed");
     }
     this->VAO.Generate();
     this->VAO.Bind();
@@ -112,7 +111,7 @@ void Mesh::AddTexture(const char* image, const char* name, GLenum format, GLenum
 void Mesh::Render(Camera& camera)
 {
     if (!this->shader.IsCompiled()) {
-        // std::cout << "Shader not compiled" << std::endl;
+        LOG_WARNING("Shader not compiled");
         return;
     }
     this->shader.Bind();

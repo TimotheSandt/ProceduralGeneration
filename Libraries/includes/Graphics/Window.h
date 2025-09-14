@@ -8,6 +8,8 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/vector_angle.hpp> 
 
+#include "Logger.h"
+
 #include "FBO.h"
 
 #include "FPSCounter.h"

@@ -9,12 +9,10 @@ bool PriorityHelper::RequestHighPriority() {
         
         // Set process priority to high (similar to Game Mode)
         if (!SetPriorityClass(hProcess, HIGH_PRIORITY_CLASS)) {
-            std::wcerr << L"Warning: Failed to set high priority class. Error: " 
-                        << GetLastError() << std::endl;
+            LOG_EWARNING(GetLastError(), "Failed to set high priority class");
             // Try above normal instead
             if (!SetPriorityClass(hProcess, ABOVE_NORMAL_PRIORITY_CLASS)) {
-                std::wcerr << L"Failed to set above normal priority class. Error: " 
-                            << GetLastError() << std::endl;
+                LOG_ERROR(GetLastError(), "Failed to set above normal priority class");
                 success = false;
             }
         }
@@ -22,19 +20,18 @@ bool PriorityHelper::RequestHighPriority() {
         // Set main thread priority
         HANDLE hThread = GetCurrentThread();
         if (!SetThreadPriority(hThread, THREAD_PRIORITY_HIGHEST)) {
-            std::wcerr << L"Warning: Failed to set thread priority. Error: " 
-                        << GetLastError() << std::endl;
+            LOG_EWARNING(GetLastError(), "Failed to set thread priority");
         }
 
         // Disable Windows Error Reporting for this process (reduces interruptions)
         SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | 
                     SEM_NOALIGNMENTFAULTEXCEPT | SEM_NOOPENFILEERRORBOX);
-
-        std::wcout << L"Game Mode-like optimizations applied!" << std::endl;
+        
+        LOG_TRACE("Game Mode-like optimizations applied!");
         return success;
     }
     catch (const std::exception& e) {
-        std::wcerr << L"Error applying optimizations: " << e.what() << std::endl;
+        LOG_ERROR(GetLastError(), "Error applying optimizations: ", e.what());
         return false;
     }
 }
@@ -94,29 +91,31 @@ void PriorityHelper::DisplayCurrentPriority() {
     HANDLE hProcess = GetCurrentProcess();
     DWORD priority = GetPriorityClass(hProcess);
     
-    std::wcout << L"Current process priority class: ";
+    std::string msg = "Current process priority class: ";
     switch (priority) {
         case IDLE_PRIORITY_CLASS:
-            std::wcout << L"IDLE" << std::endl;
+            msg += "IDLE";
             break;
         case BELOW_NORMAL_PRIORITY_CLASS:
-            std::wcout << L"BELOW_NORMAL" << std::endl;
+            msg += "BELOW_NORMAL";
             break;
         case NORMAL_PRIORITY_CLASS:
-            std::wcout << L"NORMAL" << std::endl;
+            msg += "NORMAL";
             break;
         case ABOVE_NORMAL_PRIORITY_CLASS:
-            std::wcout << L"ABOVE_NORMAL" << std::endl;
+            msg += "ABOVE_NORMAL";
             break;
         case HIGH_PRIORITY_CLASS:
-            std::wcout << L"HIGH (Game Mode-like)" << std::endl;
+            msg += "HIGH (Game Mode-like)";
             break;
         case REALTIME_PRIORITY_CLASS:
-            std::wcout << L"REALTIME" << std::endl;
+            msg += "REALTIME";
             break;
         default:
-            std::wcout << L"UNKNOWN (" << priority << L")" << std::endl;
+            msg += "UNKNOWN (" + std::to_string(priority) + ")";
+            break;
     }
+    LOG_TRACE(msg);
 }
 
 
@@ -137,5 +136,5 @@ void PriorityHelper::ApplyPerformanceTweaks() {
     SetProcessDPIAware();
     timeBeginPeriod(1);
     
-    std::wcout << L"Additional performance tweaks applied." << std::endl;
+    LOG_TRACE("Additional performance tweaks applied.");
 }

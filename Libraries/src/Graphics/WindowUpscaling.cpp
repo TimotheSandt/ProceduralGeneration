@@ -5,7 +5,7 @@
 
 void Window::SetRenderScale(float scale) {
     if (scale <= 0.0f || scale > 1.0f) {
-        std::cout << "Invalid render scale: " << scale << ". Must be between 0.0 and 1.0" << std::endl;
+        LOG_WARNING("Invalid render scale: ", scale, ". Must be between 0.0 and 1.0");
         return;
     }
     
@@ -17,9 +17,7 @@ void Window::SetRenderScale(float scale) {
         this->EnableUpscaling(true);
     }
     
-    
-    std::cout << "Render scale set to " << scale << " (" << parameters.renderWidth 
-              << "x" << parameters.renderHeight << ")" << std::endl;
+    LOG_DEBUG("Render scale set to ", scale, " (", parameters.renderWidth, "x", parameters.renderHeight, ")");
 }
 
 
@@ -31,7 +29,7 @@ void Window::EnableUpscaling(bool enable) {
         this->UpdateFBOResotution();
     }
     
-    std::cout << "Upscaling " << (enable ? "enabled" : "disabled") << std::endl;
+    LOG_DEBUG("Upscaling ", (enable ? "enabled" : "disabled"));
 }
 
 

@@ -25,6 +25,7 @@ private:
     struct LogMessage
     {
         LogLevel level;
+        size_t repetition = 1;
         std::chrono::time_point<std::chrono::system_clock> time;
 #ifdef DEBUG
         std::string file;
@@ -32,6 +33,7 @@ private:
 #endif
         int errorCode = 0; // 0 = no error
         std::string message;
+
 
         bool operator==(const LogMessage& other) const { 
             return (
@@ -78,6 +80,8 @@ public:
 
 private:
     static void AddLog(LogMessage&& msg);
+    static size_t CalculateLogLength(const LogMessage& log);
+    static size_t CalculateNumberOfLines(const LogMessage& log);
     static std::string FormatTimestamp(const std::chrono::time_point<std::chrono::system_clock>& time);
     static void PrintLog(const LogMessage& log);
     static std::string LevelToString(LogLevel level);
@@ -165,8 +169,9 @@ void Logger::LogError(
     #define LOG_TRACE(...) Logger::Log(L_TRACE, __FILE__, __LINE__, __VA_ARGS__)
     #define LOG_INFO(...) Logger::Log(L_INFO, __FILE__, __LINE__, __VA_ARGS__)
     #define LOG_WARNING(...) Logger::Log(L_WARNING, __FILE__, __LINE__, __VA_ARGS__)
-    #define LOG_ERROR(...) Logger::Log(L_ERROR, __FILE__, __LINE__, __VA_ARGS__)
-    #define LOG_FATAL(...) Logger::Log(L_FATAL, __FILE__, __LINE__, __VA_ARGS__)
+    #define LOG_EWARNING(...) Logger::LogError(L_WARNING, __FILE__, __LINE__, __VA_ARGS__)
+    #define LOG_ERROR(...) Logger::LogError(L_ERROR, __FILE__, __LINE__, __VA_ARGS__)
+    #define LOG_FATAL(...) Logger::LogError(L_FATAL, __FILE__, __LINE__, __VA_ARGS__)
 #else
     #define LOG(level, ...) Logger::Log(level, __VA_ARGS__)
     #define LOG_DEBUGGING(...)
@@ -174,6 +179,7 @@ void Logger::LogError(
     #define LOG_TRACE(...) Logger::Log(L_TRACE, __VA_ARGS__)
     #define LOG_INFO(...) Logger::Log(L_INFO, __VA_ARGS__)
     #define LOG_WARNING(...) Logger::Log(L_WARNING, __VA_ARGS__)
-    #define LOG_ERROR(...) Logger::Log(L_ERROR, __VA_ARGS__)
-    #define LOG_FATAL(...) Logger::Log(L_FATAL, __VA_ARGS__)
+    #define LOG_EWARNING(...) Logger::LogError(L_WARNING, __VA_ARGS__)
+    #define LOG_ERROR(...) Logger::LogError(L_ERROR, __VA_ARGS__)
+    #define LOG_FATAL(...) Logger::LogError(L_FATAL, __VA_ARGS__)
 #endif

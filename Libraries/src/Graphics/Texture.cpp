@@ -20,7 +20,7 @@ Texture::Texture(std::string image, const char* name, GLuint slot, GLenum format
     bool isLoaded = true;
     unsigned char* bytes = stbi_load(image.c_str(), &this->Width, &this->Height, &numColCh, 0);
     if (!bytes) {
-        printf("Error loading image: %s\n", stbi_failure_reason());
+        LOG_ERROR(1, "Failed to load image: ", stbi_failure_reason());
         isLoaded = false;
 
         this->Width = 2;

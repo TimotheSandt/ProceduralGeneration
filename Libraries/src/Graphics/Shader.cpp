@@ -120,7 +120,7 @@ bool Shader::compileErrors(unsigned int shader, const char* type)
 		if (hasCompiled == GL_FALSE)
 		{
 			glGetShaderInfoLog(shader, 1024, NULL, infoLog);
-			std::cout << "SHADER_COMPILATION_ERROR for:" << type << "\n" << infoLog << std::endl;
+			LOG_ERROR(1, "SHADER_COMPILATION_ERROR for:", type, "\n", infoLog);
 		}
 	}
 	else
@@ -129,7 +129,7 @@ bool Shader::compileErrors(unsigned int shader, const char* type)
 		if (hasCompiled == GL_FALSE)
 		{
 			glGetProgramInfoLog(shader, 1024, NULL, infoLog);
-			std::cout << "SHADER_LINKING_ERROR for:" << type << "\n" << infoLog << std::endl;
+			LOG_ERROR(1, "SHADER_LINKING_ERROR for:", type, "\n", infoLog);
 		}
 	}
 	return (hasCompiled) ? COMPILE_SUCCESS : COMPILE_ERRORS;

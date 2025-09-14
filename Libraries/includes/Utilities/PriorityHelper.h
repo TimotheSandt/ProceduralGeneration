@@ -1,8 +1,9 @@
 #pragma once
 
 #include <windows.h>
-#include <iostream>
 #include <string>
+
+#include "Logger.h"
 
 class PriorityHelper {
 public:
