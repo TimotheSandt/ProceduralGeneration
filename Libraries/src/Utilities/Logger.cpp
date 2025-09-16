@@ -114,27 +114,29 @@ LogLevel Logger::GetMinimumLevel() {
 }
 
 void Logger::FlushToFile() {
+#ifdef DEBUG
     size_t sizeLogs = logs.size();
     LOG_DEBUGGING("=== FlushToFile Debug Info ===");
     LOG_DEBUGGING("Total logs: ", sizeLogs);
     LOG_DEBUGGING("Last flushed index: ", lastFlushedIndex);
     LOG_DEBUGGING("Logs to write: ", (sizeLogs - lastFlushedIndex));
+#endif
 
     std::lock_guard<std::mutex> lock(logMutex);
     
     if (!logFile) {
-        std::cout << "ERROR: logFile is null!" << std::endl;
+        LOG_ERROR(-1, "logFile is null!");
         return;
     }
     
     if (!logFile->is_open()) {
-        std::cout << "ERROR: logFile is not open!" << std::endl;
+        LOG_ERROR(-1, "logFile is not open!");
         return;
     }
     
     // Check if there are new logs to write
     if (lastFlushedIndex >= logs.size()) {
-        std::cout << "No new logs to write" << std::endl;
+        LOG_DEBUGGING("No new logs to write");
         return;
     }
     
@@ -142,10 +144,12 @@ void Logger::FlushToFile() {
     size_t logsWritten = 0;
     for (size_t i = lastFlushedIndex; i < logs.size(); ++i) {
         const LogMessage& log = logs[i];
-        
+
+#ifdef DEBUG
         if (log.level == L_DEBUGGING) {
             continue;
         }
+#endif
         
         *logFile << "[" << FormatTimestamp(log.time) << "] ";
         *logFile << "[" << LevelToString(log.level) << "] ";
@@ -375,7 +379,9 @@ void Logger::PrintLog(const LogMessage& log) {
 
 std::string Logger::LevelToString(LogLevel level) {
     switch (level) {
+#ifdef DEBUG
         case LogLevel::L_DEBUGGING: return "DEBUGGING";
+#endif
         case LogLevel::L_DEBUG: return "DEBUG";
         case LogLevel::L_TRACE: return "TRACE";
         case LogLevel::L_INFO: return "INFO";

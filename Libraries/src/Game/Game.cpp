@@ -4,7 +4,7 @@ Game::Game() {
     window.Init(); 
 }
 Game::~Game() { 
-    window.Close();
+    this->stop();
 }
 
 void Game::init() {
@@ -13,6 +13,10 @@ void Game::init() {
 	this->camera.initialize(w, h, glm::vec3(0.0f, 1.0f, 0.0f));
 
     this->world.Init();
+}
+
+void Game::stop() {
+    this->window.Close();
 }
 
 void Game::run() {

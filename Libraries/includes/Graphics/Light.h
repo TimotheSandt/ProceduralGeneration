@@ -3,7 +3,6 @@
 #include "glm/glm.hpp"
 
 #include <vector>
-#include <iostream>
 
 #include "SSBO.h"
 #include "UBO.h"

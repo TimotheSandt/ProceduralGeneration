@@ -1,6 +1,5 @@
 #include "Window.h"
 
-#include <iostream>
 
 
 void Window::SetRenderScale(float scale) {
@@ -17,7 +16,7 @@ void Window::SetRenderScale(float scale) {
         this->EnableUpscaling(true);
     }
     
-    LOG_DEBUG("Render scale set to ", scale, " (", parameters.renderWidth, "x", parameters.renderHeight, ")");
+    LOG_DEBUGGING("Render scale set to ", scale, " (", parameters.renderWidth, "x", parameters.renderHeight, ")");
 }
 
 
@@ -29,7 +28,7 @@ void Window::EnableUpscaling(bool enable) {
         this->UpdateFBOResotution();
     }
     
-    LOG_DEBUG("Upscaling ", (enable ? "enabled" : "disabled"));
+    LOG_DEBUGGING("Upscaling ", (enable ? "enabled" : "disabled"));
 }
 
 

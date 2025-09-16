@@ -13,7 +13,8 @@ public:
     ~Game();
 
     void init();
-    
+    void stop();
+
     void run();
 
 private:

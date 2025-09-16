@@ -1,6 +1,5 @@
 #include "FPSCounter.h"
 #include <algorithm>
-#include <iostream>
 
 FPSCounter::FPSCounter() :
     lastTime(std::chrono::high_resolution_clock::now()),

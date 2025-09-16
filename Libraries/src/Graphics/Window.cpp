@@ -2,6 +2,11 @@
 
 #include "PriorityHelper.h"
 
+
+bool Window::isOpenGLInitialized = false;
+GLint Window::GLFW_MAJOR_VERSION = 4;
+GLint Window::GLFW_MINOR_VERSION = 3;
+
 Window::Window() {
     this->window = nullptr;
     this->parameters.title = "Window";
@@ -9,9 +14,7 @@ Window::Window() {
     this->parameters.height = 600;
     this->parameters.posX = 100;
     this->parameters.posY = 100;
-    this->parameters.majorVersion = 4;
-    this->parameters.minorVersion = 3;
-    this->parameters.maxFPS = 0;
+    this->parameters.maxFPS = 60;
     this->parameters.vsync = false;
 #ifdef DEBUG
     this->parameters.windowState = WindowState::WINDOWED;
@@ -40,41 +43,10 @@ Window::~Window() {
 }
 
 int Window::Init() {
-    // Set High Priority
-    if (PriorityHelper::RequestHighPriority()) {
-        PriorityHelper::ApplyPerformanceTweaks();
-        PriorityHelper::DisplayCurrentPriority();
-    }
-
-
-    // Initialize GLFW
-    if (!glfwInit()) {
-        LOG_FATAL(-1, "Failed to initialize GLFW");
-        return -1;
-    }
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, this->parameters.majorVersion);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, this->parameters.minorVersion);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
-    glfwWindowHint(GLFW_CENTER_CURSOR, GLFW_TRUE);
-    glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
-    glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-    glfwWindowHint(GLFW_FOCUSED, GLFW_TRUE);
-
-    glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
-    glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_TRUE);
-
-#ifdef DEBUG
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-#endif
-
-
     // Create a window of size 800x800 and called "OpenGL"
     this->window = glfwCreateWindow(this->parameters.width, this->parameters.height, this->parameters.title.c_str(), NULL, NULL);
     if (!this->window) {
         LOG_ERROR(1, "Failed to create GLFW window");
-        glfwTerminate();
         return -1;
     }
 
@@ -101,8 +73,6 @@ int Window::Init() {
     glfwSetWindowUserPointer(this->window, this);
 
     this->SetupCallbacks();
-    this->SetupErrorHandling();
-    
 
     this->ChangeWindowState(this->parameters.windowState);
     this->InitFBOs();
@@ -113,14 +83,59 @@ int Window::Init() {
 void Window::Close() {
     if (!this->window) return;
 
+    this->ClearCallbacks();
     glfwDestroyWindow(this->window);
     this->window = nullptr;
-    glfwTerminate();
 
 #ifdef _WIN32
     ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_SHOW);
 #endif
 }
+
+bool Window::InitOpenGL() {
+    if (isOpenGLInitialized) return isOpenGLInitialized;
+
+    // Set High Priority
+    if (PriorityHelper::RequestHighPriority()) {
+        PriorityHelper::ApplyPerformanceTweaks();
+        PriorityHelper::DisplayCurrentPriority();
+    }
+
+
+    // Initialize GLFW
+    if (!glfwInit()) {
+        LOG_FATAL(-1, "Failed to initialize GLFW");
+        return isOpenGLInitialized = false;
+    }
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, GLFW_MAJOR_VERSION);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, GLFW_MINOR_VERSION);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
+    glfwWindowHint(GLFW_CENTER_CURSOR, GLFW_TRUE);
+    glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+    glfwWindowHint(GLFW_FOCUSED, GLFW_TRUE);
+
+    glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
+    glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_TRUE);
+
+#ifdef DEBUG
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+#endif
+
+    SetupErrorHandling();
+
+    return isOpenGLInitialized = true;
+}
+
+
+void Window::TerminateOpenGL() {
+    if (!isOpenGLInitialized) return;
+    glfwTerminate();
+    isOpenGLInitialized = false;
+}
+
 
 void Window::Clear() {
     glClearColor(
@@ -522,6 +537,18 @@ void Window::CallbackFocus(GLFWwindow* window, int focused) {
         }
 #endif
     }
+}
+
+
+void Window::ClearCallbacks() {
+    glfwSetWindowFocusCallback(this->window, nullptr);
+    glfwSetWindowSizeCallback(this->window, nullptr);
+    glfwSetWindowPosCallback(this->window, nullptr);
+    glfwSetKeyCallback(this->window, nullptr);
+    glfwSetFramebufferSizeCallback(this->window, nullptr);
+    glfwSetWindowIconifyCallback(this->window, nullptr);
+    glfwSetWindowMaximizeCallback(this->window, nullptr);
+    glfwSetWindowCloseCallback(this->window, nullptr);
 }
 
 

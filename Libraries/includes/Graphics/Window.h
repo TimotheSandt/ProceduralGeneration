@@ -25,9 +25,6 @@ struct Parameters
     int width, height;
     int posX, posY;
     
-    // OpenGL
-    int majorVersion, minorVersion;
-    
     // Timing
     int maxFPS;
     bool vsync;
@@ -39,6 +36,8 @@ struct Parameters
     // Windowed
     int windowedWidth, windowedHeight;
     int windowedPosX, windowedPosY;
+
+    bool taskbarVisible; // TODO
     
 
     // Upscaling
@@ -59,6 +58,9 @@ public:
     bool NewFrame();
     void SwapBuffers();
     void Close();
+
+    static bool InitOpenGL();
+    static void TerminateOpenGL();
 
     void Clear();
 
@@ -136,8 +138,10 @@ private:
     void CallbackResize(GLFWwindow* window, int width, int height);
     void CallbackPosition(GLFWwindow* window, int x, int y);
 
+    void ClearCallbacks();
+
     // Error handling
-    void SetupErrorHandling();
+    static void SetupErrorHandling();
     bool IsWindowHealthy();
 
 private:
@@ -151,4 +155,8 @@ private:
     FPSCounter fpsCounter;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> lastTime;
+
+    static bool isOpenGLInitialized;
+    static GLint GLFW_MAJOR_VERSION;
+    static GLint GLFW_MINOR_VERSION;
 };
