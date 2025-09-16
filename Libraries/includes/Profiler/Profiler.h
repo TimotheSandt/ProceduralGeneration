@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <functional>
+#include <mutex>
 #include <queue>
 #include <vector>
 #include <GLFW/glfw3.h>
@@ -111,7 +112,7 @@ public:
             auto now = std::chrono::high_resolution_clock::now();
             if (profilerData.history.size() != 0 && 
             (now - profilerData.history.back().time) > std::chrono::milliseconds(SAVE_HISTORY_EVERY_MS)) {
-                profilerData.buffer.clear();
+                profilerData.buffer.Clear();
             }
         }
     }
@@ -119,10 +120,18 @@ public:
 
 
 
-    static std::chrono::nanoseconds GetLastTime(std::string name) { return getTimer(name).get(0); }
-    static std::chrono::nanoseconds GetAverageTime(std::string name) { return getTimer(name).getAverage(); }
-    static std::chrono::nanoseconds GetMaxTime(std::string name) { return getTimer(name).getMax(); }
-    static std::chrono::nanoseconds GetMinTime(std::string name) { return getTimer(name).getMin(); }
+    static std::chrono::nanoseconds GetLastTime(std::string name) {
+        return getTimer(name).Get(0);
+    }
+    static std::chrono::nanoseconds GetAverageTime(std::string name) {
+        return getTimer(name).GetAverage();
+    }
+    static std::chrono::nanoseconds GetMaxTime(std::string name) {
+        return getTimer(name).GetMax();
+    }
+    static std::chrono::nanoseconds GetMinTime(std::string name) {
+        return getTimer(name).GetMin();
+    }
 
 private:
     static void ProcessQueries(std::string name) {
@@ -154,15 +163,17 @@ private:
         }
     }
 
-    static void AddTime(std::string name, std::chrono::nanoseconds time) { 
-        getTimer(name).push(time);
+    static void AddTime(std::string name, std::chrono::nanoseconds time) {
+        std::lock_guard<std::mutex> lock(getProfilerMutex());
+        getTimer(name).Push(time);
         auto now = std::chrono::high_resolution_clock::now();
         if ( getProfilerData()[name].history.size() == 0 || (now - getProfilerData()[name].history.back().time).count() >= SAVE_HISTORY_EVERY_MS) {
-            getProfilerData()[name].history.push_back({now, getTimer(name).getAverage(), getTimer(name).getMax(), getTimer(name).getMin()});
+            getProfilerData()[name].history.push_back({now, getTimer(name).GetAverage(), getTimer(name).GetMax(), getTimer(name).GetMin()});
         }
     }
 
-    static void AddQuery(std::string name, std::array<GLuint, 2> queries) { 
+    static void AddQuery(std::string name, std::array<GLuint, 2> queries) {
+        std::lock_guard<std::mutex> lock(getQueryMutex()); 
         if (getQueries(name).size() >= MAX_QUERIES) {
             glDeleteQueries(2, getQueries(name).front().data());
             getQueries(name).pop();
@@ -172,6 +183,7 @@ private:
     }
 
     static void PopQuery(std::string name) { 
+        std::lock_guard<std::mutex> lock(getQueryMutex());
         getQueries(name).pop();
         getQueryData()[name].lastUpdate = std::chrono::high_resolution_clock::now();
     }
@@ -213,5 +225,16 @@ private:
 
     static std::queue<std::array<GLuint, 2>>& getQueries(std::string name) {
         return getQueryData()[name].queries;
+    }
+
+
+    static std::mutex& getProfilerMutex() {
+        static std::mutex mutex;
+        return mutex;
+    }
+
+    static std::mutex& getQueryMutex() {
+        static std::mutex mutex;
+        return mutex;
     }
 };

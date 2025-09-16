@@ -19,22 +19,26 @@ LightManager::LightManager(glm::vec3 color, float strength) {
 }
 
 LightManager::~LightManager() {
-    this->LightSSBO.destroy();
+    this->Destroy();
 }
 
 void LightManager::initSSBO() { 
-    this->LightSSBO.destroy();
-    this->LightSSBO.initialize(sizeof(Header) + sizeof(lght::LightBlock) * this->lLight.size(), LIGHT_BINDING_POINT); 
+    this->LightSSBO.Destroy();
+    this->LightSSBO.Initialize(sizeof(Header) + sizeof(lght::LightBlock) * this->lLight.size(), LIGHT_BINDING_POINT);
+}
+
+void LightManager::Destroy() { 
+    this->LightSSBO.Destroy();
 }
 
 void LightManager::updateSSBO() {
     if (this->LightsChanged) {
-        this->LightSSBO.resizePreserveData(sizeof(Header) + sizeof(lght::LightBlock) * this->lLight.size());
+        this->LightSSBO.ResizePreserveData(sizeof(Header) + sizeof(lght::LightBlock) * this->lLight.size());
     }
 
     if (this->LightsChanged || this->AmbientLightChanged) {
         Header hHeader = { .size = this->size, .ambientLight = this->ambientLight };
-        this->LightSSBO.uploadData(&hHeader, sizeof(Header), 0);
+        this->LightSSBO.UploadData(&hHeader, sizeof(Header), 0);
         this->LightsChanged = false;
         this->AmbientLightChanged = false;
     }
@@ -42,13 +46,13 @@ void LightManager::updateSSBO() {
     for (size_t i = 0; i < this->lLight.size(); i++) {
         if (!this->LightChanged[i]) continue;
         lght::LightBlock l = this->lLight[i];
-        this->LightSSBO.uploadData(&l, sizeof(lght::LightBlock), i * sizeof(lght::LightBlock) + sizeof(Header)); 
+        this->LightSSBO.UploadData(&l, sizeof(lght::LightBlock), i * sizeof(lght::LightBlock) + sizeof(Header));
         this->LightChanged[i] = false;
     } 
 }
 
 void LightManager::BindSSBO() { 
-    this->LightSSBO.bindToPoint();
+    this->LightSSBO.BindToPoint();
 }
 
 

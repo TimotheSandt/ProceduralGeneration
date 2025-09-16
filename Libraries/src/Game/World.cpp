@@ -5,6 +5,10 @@ World::World()
 
 }
 
+World::~World() {
+    this->Destroy();
+}
+
 void World::Init()
 {
     this->lightManager.initSSBO();
@@ -26,6 +30,13 @@ void World::Init()
     this->terrain.GenerateFractalTerrain(0.01f, 50.0f, 10, 0.5f, 2.0f);
 
 }
+
+void World::Destroy()
+{
+    this->terrain.Destroy();
+    this->lightManager.Destroy();
+}
+
 
 void World::Update()
 {

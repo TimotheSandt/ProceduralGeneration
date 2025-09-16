@@ -16,8 +16,11 @@ class World
 {
 public:
     World();
+    ~World();
 
     void Init();
+    void Destroy();
+
     void Update();
 
     void Render(Camera& camera);

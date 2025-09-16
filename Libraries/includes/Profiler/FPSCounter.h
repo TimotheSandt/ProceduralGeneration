@@ -19,7 +19,7 @@ class FPSCounter
 public:
     FPSCounter();
     ~FPSCounter();
-    void Destroy();
+    void Destroy() noexcept;
 
     void newFrame(unsigned int maxFPS);
     

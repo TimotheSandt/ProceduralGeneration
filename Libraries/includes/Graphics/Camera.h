@@ -16,9 +16,14 @@ class Camera
 public:
     Camera() = default;
     Camera(int *width, int *height, glm::vec3 position);
-    void initialize(int *width, int *height, glm::vec3 position);
+    ~Camera();
 
-    void updateMatrix(float FOVdeg, float nearPlane, float farPlane);
+    void Destroy();
+
+
+    void Initialize(int *width, int *height, glm::vec3 position);
+
+    void UpdateMatrix(float FOVdeg, float nearPlane, float farPlane);
 
     void Inputs(GLFWwindow* window, float ElapseTime);
 

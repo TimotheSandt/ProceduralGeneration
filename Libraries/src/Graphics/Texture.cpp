@@ -188,6 +188,7 @@ void Texture::Unbind()
 
 void Texture::Destroy()
 {
-    if (this->ID != 0) glDeleteTextures(1, &this->ID);
+    if (this->ID == 0) return;
+    glDeleteTextures(1, &this->ID);
     this->ID = 0;
 }

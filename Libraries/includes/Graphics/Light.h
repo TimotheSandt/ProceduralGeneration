@@ -236,6 +236,7 @@ public:
     LightManager(glm::vec3 color, float strength);
     ~LightManager();
 
+    void Destroy();
 
     void initSSBO();
     void updateSSBO();

@@ -34,8 +34,18 @@ void Shader::SetShader(const char* vertexPath, const char* fragmentPath)
 	this->vertexShaderPath = vertexPath;
 	this->fragmentShaderPath = fragmentPath;
 	
-	vertexSource = get_file_contents(this->vertexShaderPath);
-    fragmentSource = get_file_contents(this->fragmentShaderPath);
+	try {
+	    vertexSource = get_file_contents(this->vertexShaderPath);
+	} catch (const std::exception& e) {
+	    LOG_ERROR(1, "Failed to load vertex shader from ", this->vertexShaderPath, ": ", e.what());
+	    vertexSource = "#version 330 core\nvoid main() { gl_Position = vec4(0.0); }";
+	}
+	try {
+	    fragmentSource = get_file_contents(this->fragmentShaderPath);
+	} catch (const std::exception& e) {
+	    LOG_ERROR(1, "Failed to load fragment shader from ", this->fragmentShaderPath, ": ", e.what());
+	    fragmentSource = "#version 330 core\nout vec4 FragColor; void main() { FragColor = vec4(1.0); }";
+	}
 
 	this->CompileShader();
 }
@@ -101,8 +111,8 @@ void Shader::Unbind()
 
 void Shader::Destroy()
 {
-    if (this->ID != 0) 
-		glDeleteProgram(this->ID);
+    if (this->ID == 0)  return;
+	glDeleteProgram(this->ID);
 	this->ID = 0;
 }
 

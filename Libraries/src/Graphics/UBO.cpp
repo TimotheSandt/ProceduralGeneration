@@ -1,4 +1,5 @@
 #include "UBO.h"
+#include "utilities.h"
 
 UBO::UBO(size_t size, GLuint bindingPoint, GLenum usage) : bindingPoint(bindingPoint), size(size), usage(usage)
 {
@@ -17,25 +18,26 @@ bool UBO::initialize(size_t size, GLuint bindingPoint, GLenum usage)
     this->usage = usage;
 
     glGenBuffers(1, &this->ID);
+    GL_CHECK_ERROR_M("UBO gen");
     if (this->ID == 0) return false;
 
     glBindBuffer(GL_UNIFORM_BUFFER, this->ID);
+    GL_CHECK_ERROR_M("UBO bind");
     glBufferData(GL_UNIFORM_BUFFER, this->size, nullptr, this->usage);
+    GL_CHECK_ERROR_M("UBO buffer data");
     glBindBufferBase(GL_UNIFORM_BUFFER, this->bindingPoint, this->ID);
+    GL_CHECK_ERROR_M("UBO bind base");
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR) {
-        LOG_ERROR(error, "Error initializing UBO");
-        return false;
-    }
+    GL_CHECK_ERROR_M("UBO unbind");
 
     return true;
 }
 
 void UBO::Destroy()
 {
-    if (this->ID != 0) glDeleteBuffers(1, &this->ID);
+    if (this->ID == 0) return;
+    glDeleteBuffers(1, &this->ID);
+    GL_CHECK_ERROR_M("UBO delete");
     this->ID = 0;
     this->bindingPoint = 0;
     this->size = 0;
@@ -51,11 +53,7 @@ void UBO::BindToBindingPoint()
 {
     if (this->ID == 0) return;
     glBindBufferBase(GL_UNIFORM_BUFFER, this->bindingPoint, this->ID);
-#ifdef DEBUG
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR) 
-        LOG_ERROR(error, "Error binding UBO to binding point");
-#endif
+    GL_CHECK_ERROR_M("UBO bind to point");
 }
 
 void UBO::Unbind()
@@ -67,12 +65,11 @@ void UBO::uploadData(const void* data, size_t size, size_t offset)
 {
     if (this->ID == 0) return;
     glBindBuffer(GL_UNIFORM_BUFFER, this->ID);
+    GL_CHECK_ERROR_M("UBO upload bind");
     glBufferSubData(GL_UNIFORM_BUFFER, offset, size, data);
+    GL_CHECK_ERROR_M("UBO upload subdata");
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
-#ifdef DEBUG
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR) LOG_ERROR(error, "Error uploading data to UBO");
-#endif
+    GL_CHECK_ERROR_M("UBO upload unbind");
 }
 
 

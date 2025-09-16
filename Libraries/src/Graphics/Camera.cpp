@@ -8,10 +8,19 @@ struct CameraUBO {
 
 Camera::Camera(int *width, int *height, glm::vec3 position)
     : position(position), width(width), height(height) {
-        this->initialize(width, height, position);
+        this->Initialize(width, height, position);
     }
 
-void Camera::initialize(int *width, int *height, glm::vec3 position) {
+Camera::~Camera() {
+    this->Destroy();
+}
+
+void Camera::Destroy() {
+    this->UBO.Destroy();
+}
+
+
+void Camera::Initialize(int *width, int *height, glm::vec3 position) {
     this->position = position;
     this->width = width;
     this->height = height;
@@ -19,7 +28,7 @@ void Camera::initialize(int *width, int *height, glm::vec3 position) {
 }
 
 
-void Camera::updateMatrix(float FOVdeg, float nearPlane, float farPlane) {
+void Camera::UpdateMatrix(float FOVdeg, float nearPlane, float farPlane) {
     glm::mat4 view = glm::mat4(1.0f);
     glm::mat4 projection = glm::mat4(1.0f);
 

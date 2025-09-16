@@ -23,6 +23,8 @@ public:
     Grid(const Grid& other);
     ~Grid();
 
+    void Destroy();
+
     void init(float size_x, float size_z, int resolution_x, int resolution_z);
 
     void GeneratePoints();

@@ -14,6 +14,9 @@ public:
     TerrainGenerator(int seed);
     TerrainGenerator(float sizeX, float sizeZ, int resX, int resZ);
     TerrainGenerator(float sizeX, float sizeZ, int resX, int resZ, int seed);
+    ~TerrainGenerator();
+    
+    void Destroy();
 
     void init(float sizeX, float sizeZ, int resX, int resZ);
     void Render(Camera& camera);

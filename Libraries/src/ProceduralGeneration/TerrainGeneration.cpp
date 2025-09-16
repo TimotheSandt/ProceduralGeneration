@@ -10,6 +10,14 @@ TerrainGenerator::TerrainGenerator(float sizeX, float sizeZ, int resX, int resZ,
     init(sizeX, sizeZ, resX, resZ);
 }
 
+TerrainGenerator::~TerrainGenerator() {
+    this->Destroy();
+}
+
+void TerrainGenerator::Destroy() {
+    grid.Destroy();
+}
+
 void TerrainGenerator::init(float sizeX, float sizeZ, int resX, int resZ) {
     grid.init(sizeX, sizeZ, resX, resZ);
 }

@@ -15,7 +15,13 @@ Grid::Grid(float size_x, float size_z, int resolution_x, int resolution_z) : siz
 Grid::Grid(const Grid& other) : size_x(other.size_x), size_z(other.size_z), resolution_x(other.resolution_x), resolution_z(other.resolution_z), points(other.points), triangles(other.triangles) { }
 
 Grid::~Grid() {
+    this->Destroy();
+}
+
+void Grid::Destroy() {
     this->points.clear();
+    this->triangles.clear();
+    this->mesh.Destroy();
 }
 
 void Grid::init(float size_x, float size_z, int resolution_x, int resolution_z) {

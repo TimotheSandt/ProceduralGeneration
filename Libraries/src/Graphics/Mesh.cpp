@@ -32,8 +32,8 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
     /**/
     
     
-    this->VAO.initialize();
-    if (glGetError() != GL_NO_ERROR) { 
+    this->VAO.Initialize();
+    if (glGetError() != GL_NO_ERROR) {
         LOG_ERROR(1, "VAO initialization failed");
     }
     this->VAO.Generate();
@@ -91,10 +91,12 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
 
 void Mesh::Destroy() {
     this->VAO.Destroy();
+    this->UBO.Destroy();
     this->shader.Destroy();
     for (GLuint i = 0; i < this->textures.size(); i++) {
         this->textures[i].Destroy();
     }
+    this->textures.clear();
     this->FreeCache();
 }
 

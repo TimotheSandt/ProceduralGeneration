@@ -10,12 +10,15 @@ Game::~Game() {
 void Game::init() {
     int *w = window.GetWidthptr();
 	int *h = window.GetHeightptr();
-	this->camera.initialize(w, h, glm::vec3(0.0f, 1.0f, 0.0f));
+	this->camera.Initialize(w, h, glm::vec3(0.0f, 1.0f, 0.0f));
 
     this->world.Init();
 }
 
 void Game::stop() {
+    glfwMakeContextCurrent(this->window.GetWindow());
+    this->world.Destroy();
+    this->camera.Destroy();
     this->window.Close();
 }
 
@@ -46,7 +49,7 @@ void Game::processInput() {
 
 void Game::update() {
     this->camera.Inputs(this->window.GetWindow(), 1.0 / this->window.GetFPS());
-    this->camera.updateMatrix(75.0f, 0.1f, 1000.0f);
+    this->camera.UpdateMatrix(75.0f, 0.1f, 1000.0f);
 
     this->world.Update();
 }

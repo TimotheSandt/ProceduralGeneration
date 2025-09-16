@@ -6,19 +6,17 @@ FPSCounter::FPSCounter() :
     frameStartTime(std::chrono::high_resolution_clock::now()),
     nextFrameTime(std::chrono::high_resolution_clock::now())
 {
-    this->fpsBuffer.init(this->BufferSize);
-    this->elapseTimeBuffer.init(this->BufferSize);
+    this->fpsBuffer.Init(this->BufferSize);
+    this->elapseTimeBuffer.Init(this->BufferSize);
     this->initializePlatformTimer();
 }
 
-FPSCounter::~FPSCounter() {
-    this->Destroy();
+FPSCounter::~FPSCounter() noexcept {
+    this->cleanupPlatformTimer();
 }
 
-void FPSCounter::Destroy() {
+void FPSCounter::Destroy() noexcept {
     this->cleanupPlatformTimer();
-    this->fpsBuffer.destroy();
-    this->elapseTimeBuffer.destroy();
 }
 
 void FPSCounter::newFrame(unsigned int maxFPS) {
@@ -241,18 +239,18 @@ void FPSCounter::cleanupPlatformTimer() {
 
 void FPSCounter::updateBuffers() {
     double currentFps = this->fps.load(std::memory_order_relaxed);
-    this->fpsBuffer.push(currentFps);
-    this->elapseTimeBuffer.push(static_cast<double>(this->elapseTime.count()));
+    this->fpsBuffer.Push(currentFps);
+    this->elapseTimeBuffer.Push(static_cast<double>(this->elapseTime.count()));
 }
 
 void FPSCounter::updateStat() {
-    this->avgFps = this->fpsBuffer.getAverage();
-    this->maxFps = this->fpsBuffer.getMax();
-    this->minFps = this->fpsBuffer.getMin();
+    this->avgFps = this->fpsBuffer.GetAverage();
+    this->maxFps = this->fpsBuffer.GetMax();
+    this->minFps = this->fpsBuffer.GetMin();
     
-    this->avgElapseTimens = this->elapseTimeBuffer.getAverage();
-    this->maxElapseTimens = this->elapseTimeBuffer.getMax();
-    this->minElapseTimens = this->elapseTimeBuffer.getMin();
+    this->avgElapseTimens = this->elapseTimeBuffer.GetAverage();
+    this->maxElapseTimens = this->elapseTimeBuffer.GetMax();
+    this->minElapseTimens = this->elapseTimeBuffer.GetMin();
 }
 
 // Configuration methods

@@ -23,6 +23,8 @@ public:
     Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib, 
         std::vector<GLfloat> instances, std::vector<GLuint> SizeAttribInstance);
 
+    ~Mesh() { this->Destroy(); }
+
 
     void Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib);
     void Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib,

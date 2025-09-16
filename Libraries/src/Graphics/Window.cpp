@@ -84,6 +84,10 @@ void Window::Close() {
     if (!this->window) return;
 
     this->ClearCallbacks();
+    
+    this->fboRendering.Destroy();
+    this->fboUpscaled.Destroy();
+    
     glfwDestroyWindow(this->window);
     this->window = nullptr;
 
@@ -132,6 +136,7 @@ bool Window::InitOpenGL() {
 
 void Window::TerminateOpenGL() {
     if (!isOpenGLInitialized) return;
+    glfwSetErrorCallback(nullptr);
     glfwTerminate();
     isOpenGLInitialized = false;
 }
@@ -417,11 +422,6 @@ void Window::SetupCallbacks() {
         catch (...) {
             // Ignorer les erreurs dans ce callback
         }
-    });
-
-    // Callback d'erreur GLFW pour diagnostiquer les problèmes
-    glfwSetErrorCallback([](int error_code, const char* description) {
-        LOG_ERROR(error_code, "GLFW Error: ", description);
     });
     
     glfwSetWindowSizeCallback(this->window, [](GLFWwindow* window, int width, int height) {

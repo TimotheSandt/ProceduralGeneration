@@ -1,132 +1,172 @@
 #pragma once
 
+#include <chrono>
+#include <type_traits>
+#include "Logger.h"
+
 #define MIN_CAPACITY 10ULL
 #define MAX_CAPACITY 0x8000ULL
 #define DEFAULT_CAPACITY 50ULL
 
 template <typename Type>
-class RingBuffer 
+class RingBuffer
 {
 public:
-    RingBuffer() {
-        this->init(DEFAULT_CAPACITY);
+    RingBuffer() noexcept {
+        this->Init(DEFAULT_CAPACITY);
     }
 
-    RingBuffer(size_t capacity)
+    RingBuffer(size_t capacity) noexcept
     {
-        this->init(capacity);
+        this->Init(capacity);
     }
 
-    void init(size_t capacity) {
+    ~RingBuffer() noexcept {
+        this->Destroy();
+    }
 
-        this->capacity = std::min(std::max(capacity, MIN_CAPACITY), MAX_CAPACITY);
+    void Init(size_t capacity) noexcept {
+        capacity = std::min(std::max(capacity, MIN_CAPACITY), MAX_CAPACITY);
         if (this->buffer != nullptr)
             delete[] this->buffer;
-        this->buffer = new Type[this->capacity] { Type(0) };
-    };
+        this->buffer = new Type[capacity]();
+        this->capacity = capacity;
+        this->size = 0;
+        this->index = 0;
+    }
 
-    void destroy()
+    void Destroy() noexcept
     {
-        if (this->buffer != nullptr)
+        if (this->buffer != nullptr) {
             delete[] this->buffer;
-    };
-
-    void clear() {
-        for (size_t i = 0; i < this->capacity; i++) {
-            this->buffer[i] = Type(0);
+            this->buffer = nullptr;
         }
+        this->capacity = 0;
+        this->size = 0;
+        this->index = 0;
+    }
+
+    void Clear() noexcept {
+        if (this->size == 0) return;
+        for (size_t i = 0; i < this->size; ++i) {
+            this->buffer[(this->index - i) % this->capacity] = Type();
+        }
+        this->size = 0;
         this->index = 0;
     }
 
 
-    void push(Type value)
+    void Push(Type value) noexcept
     {
-        this->size = std::min(this->size + 1, this->capacity);
+        if (this->size < this->capacity) {
+            ++this->size;
+        }
         this->index = (this->index + 1) % this->capacity;
         this->buffer[this->index] = value;
-    };
-
-    void resize(size_t size) {
-        size = std::min(std::max(size, MIN_CAPACITY), MAX_CAPACITY);
-        Type *newBuffer = new Type[size] { Type(0) };
-        for (size_t i = 0; i < this->capacity && i < size; i++) {
-            newBuffer[std::min(size, this->capacity) - i - 1] = this->get(i);
-        }
-
-        if (this->buffer != nullptr)
-            delete[] this->buffer;
-        this->capacity = size;
-        this->size = std::min(this->size, this->capacity); 
-        this->buffer = newBuffer;
     }
 
-    size_t getCapacity()
-    {
-        return this->capacity;
-    };
+    void Resize(size_t newCapacity) noexcept {
+        newCapacity = std::min(std::max(newCapacity, MIN_CAPACITY), MAX_CAPACITY);
+        if (newCapacity == this->capacity) return;
 
-    size_t getSize()
-    {
-        return this->size;
-    };
-
-    Type get(size_t i)
-    {
-        i = i % this->size;
-        return this->buffer[(this->index - i - 1) % this->capacity];
-    };
-
-
-    Type getAverage()
-    {
-        if (this->size == 0)
-            return Type(0);
-            
-        Type sum = this->buffer[0];
-        for (size_t i = 1; i < capacity; i++) {
-            sum += this->buffer[i];
+        Type *newBuffer = new Type[newCapacity]();
+        size_t copySize = std::min(this->size, newCapacity);
+        for (size_t i = 0; i < copySize; ++i) {
+            newBuffer[newCapacity - i - 1] = Get(i);
         }
 
-        return sum / this->size;
+        delete[] this->buffer;
+        this->buffer = newBuffer;
+        this->capacity = newCapacity;
+        this->size = copySize;
+        this->index = (this->capacity - this->size) % this->capacity;
+    }
+
+    [[nodiscard]] size_t GetCapacity() const noexcept
+    {
+        return this->capacity;
+    }
+
+    [[nodiscard]] size_t GetSize() const noexcept
+    {
+        return this->size;
+    }
+
+    [[nodiscard]] Type Get(size_t i) const noexcept
+    {
+        if (this->size == 0) return Type();
+        i = i % this->size;
+        return this->buffer[(this->index - i + this->capacity) % this->capacity];
     };
 
-    Type getSum()
+
+    [[nodiscard]] Type GetAverage() const noexcept
     {
-        Type sum = this->buffer[0];
-        for (size_t i = 1; i < capacity; i++) {
-            sum += this->buffer[i];
+        if (this->size == 0) return Type();
+        if constexpr (
+            std::is_same_v<Type, std::chrono::nanoseconds> || 
+            std::is_same_v<Type, std::chrono::microseconds> || 
+            std::is_same_v<Type, std::chrono::milliseconds> || 
+            std::is_same_v<Type, std::chrono::seconds> || 
+            std::is_same_v<Type, std::chrono::minutes> || 
+            std::is_same_v<Type, std::chrono::hours>) 
+        {
+            using rep_t = long long;
+            rep_t sum_rep = this->Get(0).count();
+            for (size_t i = 1; i < this->size; ++i) {
+                sum_rep += this->Get(i).count();
+            }
+            return Type(sum_rep / static_cast<rep_t>(this->size));
+        } else if constexpr (std::is_arithmetic_v<Type>) {
+            Type sum = GetSum();
+            return sum / static_cast<Type>(this->size);
+        }
+        LOG_ERROR(-1, "Unsupported type");
+        return Type();
+    };
+
+    [[nodiscard]] Type GetSum() const noexcept
+    {
+        if (this->size == 0)
+            return Type();
+            
+        Type sum = this->Get(0);
+        for (size_t i = 1; i < this->size; i++) {
+            sum += this->Get(i);
         }
 
         return sum;
     };
 
-    Type getMin()
+    [[nodiscard]] Type GetMin() const noexcept
     {
-        Type min = this->buffer[0];
-        for (size_t i = 1; i < capacity; i++) {
-            if (this->buffer[i] < min) {
-                min = this->buffer[i];
+        if (this->size == 0) return Type();
+        Type min = this->Get(0);
+        for (size_t i = 1; i < this->size; i++) {
+            if (this->Get(i) < min) {
+                min = this->Get(i);
             }
-        }        
+        }
 
         return min;
     };
 
-    Type getMax()
+    [[nodiscard]] Type GetMax() const noexcept
     {
-        Type max = this->buffer[0];
-        for (size_t i = 1; i < size; i++) {
-            if (this->buffer[i] > max) {
-                max = this->buffer[i];
+        if (this->size == 0) return Type();
+        Type max = this->Get(0);
+        for (size_t i = 1; i < this->size; i++) {
+            if (this->Get(i) > max) {
+                max = this->Get(i);
             }
-        }        
+        }
 
         return max;
     };
 
 private:
     size_t index = 0;
-    size_t capacity;
+    size_t capacity = 0;
     size_t size = 0;
     Type *buffer = nullptr;
 };

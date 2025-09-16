@@ -7,8 +7,15 @@ class VAO
 {
 public:
     VAO() {};
+    ~VAO() { this->Destroy(); };
 
-    void initialize();
+    VAO(const VAO&) = delete;
+    VAO& operator=(const VAO&) = delete;
+
+    VAO(VAO&& other) noexcept;
+    VAO& operator=(VAO&& other) noexcept;
+
+    void Initialize();
 
     void Generate();
 

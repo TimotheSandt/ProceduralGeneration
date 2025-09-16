@@ -151,8 +151,8 @@ void FBO::Setup() {
 
     this->screenQuadShader.SetShader("res/shader/upscaling/upscale.vert", "res/shader/upscaling/upscale.frag");
 
-    this->screenQuadVAO.initialize();
-    if (glGetError() != GL_NO_ERROR) { 
+    this->screenQuadVAO.Initialize();
+    if (glGetError() != GL_NO_ERROR) {
         LOG_ERROR(1, "VAO initialization failed");
     }
     this->screenQuadVAO.Generate();

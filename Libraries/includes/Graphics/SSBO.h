@@ -30,21 +30,21 @@ public:
     SSBO(SSBO&& other) noexcept;
     SSBO& operator=(SSBO&& other) noexcept;
 
-    bool initialize(size_t size, GLuint bindingPoint, Usage usage = DYNAMIC_DRAW);
+    bool Initialize(size_t size, GLuint bindingPoint, Usage usage = DYNAMIC_DRAW);
 
-    void uploadData(const void* data, size_t size, size_t offset = 0);
-    void downloadData(void* data, size_t size, size_t offset = 0) const;
+    void UploadData(const void* data, size_t size, size_t offset = 0);
+    void DownloadData(void* data, size_t size, size_t offset = 0) const;
 
-    void resize(size_t newSize);
-    void resizePreserveData(size_t newSize);
+    void Resize(size_t newSize);
+    void ResizePreserveData(size_t newSize);
 
-    void bind() const;
-    void bindToPoint() const;
-    void unbind() const;
+    void Bind() const;
+    void BindToPoint() const;
+    void Unbind() const;
 
-    void clear();
+    void Clear();
 
-    void destroy();
+    void Destroy();
 
     bool isInitialized() const { return ID != 0; }
 
@@ -53,8 +53,8 @@ public:
     GLuint getBindingPoint() const { return bindingPoint; }
     Usage getUsage() const { return usage; }
 
-    void* mapBuffer(GLenum access = GL_READ_WRITE);
-    void unmapBuffer();
+    void* MapBuffer(GLenum access = GL_READ_WRITE);
+    void UnmapBuffer();
 
     static void checkGLError(const std::string& operation);
 

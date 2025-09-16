@@ -1,5 +1,11 @@
 #include "utilities.h"
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/rotate_vector.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+
 
 float lerp(float a, float b, float t) {
     return a + t * (b - a);
