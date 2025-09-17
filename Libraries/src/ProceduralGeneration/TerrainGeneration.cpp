@@ -1,6 +1,6 @@
 #include "TerrainGenerator.h"
 
-#define UNREFERENCED_PARAMETER(P) {(P) = (P);}
+#include "utilities.h"
 
 TerrainGenerator::TerrainGenerator(int seed) : noise(seed) {}
 TerrainGenerator::TerrainGenerator(float sizeX, float sizeZ, int resX, int resZ) : noise() {

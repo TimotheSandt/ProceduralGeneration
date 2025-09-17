@@ -1,6 +1,8 @@
 #include "Window.h"
 
 #include "PriorityHelper.h"
+#include "Logger.h"
+#include "utilities.h"
 
 
 bool Window::isOpenGLInitialized = false;
@@ -85,8 +87,8 @@ void Window::Close() {
 
     this->ClearCallbacks();
     
-    this->fboRendering.Destroy();
-    this->fboUpscaled.Destroy();
+    this->FBORendering.Destroy();
+    this->FBOUpscaled.Destroy();
     
     glfwDestroyWindow(this->window);
     this->window = nullptr;

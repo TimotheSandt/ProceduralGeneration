@@ -8,8 +8,6 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/vector_angle.hpp> 
 
-#include "Logger.h"
-
 #include "FBO.h"
 
 #include "FPSCounter.h"
@@ -147,8 +145,8 @@ private:
 private:
     GLFWwindow* window;
 
-    FBO fboRendering;
-    FBO fboUpscaled;
+    FBO FBORendering;
+    FBO FBOUpscaled;
 
     Parameters parameters;
 

@@ -6,14 +6,6 @@
 
 #include "RingBuffer.h"
 
-// Platform-specific includes for high-resolution sleep
-#ifdef _WIN32
-#include <windows.h>
-#elif defined(__linux__)
-#include <time.h>
-#include <unistd.h>
-#endif
-
 class FPSCounter
 {
 public:

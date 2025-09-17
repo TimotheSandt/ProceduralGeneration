@@ -16,7 +16,7 @@ Camera::~Camera() {
 }
 
 void Camera::Destroy() {
-    this->UBO.Destroy();
+    this->bUBO.Destroy();
 }
 
 
@@ -24,7 +24,7 @@ void Camera::Initialize(int *width, int *height, glm::vec3 position) {
     this->position = position;
     this->width = width;
     this->height = height;
-    this->UBO.initialize(sizeof(CameraUBO), CAMERA_BINDING_POINT, GL_DYNAMIC_DRAW);
+    this->bUBO.initialize(sizeof(CameraUBO), CAMERA_BINDING_POINT, GL_DYNAMIC_DRAW);
 }
 
 
@@ -114,11 +114,11 @@ void Camera::Inputs(GLFWwindow* window, float ElapseTime) {
 
 void Camera::UpdateUBO() {
     CameraUBO data = { this->position, 0, this->camMatrix };
-    this->UBO.uploadData(&data, sizeof(CameraUBO));
+    this->bUBO.uploadData(&data, sizeof(CameraUBO));
 }
 
 void Camera::BindUBO() {
-    this->UBO.BindToBindingPoint();
+    this->bUBO.BindToBindingPoint();
 }
 
 

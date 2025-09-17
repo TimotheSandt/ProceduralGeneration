@@ -51,7 +51,7 @@ private:
 
     bool firstClick = true;
 
-    UBO UBO;
+    UBO bUBO;
     bool isWireframe = false;
 
 private:

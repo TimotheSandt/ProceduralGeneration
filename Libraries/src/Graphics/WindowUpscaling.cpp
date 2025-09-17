@@ -35,26 +35,26 @@ void Window::EnableUpscaling(bool enable) {
 void Window::UpdateFBOResotution() {
     parameters.renderWidth = static_cast<int>(parameters.width * parameters.renderScale);
     parameters.renderHeight = static_cast<int>(parameters.height * parameters.renderScale);
-    fboRendering.Resize(parameters.renderWidth, parameters.renderHeight);
-    fboUpscaled.Resize(parameters.width, parameters.height);
+    FBORendering.Resize(parameters.renderWidth, parameters.renderHeight);
+    FBOUpscaled.Resize(parameters.width, parameters.height);
 }
 
 void Window::InitFBOs() {
-    fboUpscaled.Destroy();
-    fboRendering.Destroy();
+    FBOUpscaled.Destroy();
+    FBORendering.Destroy();
 
-    fboUpscaled.Init(parameters.width, parameters.height);
-    fboRendering.Init(parameters.renderWidth, parameters.renderHeight);
+    FBOUpscaled.Init(parameters.width, parameters.height);
+    FBORendering.Init(parameters.renderWidth, parameters.renderHeight);
 }
 
 void Window::StartRenderFBO(){
-    fboRendering.Bind();
+    FBORendering.Bind();
 }
 void Window::EndRenderFBO(){
     glViewport(0, 0, parameters.width, parameters.height);
 
-    fboRendering.Unbind();
-    fboRendering.RenderScreenQuad(parameters.width, parameters.height);
+    FBORendering.Unbind();
+    FBORendering.RenderScreenQuad(parameters.width, parameters.height);
     // fboRendering.BlitToScreen(parameters.width, parameters.height);
 
     // fboUpscaled.BlitFBO(fboRendering);

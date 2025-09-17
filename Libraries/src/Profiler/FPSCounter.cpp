@@ -1,6 +1,15 @@
 #include "FPSCounter.h"
 #include <algorithm>
 
+
+// Platform-specific includes for high-resolution sleep
+#ifdef _WIN32
+#include <windows.h>
+#elif defined(__linux__)
+#include <time.h>
+#include <unistd.h>
+#endif
+
 FPSCounter::FPSCounter() :
     lastTime(std::chrono::high_resolution_clock::now()),
     frameStartTime(std::chrono::high_resolution_clock::now()),

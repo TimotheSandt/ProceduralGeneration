@@ -70,8 +70,8 @@ private:
 
     GLuint instancing;
 
-    VAO VAO;
-    UBO UBO;
+    VAO bVAO;
+    UBO bUBO;
 
 
 private:

@@ -5,6 +5,27 @@ CXX = g++
 CC = gcc
 PROJECT_NAME = ProceduralGeneration
 
+# OS detection
+OS := $(shell uname -s 2>/dev/null || echo Windows)
+ifeq ($(OS),Linux)
+	LDFLAGS_LINUX = -lglfw -lGL -lpthread -lX11 -ldl -lm
+	COPY_LIBS_NORMAL =
+	COPY_LIBS_DEBUG =
+	COPY_LIBS_RELEASE =
+else ifeq ($(OS),Darwin)
+	LDFLAGS_DARWIN = -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
+	COPY_LIBS_NORMAL =
+	COPY_LIBS_DEBUG =
+	COPY_LIBS_RELEASE =
+else
+	LDFLAGS_WINDOWS = -LLibraries/libs/ThirdParty/ -lglfw3dll -lstb_image -lpsapi -lwinmm
+	COPY_LIBS_NORMAL = copy_libs_normal
+	COPY_LIBS_DEBUG = copy_libs_debug
+	COPY_LIBS_RELEASE = copy_libs_release
+endif
+
+LDFLAGS = $(LDFLAGS_$(OS))
+
 # Flags
 CFLAGS = -Wall -Wextra -Werror -m64
 CXXFLAGS = $(CFLAGS) -std=c++23
@@ -18,7 +39,8 @@ INCLUDES_DIRS := $(notdir $(wildcard $(INCLUDES_BASE)/*))
 INCLUDES := -I$(INCLUDES_BASE) $(foreach dir,$(INCLUDES_DIRS),-I$(INCLUDES_BASE)/$(dir))
 
 # Linker
-LDFLAGS = -LLibraries/libs/ThirdParty/ -lglfw3dll -lstb_image -lpsapi -lwinmm 
+
+# Directories
 
 # Directories
 LIBRARIES_SRC_DIR = Libraries/src
@@ -111,9 +133,9 @@ copy_res_release: | $(BIN_DIR)/release
 	@echo "Copying resources to $(BIN_DIR)/release"
 	@cp -r $(RES_DIR) $(BIN_DIR)/release
 
-all_copy_normal: copy_libs_normal copy_res_normal
-all_copy_debug: copy_libs_debug copy_res_debug
-all_copy_release: copy_libs_release copy_res_release
+all_copy_normal: $(COPY_LIBS_NORMAL) copy_res_normal
+all_copy_debug: $(COPY_LIBS_DEBUG) copy_res_debug
+all_copy_release: $(COPY_LIBS_RELEASE) copy_res_release
  
 # Build all objects
 # Normal build

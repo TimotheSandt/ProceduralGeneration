@@ -1,6 +1,8 @@
 #pragma once
 
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <string>
 
 #include "Logger.h"
@@ -17,7 +19,7 @@ public:
     static void DisplayCurrentPriority();
 
     // Get current executable path
-    static std::wstring GetExecutablePath();
+    static std::string GetExecutablePath();
 
     // Apply additional performance tweaks
     static void ApplyPerformanceTweaks();

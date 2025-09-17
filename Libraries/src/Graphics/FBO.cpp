@@ -171,7 +171,7 @@ void FBO::Setup() {
     GL_CHECK_ERROR_M("FBO screen VAO bind");
 
     VBO bVBO(vertices);
-    EBO EBO(indices);
+    EBO bEBO(indices);
 
     this->screenQuadVAO.LinkAttrib(bVBO, 0, 2, GL_FLOAT, 4 * sizeof(GLfloat), 0);
     this->screenQuadVAO.LinkAttrib(bVBO, 1, 2, GL_FLOAT, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
@@ -180,7 +180,7 @@ void FBO::Setup() {
 
     this->screenQuadVAO.Unbind();
     bVBO.Unbind();
-    EBO.Unbind();
+    bEBO.Unbind();
 }
 
 

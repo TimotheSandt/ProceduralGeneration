@@ -32,15 +32,15 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
     /**/
     
     
-    this->VAO.Initialize();
+    this->bVAO.Initialize();
     if (glGetError() != GL_NO_ERROR) {
         LOG_ERROR(1, "VAO initialization failed");
     }
-    this->VAO.Generate();
-    this->VAO.Bind();
+    this->bVAO.Generate();
+    this->bVAO.Bind();
 
     VBO bVBO(this->vertices);
-    EBO EBO(this->indices);
+    EBO bEBO(this->indices);
 
     int numComponents = 0;
     for (GLuint i = 0; i < sizeAttrib.size(); i++) {
@@ -50,7 +50,7 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
     int offset = 0; 
     GLuint i = 0;
     for (; i < sizeAttrib.size(); i++) {
-        this->VAO.LinkAttrib(bVBO, i, sizeAttrib[i], GL_FLOAT, numComponents * sizeof(GLfloat), (void*)(offset * sizeof(GLfloat)));
+        this->bVAO.LinkAttrib(bVBO, i, sizeAttrib[i], GL_FLOAT, numComponents * sizeof(GLfloat), (void*)(offset * sizeof(GLfloat)));
         offset += sizeAttrib[i];
     }
 
@@ -66,7 +66,7 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
         offset = 0;
         i = sizeAttrib.size();
         for (; i < sizeAttrib.size() + SizeAttribInstance.size(); i++) {
-            this->VAO.LinkAttrib(instanceVBO, i, SizeAttribInstance[i - sizeAttrib.size()], GL_FLOAT, numComponents * sizeof(GLfloat), (void*)(offset * sizeof(GLfloat)));
+            this->bVAO.LinkAttrib(instanceVBO, i, SizeAttribInstance[i - sizeAttrib.size()], GL_FLOAT, numComponents * sizeof(GLfloat), (void*)(offset * sizeof(GLfloat)));
             offset += SizeAttribInstance[i - sizeAttrib.size()];
         }
 
@@ -75,23 +75,23 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
             glVertexAttribDivisor(i, 1);
         }
         
-        this->VAO.Unbind();
+        this->bVAO.Unbind();
         bVBO.Unbind();
         instanceVBO.Unbind();
-        EBO.Unbind();
+        bEBO.Unbind();
     } else {
-        this->VAO.Unbind();
+        this->bVAO.Unbind();
         bVBO.Unbind();
-        EBO.Unbind();
+        bEBO.Unbind();
     }
 
-    this->UBO.initialize(sizeof(glm::mat4), MESH_MODEL_BINDING_POINT);
+    this->bUBO.initialize(sizeof(glm::mat4), MESH_MODEL_BINDING_POINT);
 }
 
 
 void Mesh::Destroy() {
-    this->VAO.Destroy();
-    this->UBO.Destroy();
+    this->bVAO.Destroy();
+    this->bUBO.Destroy();
     this->shader.Destroy();
     for (GLuint i = 0; i < this->textures.size(); i++) {
         this->textures[i].Destroy();
@@ -117,13 +117,13 @@ void Mesh::Render(Camera& camera)
         return;
     }
     this->shader.Bind();
-    this->VAO.Bind();
+    this->bVAO.Bind();
     for (GLuint i = 0; i < this->textures.size(); i++) {
         this->textures[i].texUnit(this->shader);
         
         this->textures[i].Bind();
     }
-    this->UBO.BindToBindingPoint();
+    this->bUBO.BindToBindingPoint();
     this->Draw();
     if (camera.IsWireframe()) {
         GLint wireframe = GL_TRUE;
@@ -133,9 +133,9 @@ void Mesh::Render(Camera& camera)
         this->InitUniform1i("wireframe", &wireframe);
     }
     
-    this->VAO.Unbind();
+    this->bVAO.Unbind();
     this->shader.Unbind();
-    this->UBO.Unbind();
+    this->bUBO.Unbind();
     for (GLuint i = 0; i < this->textures.size(); i++) {
         this->textures[i].Unbind();
     }
@@ -173,5 +173,5 @@ void Mesh::UpdateUBO()
     model = glm::rotate(model, glm::radians(this->rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
     model = glm::scale(model, this->scale);
 
-    this->UBO.uploadData(glm::value_ptr(model), sizeof(glm::mat4));
+    this->bUBO.uploadData(glm::value_ptr(model), sizeof(glm::mat4));
 }
