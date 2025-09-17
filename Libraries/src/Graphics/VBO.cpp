@@ -1,5 +1,5 @@
 #include "VBO.h"
-#include "utilities.h"
+#include "Logger.h"
 
 VBO::VBO() : ID(0) {}
 

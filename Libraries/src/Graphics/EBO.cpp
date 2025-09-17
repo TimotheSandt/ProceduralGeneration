@@ -1,6 +1,6 @@
 #include "EBO.h"
-#include "Utilities/Logger.h"
-#include "utilities.h"
+
+#include "Logger.h"
 
 EBO::EBO() : ID(0) {}
 
@@ -26,6 +26,7 @@ EBO::~EBO()
 
 void EBO::Bind()
 {
+    if (this->ID == 0) return;
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ID);
 }
 
@@ -47,7 +48,7 @@ void EBO::UploadData(const void* data, GLsizeiptr size)
 {
     this->Bind();
     glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, size, data);
-    GL_CHECK_ERROR();
+    GL_CHECK_ERROR_M("Failed to upload data to EBO");
     this->Unbind();
 }
 

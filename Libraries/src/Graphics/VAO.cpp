@@ -1,5 +1,5 @@
 #include "VAO.h"
-#include "utilities.h"
+#include "Logger.h"
 
 void VAO::Initialize()
 {

@@ -91,7 +91,6 @@ private:
     static void ChangeColor(const std::string& color);
     static void ResetColor();
 
-
     static std::vector<LogMessage> logs;
     static LogLevel lLevelPrinted;
     static std::mutex logMutex;
@@ -182,4 +181,23 @@ void Logger::LogError(
     #define LOG_EWARNING(...) Logger::LogError(L_WARNING, __VA_ARGS__)
     #define LOG_ERROR(...) Logger::LogError(L_ERROR, __VA_ARGS__)
     #define LOG_FATAL(...) Logger::LogError(L_FATAL, __VA_ARGS__)
+#endif
+
+#ifdef DEBUG
+#define GL_CHECK_ERROR_M(...) do { \
+    GLenum err; \
+    while ((err = glGetError()) != GL_NO_ERROR) { \
+        LOG_ERROR(err, "OpenGL error : ", __VA_ARGS__); \
+    } \
+} while (0)
+
+#define GL_CHECK_ERROR() do { \
+    GLenum err; \
+    while ((err = glGetError()) != GL_NO_ERROR) { \
+        LOG_ERROR(err, "OpenGL error"); \
+    } \
+} while (0)
+#else
+#define GL_CHECK_ERROR()
+#define GL_CHECK_ERROR_M(...)
 #endif

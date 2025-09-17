@@ -1,5 +1,5 @@
 #include "SSBO.h"
-#include "utilities.h"
+#include "Logger.h"
 
 SSBO::SSBO() : ID(0), bindingPoint(0), size(0), usage(DYNAMIC_DRAW) {}
 

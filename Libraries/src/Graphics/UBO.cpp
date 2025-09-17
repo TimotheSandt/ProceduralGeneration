@@ -1,5 +1,5 @@
 #include "UBO.h"
-#include "utilities.h"
+#include "Logger.h"
 
 UBO::UBO(size_t size, GLuint bindingPoint, GLenum usage) : bindingPoint(bindingPoint), size(size), usage(usage)
 {

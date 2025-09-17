@@ -29,17 +29,25 @@ void FBO::Init(int width, int height) {
     this->height = height;
 
     glGenFramebuffers(1, &ID);
+    GL_CHECK_ERROR_M("FBO gen");
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
+    GL_CHECK_ERROR_M("FBO bind init");
     
     TextureColor.SetFramebufferTexture("screenTexture", 0, width, height, this->ID);
     
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
+    GL_CHECK_ERROR_M("FBO rebind init");
     glGenRenderbuffers(1, &depthBuffer);
+    GL_CHECK_ERROR_M("FBO depth gen");
     glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
+    GL_CHECK_ERROR_M("FBO depth bind");
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
+    GL_CHECK_ERROR_M("FBO depth storage");
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
+    GL_CHECK_ERROR_M("FBO depth attach");
 
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    GL_CHECK_ERROR_M("FBO status check");
     if (status != GL_FRAMEBUFFER_COMPLETE) {
         LOG_ERROR(status, "FBO incomplete");
         return;
@@ -51,12 +59,16 @@ void FBO::Init(int width, int height) {
 }
 
 void FBO::Bind() {
+    if (ID == 0) return;
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
+    GL_CHECK_ERROR_M("FBO bind");
     glViewport(0, 0, width, height);
+    GL_CHECK_ERROR_M("FBO viewport");
 }
 
 void FBO::Unbind() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    GL_CHECK_ERROR_M("FBO unbind");
 }
 
 void FBO::Resize(int newWidth, int newHeight) {
@@ -73,11 +85,15 @@ void FBO::Resize(int newWidth, int newHeight) {
     
     // Resize the depth buffer
     glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
+    GL_CHECK_ERROR_M("FBO resize depth bind");
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
+    GL_CHECK_ERROR_M("FBO resize depth storage");
     
     // Verify the framebuffer is still complete
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
+    GL_CHECK_ERROR_M("FBO resize bind");
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    GL_CHECK_ERROR_M("FBO resize status check");
     if (status != GL_FRAMEBUFFER_COMPLETE) {
         LOG_ERROR(status, "FBO incomplete after resize: ");
     }
@@ -97,18 +113,16 @@ void FBO::BlitFBO(FBO& oFBO) {
     }
     
     glBindFramebuffer(GL_READ_FRAMEBUFFER, oID);
+    GL_CHECK_ERROR_M("FBO blit read bind");
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ID);
+    GL_CHECK_ERROR_M("FBO blit draw bind");
     
-    glBlitFramebuffer(0, 0, oWidth, oHeight, 0, 0, width, height, 
+    glBlitFramebuffer(0, 0, oWidth, oHeight, 0, 0, width, height,
         GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    glBlitFramebuffer(0, 0, oWidth, oHeight, 0, 0, width, height, 
+    GL_CHECK_ERROR_M("FBO blit color");
+    glBlitFramebuffer(0, 0, oWidth, oHeight, 0, 0, width, height,
         GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-#ifdef DEBUG
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR) {
-        LOG_ERROR(error, "glBlitFramebuffer error");
-    }
-#endif
+    GL_CHECK_ERROR_M("FBO blit depth");
     
     this->Unbind();
 }
@@ -120,18 +134,16 @@ void FBO::BlitToScreen(int sWidth, int sHeight) {
     }
     
     glBindFramebuffer(GL_READ_FRAMEBUFFER, ID);
+    GL_CHECK_ERROR_M("FBO screen blit read bind");
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    GL_CHECK_ERROR_M("FBO screen blit draw bind");
     
-    glBlitFramebuffer(0, 0, width, height, 0, 0, sWidth, sHeight, 
+    glBlitFramebuffer(0, 0, width, height, 0, 0, sWidth, sHeight,
         GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    glBlitFramebuffer(0, 0, width, height, 0, 0, sWidth, sHeight, 
+    GL_CHECK_ERROR_M("FBO screen blit color");
+    glBlitFramebuffer(0, 0, width, height, 0, 0, sWidth, sHeight,
         GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-#ifdef DEBUG
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR) {
-        LOG_ERROR(error, "glBlitFramebuffer to screen error");
-    }
-#endif
+    GL_CHECK_ERROR_M("FBO screen blit depth");
     
     this->Unbind();
 }
@@ -152,11 +164,11 @@ void FBO::Setup() {
     this->screenQuadShader.SetShader("res/shader/upscaling/upscale.vert", "res/shader/upscaling/upscale.frag");
 
     this->screenQuadVAO.Initialize();
-    if (glGetError() != GL_NO_ERROR) {
-        LOG_ERROR(1, "VAO initialization failed");
-    }
+    GL_CHECK_ERROR_M("FBO screen VAO init");
     this->screenQuadVAO.Generate();
+    GL_CHECK_ERROR_M("FBO screen VAO gen");
     this->screenQuadVAO.Bind();
+    GL_CHECK_ERROR_M("FBO screen VAO bind");
 
     VBO bVBO(vertices);
     EBO EBO(indices);
@@ -164,9 +176,7 @@ void FBO::Setup() {
     this->screenQuadVAO.LinkAttrib(bVBO, 0, 2, GL_FLOAT, 4 * sizeof(GLfloat), 0);
     this->screenQuadVAO.LinkAttrib(bVBO, 1, 2, GL_FLOAT, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
 
-    if (glGetError() != GL_NO_ERROR) { 
-        LOG_ERROR(1, "VAO linking failed");
-    }
+    GL_CHECK_ERROR_M("FBO screen VAO link");
 
     this->screenQuadVAO.Unbind();
     bVBO.Unbind();
@@ -180,9 +190,12 @@ void FBO::RenderScreenQuad() {
 
 void FBO::RenderScreenQuad(int fWidth, int fHeight) {
     glViewport(0, 0, fWidth, fHeight);
+    GL_CHECK_ERROR_M("FBO screen viewport");
     
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    GL_CHECK_ERROR_M("FBO screen fbo unbind");
     glDisable(GL_DEPTH_TEST);
+    GL_CHECK_ERROR_M("FBO screen depth disable");
 
     TextureColor.texUnit(this->screenQuadShader);
     TextureColor.Bind();
@@ -191,11 +204,15 @@ void FBO::RenderScreenQuad(int fWidth, int fHeight) {
     this->screenQuadVAO.Bind();
 
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    GL_CHECK_ERROR_M("FBO screen draw");
 
     this->screenQuadVAO.Unbind();
     this->screenQuadShader.Unbind();
     glBindTexture(GL_TEXTURE_2D, 0);
+    GL_CHECK_ERROR_M("FBO screen tex unbind");
+    
     
 
     glEnable(GL_DEPTH_TEST);
+    GL_CHECK_ERROR_M("FBO screen depth enable");
 }
