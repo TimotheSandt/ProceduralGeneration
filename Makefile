@@ -1,5 +1,3 @@
-
-
 # Variables
 CXX = g++
 CC = gcc
@@ -8,7 +6,7 @@ PROJECT_NAME = ProceduralGeneration
 # OS detection
 OS := $(shell uname -s 2>/dev/null || echo Windows)
 ifeq ($(OS),Linux)
-	LDFLAGS = -lglfw -lGL -lpthread -lX11 -ldl -lm
+	LDFLAGS = -lglfw -lGL -lpthread -lX11 -ldl -lm -lstb
 	COPY_LIBS_NORMAL =
 	COPY_LIBS_DEBUG =
 	COPY_LIBS_RELEASE =
