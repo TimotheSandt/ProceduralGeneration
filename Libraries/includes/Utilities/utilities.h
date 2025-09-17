@@ -11,4 +11,6 @@ void rotate(float& x, float& y, float& z, float& w, float angle);
 
 
 
+#ifndef UNREFERENCED_PARAMETER
 #define UNREFERENCED_PARAMETER(P) (P) = (P)
+#endif

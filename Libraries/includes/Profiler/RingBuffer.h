@@ -4,9 +4,9 @@
 #include <type_traits>
 #include "Logger.h"
 
-#define MIN_CAPACITY 10UL
-#define MAX_CAPACITY 0x8000UL
-#define DEFAULT_CAPACITY 50UL
+#define MIN_CAPACITY size_t(10)
+#define MAX_CAPACITY size_t(0x8000)
+#define DEFAULT_CAPACITY size_t(100)
 
 template <typename Type>
 class RingBuffer
