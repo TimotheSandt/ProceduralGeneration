@@ -62,17 +62,24 @@ int Window::Init() {
         this->Close();
         return -1;
     }
+    GL_CHECK_ERROR_M("gladLoadGL");
 
     // Define the viewport dimensions
     glViewport(0, 0, this->parameters.width, this->parameters.height);
+    GL_CHECK_ERROR_M("glViewport");
+
     glfwSwapInterval(this->parameters.vsync ? 1 : 0);
+    GL_CHECK_ERROR_M("glfwSwapInterval");
     
     glEnable(GL_DEPTH_TEST);
+    GL_CHECK_ERROR_M("glEnable");
     
 
     glfwGetWindowPos(this->window, &this->parameters.posX, &this->parameters.posY);
+    GL_CHECK_ERROR_M("glfwGetWindowPos");
 
     glfwSetWindowUserPointer(this->window, this);
+    GL_CHECK_ERROR_M("glfwSetWindowUserPointer");
 
     this->SetupCallbacks();
 
@@ -91,6 +98,7 @@ void Window::Close() {
     this->FBOUpscaled.Destroy();
     
     glfwDestroyWindow(this->window);
+    GL_CHECK_ERROR_M("glfwDestroyWindow");
     this->window = nullptr;
 
 #ifdef _WIN32
@@ -151,7 +159,8 @@ void Window::Clear() {
         this->parameters.clearColor.b, 
         this->parameters.clearColor.a
     );
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    GL_CHECK_ERROR_M("glClear");
 }
 
 
@@ -195,6 +204,7 @@ void Window::SwapBuffers() {
     }
 
     glfwSwapBuffers(this->window);
+    GL_CHECK_ERROR_M("glfwSwapBuffers");
 }
 
 
@@ -265,8 +275,9 @@ void Window::ActivateFullscreen() {
     }
 
     // Switch to fullscreen
-    glfwSetWindowMonitor(this->window, monitor, 0, 0, 
+    glfwSetWindowMonitor(this->window, monitor, 0, 0,
         mode->width, mode->height, mode->refreshRate);
+    GL_CHECK_ERROR_M("glfwSetWindowMonitor");
     
     // Update internal parameters
     this->parameters.width = mode->width;
@@ -294,7 +305,9 @@ void Window::ActivateWindowed() {
 
     glfwSetWindowMonitor(this->window, nullptr, this->parameters.windowedPosX, this->parameters.windowedPosY,
             this->parameters.windowedWidth, this->parameters.windowedHeight, GLFW_DONT_CARE);
+    GL_CHECK_ERROR_M("glfwSetWindowMonitor");
     glfwSetWindowAttrib(this->window, GLFW_DECORATED, GLFW_TRUE);
+    GL_CHECK_ERROR_M("glfwSetWindowAttrib");
 
     // Update internal parameters
     this->parameters.width = this->parameters.windowedWidth;
@@ -343,7 +356,9 @@ void Window::ActivateBorderless() {
     
 
     glfwSetWindowAttrib(this->window, GLFW_DECORATED, GLFW_FALSE);
+    GL_CHECK_ERROR_M("glfwSetWindowAttrib");
     glfwSetWindowMonitor(this->window, nullptr, 0, 0, width, height, GLFW_DONT_CARE);
+    GL_CHECK_ERROR_M("glfwSetWindowMonitor");
     
     // Update internal parameters
     this->parameters.width = width;
@@ -358,18 +373,22 @@ void Window::ActivateBorderless() {
 void Window::SaveWindowedParameters() {
     if (!this->window) return;
 
-    glfwGetWindowSize(this->window, &this->parameters.windowedWidth, 
+    glfwGetWindowSize(this->window, &this->parameters.windowedWidth,
                      &this->parameters.windowedHeight);
-    glfwGetWindowPos(this->window, &this->parameters.windowedPosX, 
+    GL_CHECK_ERROR_M("glfwGetWindowSize");
+    glfwGetWindowPos(this->window, &this->parameters.windowedPosX,
                     &this->parameters.windowedPosY);
+    GL_CHECK_ERROR_M("glfwGetWindowPos");
 }
 
 
 void Window::PostWindowStateChange() {
     if (!this->window) return;
     glfwMakeContextCurrent(this->window);
+    GL_CHECK_ERROR_M("glfwMakeContextCurrent");
 
     glfwSwapInterval(this->parameters.vsync ? 1 : 0);
+    GL_CHECK_ERROR_M("glfwSwapInterval");
 
     glEnable(GL_DEPTH_TEST);
 
@@ -380,9 +399,13 @@ void Window::PostWindowStateChange() {
         this->parameters.clearColor.a
     );
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    GL_CHECK_ERROR_M("glClear");
+
     glfwSwapBuffers(this->window);
+    GL_CHECK_ERROR_M("glfwSwapBuffers");
 
     glfwFocusWindow(this->window);
+    GL_CHECK_ERROR_M("glfwFocusWindow");
 }
 
 
