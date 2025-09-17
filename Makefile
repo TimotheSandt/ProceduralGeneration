@@ -272,6 +272,15 @@ info:
 	@echo "Includes Directories: $(INCLUDES_DIRS)"
 	@echo "LIBS : $(notdir $(LIB_SOURCES))"
 	@echo "Targets: $(TARGET), $(TARGET_DEBUG), $(TARGET_RELEASE)"
+	@echo ""
+	@echo "Dependencies by OS:"
+	@ifeq ($(OS),Linux)
+	@echo "  Linux/WSL: sudo apt install libglfw3-dev libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libstb-dev"
+	@else ifeq ($(OS),Darwin)
+	@echo "  macOS: brew install glfw glm"
+	@else
+	@echo "  Windows (MinGW): Use bundled libs or install via vcpkg: vcpkg install glfw3 stb-image"
+	@endif
 
 # Phony Rules
 .PHONY: all clean fclean re debug release dev run run-dev run-debug run-release check info
