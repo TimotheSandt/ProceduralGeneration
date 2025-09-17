@@ -15,11 +15,17 @@ else ifeq ($(OS),Darwin)
 	COPY_LIBS_NORMAL =
 	COPY_LIBS_DEBUG =
 	COPY_LIBS_RELEASE =
-else
+else ifeq ($(OS),Windows_NT)
 	LDFLAGS = -LLibraries/libs/ThirdParty/ -lglfw3dll -lstb_image -lpsapi -lwinmm
 	COPY_LIBS_NORMAL = copy_libs_normal
 	COPY_LIBS_DEBUG = copy_libs_debug
 	COPY_LIBS_RELEASE = copy_libs_release
+else
+	@echo "Unknown OS"
+	LDFLAGS =
+	COPY_LIBS_NORMAL =
+	COPY_LIBS_DEBUG =
+	COPY_LIBS_RELEASE =
 endif
 
 
@@ -270,17 +276,18 @@ info:
 	@echo "C++ Flags: $(CXXFLAGS)"
 	@echo "C Flags: $(CFLAGS)"
 	@echo "Includes Directories: $(INCLUDES_DIRS)"
-	@echo "LIBS : $(notdir $(LIB_SOURCES))"
 	@echo "Targets: $(TARGET), $(TARGET_DEBUG), $(TARGET_RELEASE)"
 	@echo ""
-	@echo "Dependencies by OS:"
-	@ifeq ($(OS),Linux)
+ifeq ($(OS),Linux)
 	@echo "  Linux/WSL: sudo apt install libglfw3-dev libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libstb-dev"
-	@else ifeq ($(OS),Darwin)
+else ifeq ($(OS),Darwin)
 	@echo "  macOS: brew install glfw glm"
-	@else
-	@echo "  Windows (MinGW): Use bundled libs or install via vcpkg: vcpkg install glfw3 stb-image"
-	@endif
+else ifeq ($(OS),Windows_NT)
+	@echo "Dependencies:  Windows (MinGW): Use bundled libs or install via vcpkg: vcpkg install glfw3 stb-image"
+	@echo "LIBS : $(notdir $(LIB_SOURCES))"
+else
+	@echo "  Unknown OS"
+endif
 
 # Phony Rules
 .PHONY: all clean fclean re debug release dev run run-dev run-debug run-release check info
