@@ -95,6 +95,7 @@ private:
     static LogLevel lLevelPrinted;
     static std::mutex logMutex;
     static std::unique_ptr<std::ofstream> logFile;
+    static bool isLoggingToFile;
     static size_t lastFlushedIndex;
 };
 

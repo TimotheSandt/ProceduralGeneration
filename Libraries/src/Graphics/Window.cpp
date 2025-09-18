@@ -1,6 +1,9 @@
 #include "Window.h"
 
-#include "PriorityHelper.h"
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "Logger.h"
 #include "utilities.h"
 
@@ -108,12 +111,6 @@ void Window::Close() {
 
 bool Window::InitOpenGL() {
     if (isOpenGLInitialized) return isOpenGLInitialized;
-
-    // Set High Priority
-    if (PriorityHelper::RequestHighPriority()) {
-        PriorityHelper::ApplyPerformanceTweaks();
-        PriorityHelper::DisplayCurrentPriority();
-    }
 
 
     // Initialize GLFW

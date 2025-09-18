@@ -1,0 +1,37 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        chmod +x /usr/bin/proceduralgeneration
+        
+        # Create desktop entry
+        mkdir -p /usr/share/applications
+        cat > /usr/share/applications/proceduralgeneration.desktop << EOF
+[Desktop Entry]
+Name=ProceduralGeneration
+Comment=Procedural Generation Application
+Exec=/usr/bin/proceduralgeneration
+Icon=proceduralgeneration
+Terminal=false
+Type=Application
+Categories=Game;
+StartupWMClass=ProceduralGeneration
+Path=/usr/share/proceduralgeneration
+EOF
+        chmod 644 /usr/share/applications/proceduralgeneration.desktop
+        ;;
+    
+    abort-upgrade|abort-remove|abort-deconfigure)
+        exit 0
+        ;;
+    
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

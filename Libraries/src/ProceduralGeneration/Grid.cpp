@@ -1,5 +1,7 @@
 #include "Grid.h"
 
+#include "utilities.h"
+
 Grid::Grid() : size_x(1.0f), size_z(1.0f), resolution_x(3), resolution_z(3) {
     this->GeneratePoints();
 }
@@ -132,7 +134,7 @@ void Grid::GenerateMesh() {
     }
 
     this->mesh.Initialize(vertices, indices, { 3, 3, 3 });
-    this->mesh.SetShader("res/shader/default.vert", "res/shader/default.frag");
+    this->mesh.SetShader(GET_RESOURCE_PATH("shader/default.vert"), GET_RESOURCE_PATH("shader/default.frag"));
     this->mesh.UpdateUBO();
 }
 

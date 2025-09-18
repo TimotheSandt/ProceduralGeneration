@@ -1,10 +1,20 @@
 #include "Game.h"
 #include "Logger.h"
 
-int main() {
-	SET_LOG_FILE("logs/log.log");
+#include <iostream>
 
-	if (!Window::InitOpenGL()) 
+int main() {
+	SetWorkingDirectoryToExe();
+
+#ifdef DEBUG
+	SET_LOG_FILE("logs/log.log");
+#else
+	SET_LOG_FILE_DEFAULT;
+#endif
+
+
+
+	if (!Window::InitOpenGL())
 		return 1;
 
 	

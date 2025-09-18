@@ -1,6 +1,7 @@
 #include "FBO.h"
 
 #include "Logger.h"
+#include "utilities.h"
 
 FBO::FBO() : width(0), height(0) {}
 FBO::FBO(int width, int height)
@@ -161,7 +162,9 @@ void FBO::Setup() {
         1, 2, 3
     };
 
-    this->screenQuadShader.SetShader("res/shader/upscaling/upscale.vert", "res/shader/upscaling/upscale.frag");
+
+    this->screenQuadShader.SetShader(GET_RESOURCE_PATH("shader/upscaling/upscale.vert"), GET_RESOURCE_PATH("shader/upscaling/upscale.frag"));
+
 
     this->screenQuadVAO.Initialize();
     GL_CHECK_ERROR_M("FBO screen VAO init");

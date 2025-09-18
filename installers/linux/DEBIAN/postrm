@@ -1,0 +1,31 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    purge|remove)
+        pkill -f proceduralgeneration 2>/dev/null || true
+        rm -f /usr/bin/proceduralgeneration
+        ;;
+
+    upgrade|failed-upgrade|abort-install)
+        exit 0
+        ;;
+
+    disappear)
+        if [ "$2" != upgrade ]; then
+            rm -f /usr/bin/proceduralgeneration
+        fi
+        ;;
+
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+rmdir /usr/share/proceduralgeneration 2>/dev/null || true
+rmdir /usr/share/applications 2>/dev/null || true
+
+exit 0

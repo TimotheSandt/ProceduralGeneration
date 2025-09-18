@@ -1,5 +1,7 @@
 #include "Logger.h"
 
+#include "utilities.h"
+
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -18,6 +20,7 @@
 std::vector<Logger::LogMessage> Logger::logs;
 std::mutex Logger::logMutex;
 std::unique_ptr<std::ofstream> Logger::logFile;
+bool Logger::isLoggingToFile = false;
 size_t Logger::lastFlushedIndex = 0;
 #ifdef DEBUG
 LogLevel Logger::lLevelPrinted = LogLevel::L_DEBUGGING;
@@ -32,16 +35,16 @@ void Logger::Initialize(const std::string& sFilename) {
     
     std::string filename = sFilename;
     if (filename.empty()) {
-        // Create logs directory if it doesn't exist
-        std::filesystem::create_directories("logs");
         
         // Generate timestamped filename
         auto now = std::chrono::system_clock::now();
         auto time_t = std::chrono::system_clock::to_time_t(now);
         
         std::stringstream ss;
-        ss << "logs/log_" << std::put_time(std::localtime(&time_t), "%Y-%m-%d_%H-%M-%S") << ".log";
+        ss << GetUserDataPath();
+        ss << "logs/log_" << std::put_time(std::localtime(&time_t), "%Y-%m-%d") << ".log";
         filename = ss.str();
+        std::filesystem::create_directories(std::filesystem::path(filename).parent_path());
     } else {
         // Ensure directory exists for provided filename
         std::filesystem::path filepath(filename);
@@ -55,26 +58,16 @@ void Logger::Initialize(const std::string& sFilename) {
         *logFile << "\n=== Logger Session Ended: " 
                  << FormatTimestamp(std::chrono::system_clock::now()) << " ===\n";
         logFile->close();
+        isLoggingToFile = false;
     }
     
     // Open new file
     logFile = std::make_unique<std::ofstream>(filename, std::ios::out | std::ios::app);
     
     if (!logFile->is_open()) {
-        std::cerr << "ERROR: Could not create/open log file: " << filename << std::endl;
-        
-        // Try fallback location
-        std::string fallback = "fallback_log.txt";
-        logFile = std::make_unique<std::ofstream>(fallback, std::ios::out | std::ios::app);
-        
-        if (logFile->is_open()) {
-            std::cerr << "Using fallback log file: " << fallback << std::endl;
-            filename = fallback;
-        } else {
-            std::cerr << "FATAL: Cannot create any log file!" << std::endl;
-            logFile.reset();
-            return;
-        }
+        std::cerr << "Failed to open log file: " << filename << std::endl;
+        isLoggingToFile = false;
+        return;
     }
     
     // Write session header
@@ -85,8 +78,10 @@ void Logger::Initialize(const std::string& sFilename) {
     *logFile << "Working Directory: " << std::filesystem::current_path() << std::endl;
     *logFile << std::endl;
     logFile->flush();
-    
+    isLoggingToFile = true;
+#ifdef DEBUG
     std::cout << "Logger initialized successfully. File: " << filename << std::endl;
+#endif
 }
 
 
@@ -114,6 +109,8 @@ LogLevel Logger::GetMinimumLevel() {
 }
 
 void Logger::FlushToFile() {
+    if (!isLoggingToFile) return;
+
 #ifdef DEBUG
     size_t sizeLogs = logs.size();
     LOG_DEBUGGING("=== FlushToFile Debug Info ===");
