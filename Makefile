@@ -1,12 +1,9 @@
 # Include configuration
 -include config.mk
 
-MAINTAINER_ESC = $(shell echo '$(MAINTAINER)' | sed 's/</\\</g; s/>/\\>/g')
-
 # Variables
 CXX = g++
 CC = gcc
-PROJECT_NAME = ProceduralGeneration
 
 # OS detection
 OS := $(shell uname -s 2>/dev/null || echo Windows)
@@ -36,38 +33,20 @@ endif
 # Installer creation for release
 ifeq ($(OS),Windows_NT)
 CREATE_INSTALLER_RELEASE = create_windows_installer
+ARCHITECTURE = $(ARCHITECTURE_WINDOWS)
+INSTALLER_FILE = $(PROJECT_NAME)-$(VERSION)-$(ARCHITECTURE)-setup.exe
 else ifeq ($(OS),Linux)
 CREATE_INSTALLER_RELEASE = create_linux_installer
+ARCHITECTURE = $(ARCHITECTURE_LINUX)
+INSTALLER_FILE = $(PACKAGE)_$(VERSION)_$(ARCHITECTURE).deb
 else
 CREATE_INSTALLER_RELEASE =
+INSTALLER_FILE =
 endif
-
-create_windows_installer: $(TARGET_RELEASE)
-	@echo "Creating Windows installer..."
-	cmd /c "if exist installers\\windows\\installer.nsi ( cd installers\\windows && makensis /DPRODUCT_NAME=$(PROJECT_NAME) /DVERSION=$(VERSION) /DPUBLISHER=$(PUBLISHER) installer.nsi && copy $(PROJECT_NAME)-$(VERSION)-setup.exe ..\..\bin\\release\\ && cd ..\.. ) else ( echo NSIS script not found. Install NSIS and ensure makensis is in PATH. )"
-
-create_linux_installer: $(TARGET_RELEASE)
-	@rm -rf /tmp/proceduralgeneration_deb
-	@echo "Creating Linux .deb package..."
-	@chmod 644 installers/linux/DEBIAN/control
-	@chmod 755 installers/linux/DEBIAN/postinst installers/linux/DEBIAN/postrm
-	@mkdir -p /tmp/proceduralgeneration_deb/usr/bin /tmp/proceduralgeneration_deb/usr/share/proceduralgeneration
-	@mkdir -p /tmp/proceduralgeneration_deb/DEBIAN
-	@cp installers/linux/DEBIAN/control /tmp/proceduralgeneration_deb/DEBIAN/
-	@cp installers/linux/DEBIAN/postinst /tmp/proceduralgeneration_deb/DEBIAN/
-	@cp installers/linux/DEBIAN/postrm /tmp/proceduralgeneration_deb/DEBIAN/
-	@chmod 755 /tmp/proceduralgeneration_deb/DEBIAN
-	@chmod 644 /tmp/proceduralgeneration_deb/DEBIAN/control
-	@chmod 755 /tmp/proceduralgeneration_deb/DEBIAN/postinst /tmp/proceduralgeneration_deb/DEBIAN/postrm
-	@cp bin/release/$(PROJECT_NAME) /tmp/proceduralgeneration_deb/usr/bin/proceduralgeneration
-	@cp -r bin/release/res /tmp/proceduralgeneration_deb/usr/share/proceduralgeneration/
-	@dpkg-deb --build /tmp/proceduralgeneration_deb bin/release/proceduralgeneration_$(VERSION)_$(ARCHITECTURE).deb
-	@rm -rf /tmp/proceduralgeneration_deb
-	@echo "Linux .deb created: bin/release/proceduralgeneration_$(VERSION)_amd64.deb"
 
 
 # Flags
-CFLAGS = -Wall -Wextra -Werror -m64
+CFLAGS = -Wall -Wextra -Werror
 CXXFLAGS = $(CFLAGS) -std=c++23
 # dev flags
 CFLAGS_DEV = -Wall -Wextra -m64 -DDEBUG
@@ -78,16 +57,13 @@ INCLUDES_BASE = Libraries/includes
 INCLUDES_DIRS := $(notdir $(wildcard $(INCLUDES_BASE)/*))
 INCLUDES := -I$(INCLUDES_BASE) $(foreach dir,$(INCLUDES_DIRS),-I$(INCLUDES_BASE)/$(dir))
 
-# Linker
-
-# Directories
-
 # Directories
 LIBRARIES_SRC_DIR = Libraries/src
 LIBRARIES_LIB_DIR = Libraries/libs
 MAIN_SRC_DIR = src
 OBJ_DIR = obj
 BIN_DIR = bin
+BUILD_DIR = build
 RES_DIR = res
 
 # Target Executable
@@ -140,9 +116,74 @@ debug dev run-dev: CXXFLAGS = $(CXXFLAGS_DEV)
 debug dev run-dev: CFLAGS = $(CFLAGS_DEV)
 
 
+
+create_windows_installer: $(TARGET_RELEASE) | $(BUILD_DIR)
+	@echo "Creating Windows installer..."
+
+	@if [ ! -f "installers/windows/installer.nsi" ]; then \
+		echo "NSIS script not found at installers/windows/installer.nsi"; \
+		echo "Please install NSIS and ensure makensis is in PATH."; \
+		exit 1; \
+	fi
+
+	@echo "Installer File: $(INSTALLER_FILE)"
+	@cd installers/windows && \
+	makensis \
+		/DPRODUCT_NAME="$(PROJECT_NAME)" \
+		/DVERSION="$(VERSION)" \
+		/DPUBLISHER="$(PUBLISHER)" \
+		/DMANTAINER="$(MAINTAINER)" \
+		/DARCH="$(ARCHITECTURE)" \
+		/DICON_PATH="$(ICON_PATH)" \
+		/DOUTPUT_FILE="$(INSTALLER_FILE)" \
+		/DPROJECT_DESCRIPTION="$(PROJECT_DESCRIPTION)" \
+		installer.nsi || { \
+			echo "makensis failed"; exit 1; \
+		}
+
+	@if [ ! -f "installers/windows/$(INSTALLER_FILE)" ]; then \
+		echo "Installer file was not generated!"; \
+		exit 1; \
+	fi
+
+	@mv installers/windows/$(INSTALLER_FILE) $(BUILD_DIR)/
+	@echo "Windows installer created: $(BUILD_DIR)/$(INSTALLER_FILE)"
+
+
+create_linux_installer: $(TARGET_RELEASE) | $(BUILD_DIR)
+	@rm -rf /tmp/proceduralgeneration_deb
+	@echo "Creating Linux .deb package..."
+	@mkdir -p /tmp/proceduralgeneration_deb/usr/bin /tmp/proceduralgeneration_deb/usr/share/proceduralgeneration
+	@mkdir -p /tmp/proceduralgeneration_deb/DEBIAN
+
+	@touch /tmp/proceduralgeneration_deb/DEBIAN/control
+	@echo 'Package: $(PACKAGE)' 				>> /tmp/proceduralgeneration_deb/DEBIAN/control
+	@echo 'Version: $(VERSION)' 				>> /tmp/proceduralgeneration_deb/DEBIAN/control
+	@echo 'Maintainer: $(MAINTAINER)' 			>> /tmp/proceduralgeneration_deb/DEBIAN/control
+	@echo 'Section: $(SECTION)' 				>> /tmp/proceduralgeneration_deb/DEBIAN/control
+	@echo 'Priority: $(PRIORITY)' 				>> /tmp/proceduralgeneration_deb/DEBIAN/control
+	@echo 'Architecture: $(ARCHITECTURE)' 		>> /tmp/proceduralgeneration_deb/DEBIAN/control
+	@echo 'Depends: $(DEPENDS)' 				>> /tmp/proceduralgeneration_deb/DEBIAN/control
+	@echo 'Description: $(PROJECT_DESCRIPTION)' >> /tmp/proceduralgeneration_deb/DEBIAN/control
+	
+	@cp installers/linux/DEBIAN/postinst /tmp/proceduralgeneration_deb/DEBIAN/
+	@cp installers/linux/DEBIAN/postrm /tmp/proceduralgeneration_deb/DEBIAN/
+	@chmod 755 /tmp/proceduralgeneration_deb/DEBIAN
+	@chmod 644 /tmp/proceduralgeneration_deb/DEBIAN/control
+	@chmod 755 /tmp/proceduralgeneration_deb/DEBIAN/postinst /tmp/proceduralgeneration_deb/DEBIAN/postrm
+	@cp bin/release/$(PROJECT_NAME) /tmp/proceduralgeneration_deb/usr/bin/proceduralgeneration
+	@cp -r bin/release/res /tmp/proceduralgeneration_deb/usr/share/proceduralgeneration/
+	@echo "Package created: /tmp/proceduralgeneration_deb"
+	@dpkg-deb --build /tmp/proceduralgeneration_deb/ $(BUILD_DIR)/$(INSTALLER_FILE)
+	@rm -rf /tmp/proceduralgeneration_deb
+	@echo "Linux .deb created: bin/release/$(INSTALLER_FILE)"
+
+
+
 # Executable Rules
 debug: $(TARGET_DEBUG)
 release: $(TARGET_RELEASE) $(CREATE_INSTALLER_RELEASE)
+	@echo "Release build complete"
 dev: $(TARGET)
 
 # Copy libs
@@ -196,6 +237,7 @@ $(TARGET_RELEASE): CXXFLAGS += -DNDEBUG -O3
 $(TARGET_RELEASE): $(ALL_OBJECTS_RELEASE) all_copy_release | $(BIN_DIR)/release
 	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS_RELEASE) $(LDFLAGS) -o $@
 	@echo "Release compilation successful for: $(TARGET_RELEASE)"
+
 
 # Files Compilation
 # C++ source files
@@ -272,6 +314,9 @@ $(BIN_DIR)/debug:
 
 $(BIN_DIR)/release:
 	mkdir -p $(BIN_DIR)/release
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
 
 # Clean Rules

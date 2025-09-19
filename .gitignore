@@ -3,6 +3,7 @@
 .VSCodeCounter/
 .vs/
 bin/
+build/
 obj/
 logs/
 *.log

@@ -2,7 +2,7 @@
 ; This bundles the release build and creates an uninstaller
 
 Name "${PRODUCT_NAME}"
-OutFile "${PRODUCT_NAME}-${VERSION}-setup.exe"
+OutFile "${OUTPUT_FILE}"
 InstallDir "$PROGRAMFILES\${PRODUCT_NAME}"
 InstallDirRegKey HKCU "Software\${PRODUCT_NAME}" ""
 RequestExecutionLevel admin
