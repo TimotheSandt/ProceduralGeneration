@@ -1,5 +1,8 @@
 ; NSIS script for ProceduralGeneration installer
 ; This bundles the release build and creates an uninstaller
+!if "${ICON_NAME}" != "" 
+    Icon "..\..\${ICON_NAME}"
+!endif
 
 Name "${PRODUCT_NAME}"
 OutFile "${OUTPUT_FILE}"

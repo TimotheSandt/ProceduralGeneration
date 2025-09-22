@@ -9,48 +9,33 @@ CC = gcc
 OS := $(shell uname -s 2>/dev/null || echo Windows)
 ifeq ($(OS),Linux)
 	LDFLAGS = -lglfw -lGL -lpthread -lX11 -ldl -lm -lstb
-	COPY_LIBS_NORMAL =
-	COPY_LIBS_DEBUG =
-	COPY_LIBS_RELEASE =
+	COPY_LIBS =
 else ifeq ($(OS),Darwin)
 	LDFLAGS = -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
-	COPY_LIBS_NORMAL =
-	COPY_LIBS_DEBUG =
-	COPY_LIBS_RELEASE =
+	COPY_LIBS =
 else ifeq ($(OS),Windows_NT)
 	LDFLAGS = -LLibraries/libs/ThirdParty/ -lglfw3dll -lstb_image -lpsapi -lwinmm
-	COPY_LIBS_NORMAL = copy_libs_normal
-	COPY_LIBS_DEBUG = copy_libs_debug
-	COPY_LIBS_RELEASE = copy_libs_release
+	COPY_LIBS = copy_libs
 else
 	@echo "Unknown OS"
 	LDFLAGS =
-	COPY_LIBS_NORMAL =
-	COPY_LIBS_DEBUG =
-	COPY_LIBS_RELEASE =
+	COPY_LIBS =
 endif
 
 # Installer creation for release
 ifeq ($(OS),Windows_NT)
-CREATE_INSTALLER_RELEASE = create_windows_installer
+CREATE_INSTALLER = create_windows_installer
 ARCHITECTURE = $(ARCHITECTURE_WINDOWS)
 INSTALLER_FILE = $(PROJECT_NAME)-$(VERSION)-$(ARCHITECTURE)-setup.exe
 else ifeq ($(OS),Linux)
-CREATE_INSTALLER_RELEASE = create_linux_installer
+CREATE_INSTALLER = create_linux_installer
 ARCHITECTURE = $(ARCHITECTURE_LINUX)
 INSTALLER_FILE = $(PACKAGE)_$(VERSION)_$(ARCHITECTURE).deb
 else
-CREATE_INSTALLER_RELEASE =
+CREATE_INSTALLER =
 INSTALLER_FILE =
 endif
 
-
-# Flags
-CFLAGS = -Wall -Wextra -Werror
-CXXFLAGS = $(CFLAGS) -std=c++23
-# dev flags
-CFLAGS_DEV = -Wall -Wextra -m64 -DDEBUG
-CXXFLAGS_DEV = $(CFLAGS_DEV) -std=c++23
 
 # Includes
 INCLUDES_BASE = Libraries/includes
@@ -66,10 +51,37 @@ BIN_DIR = bin
 BUILD_DIR = build
 RES_DIR = res
 
+# Icon
+RC = windres
+ICON_RC = $(RES_DIR)/icon.rc
+
+# Flags
+CFLAGS = -Wall -Wextra -Werror -m64 -O2 -DNDEBUG
+
 # Target Executable
-TARGET = $(BIN_DIR)/normal/$(PROJECT_NAME)
-TARGET_DEBUG = $(BIN_DIR)/debug/main
-TARGET_RELEASE = $(BIN_DIR)/release/$(PROJECT_NAME)
+BUILD_TYPE = normal
+TARGET_NAME = $(PROJECT_NAME)
+
+ifneq ($(findstring debug,$(MAKECMDGOALS)),)
+CFLAGS := -Wall -Wextra -m64 -O1 -DDEBUG
+BUILD_TYPE = debug
+TARGET_NAME = main
+else ifneq ($(findstring dev,$(MAKECMDGOALS)),)
+CFLAGS := -Wall -Wextra -m64 -g3 -O0 -DDEBUG
+BUILD_TYPE = dev
+TARGET_NAME = main
+else ifneq ($(findstring release,$(MAKECMDGOALS)),)
+CFLAGS := -Wall -Wextra -Werror -m64 -O3 -DNDEBUG -DRELEASE
+BUILD_TYPE = release
+endif
+
+BIN_DIR_TYPE = $(BIN_DIR)/$(BUILD_TYPE)
+OBJ_DIR_TYPE = $(OBJ_DIR)/$(BUILD_TYPE)
+
+TARGET = $(BIN_DIR_TYPE)/$(TARGET_NAME)
+
+CXXFLAGS = $(CFLAGS) -std=c++23
+
 
 # Source Files
 
@@ -88,36 +100,33 @@ ALL_CPP_SOURCES = $(LIBRARIES_CPP_SOURCES) $(MAIN_CPP_SOURCES)
 ALL_C_SOURCES = $(LIBRARIES_C_SOURCES) $(MAIN_C_SOURCES)
 
 # --- Build Objects ---
-# Normal build objects
-LIBRARIES_CPP_OBJECTS_NORMAL = $(LIBRARIES_CPP_SOURCES:$(LIBRARIES_SRC_DIR)/%.cpp=$(OBJ_DIR)/normal/Libraries/%.o)
-LIBRARIES_C_OBJECTS_NORMAL = $(LIBRARIES_C_SOURCES:$(LIBRARIES_SRC_DIR)/%.c=$(OBJ_DIR)/normal/Libraries/%.o)
-MAIN_CPP_OBJECTS_NORMAL = $(MAIN_CPP_SOURCES:$(MAIN_SRC_DIR)/%.cpp=$(OBJ_DIR)/normal/src/%.o)
-MAIN_C_OBJECTS_NORMAL = $(MAIN_C_SOURCES:$(MAIN_SRC_DIR)/%.c=$(OBJ_DIR)/normal/src/%.o)
-ALL_OBJECTS_NORMAL = $(LIBRARIES_CPP_OBJECTS_NORMAL) $(LIBRARIES_C_OBJECTS_NORMAL) $(MAIN_CPP_OBJECTS_NORMAL) $(MAIN_C_OBJECTS_NORMAL)
+# Build objects
+LIBRARIES_CPP_OBJECTS = $(LIBRARIES_CPP_SOURCES:$(LIBRARIES_SRC_DIR)/%.cpp=$(OBJ_DIR_TYPE)/Libraries/%.o)
+LIBRARIES_C_OBJECTS = $(LIBRARIES_C_SOURCES:$(LIBRARIES_SRC_DIR)/%.c=$(OBJ_DIR_TYPE)/Libraries/%.o)
+MAIN_CPP_OBJECTS = $(MAIN_CPP_SOURCES:$(MAIN_SRC_DIR)/%.cpp=$(OBJ_DIR_TYPE)/src/%.o)
+MAIN_C_OBJECTS = $(MAIN_C_SOURCES:$(MAIN_SRC_DIR)/%.c=$(OBJ_DIR_TYPE)/src/%.o)
+ALL_OBJECTS = $(LIBRARIES_CPP_OBJECTS) $(LIBRARIES_C_OBJECTS) $(MAIN_CPP_OBJECTS) $(MAIN_C_OBJECTS)
 
-# Debug build objects
-LIBRARIES_CPP_OBJECTS_DEBUG = $(LIBRARIES_CPP_SOURCES:$(LIBRARIES_SRC_DIR)/%.cpp=$(OBJ_DIR)/debug/Libraries/%.o)
-LIBRARIES_C_OBJECTS_DEBUG = $(LIBRARIES_C_SOURCES:$(LIBRARIES_SRC_DIR)/%.c=$(OBJ_DIR)/debug/Libraries/%.o)
-MAIN_CPP_OBJECTS_DEBUG = $(MAIN_CPP_SOURCES:$(MAIN_SRC_DIR)/%.cpp=$(OBJ_DIR)/debug/src/%.o)
-MAIN_C_OBJECTS_DEBUG = $(MAIN_C_SOURCES:$(MAIN_SRC_DIR)/%.c=$(OBJ_DIR)/debug/src/%.o)
-ALL_OBJECTS_DEBUG = $(LIBRARIES_CPP_OBJECTS_DEBUG) $(LIBRARIES_C_OBJECTS_DEBUG) $(MAIN_CPP_OBJECTS_DEBUG) $(MAIN_C_OBJECTS_DEBUG)
 
-# Release build objects
-LIBRARIES_CPP_OBJECTS_RELEASE = $(LIBRARIES_CPP_SOURCES:$(LIBRARIES_SRC_DIR)/%.cpp=$(OBJ_DIR)/release/Libraries/%.o)
-LIBRARIES_C_OBJECTS_RELEASE = $(LIBRARIES_C_SOURCES:$(LIBRARIES_SRC_DIR)/%.c=$(OBJ_DIR)/release/Libraries/%.o)
-MAIN_CPP_OBJECTS_RELEASE = $(MAIN_CPP_SOURCES:$(MAIN_SRC_DIR)/%.cpp=$(OBJ_DIR)/release/src/%.o)
-MAIN_C_OBJECTS_RELEASE = $(MAIN_C_SOURCES:$(MAIN_SRC_DIR)/%.c=$(OBJ_DIR)/release/src/%.o)
-ALL_OBJECTS_RELEASE = $(LIBRARIES_CPP_OBJECTS_RELEASE) $(LIBRARIES_C_OBJECTS_RELEASE) $(MAIN_CPP_OBJECTS_RELEASE) $(MAIN_C_OBJECTS_RELEASE)
+ifneq ("$(wildcard ${ICON_NAME})", "")
+LIBRARIES_CPP_OBJECTS += $(OBJ_DIR_TYPE)/src/icon.o
+endif
 
 # Build Rules
-all: $(TARGET)
+.PHONY: all debug dev release
 
-debug dev run-dev: CXXFLAGS = $(CXXFLAGS_DEV)
-debug dev run-dev: CFLAGS = $(CFLAGS_DEV)
+all debug dev: $(TARGET)
+release: $(TARGET) $(CREATE_INSTALLER)
+	@echo "Release build complete"
 
+# Execution Rules
+run run-dev run-debug: $(TARGET)
+	./$(TARGET)
+run-release: $(TARGET) $(CREATE_INSTALLER)
+	./$(TARGET)
+	
 
-
-create_windows_installer: $(TARGET_RELEASE) | $(BUILD_DIR)
+create_windows_installer: $(TARGET)
 	@echo "Creating Windows installer..."
 
 	@if [ ! -f "installers/windows/installer.nsi" ]; then \
@@ -134,7 +143,7 @@ create_windows_installer: $(TARGET_RELEASE) | $(BUILD_DIR)
 		/DPUBLISHER="$(PUBLISHER)" \
 		/DMANTAINER="$(MAINTAINER)" \
 		/DARCH="$(ARCHITECTURE)" \
-		/DICON_PATH="$(ICON_PATH)" \
+		/DICON_NAME="$(ICON_NAME)" \
 		/DOUTPUT_FILE="$(INSTALLER_FILE)" \
 		/DPROJECT_DESCRIPTION="$(PROJECT_DESCRIPTION)" \
 		installer.nsi || { \
@@ -150,7 +159,7 @@ create_windows_installer: $(TARGET_RELEASE) | $(BUILD_DIR)
 	@echo "Windows installer created: $(BUILD_DIR)/$(INSTALLER_FILE)"
 
 
-create_linux_installer: $(TARGET_RELEASE) | $(BUILD_DIR)
+create_linux_installer: $(TARGET)
 	@rm -rf /tmp/proceduralgeneration_deb
 	@echo "Creating Linux .deb package..."
 	@mkdir -p /tmp/proceduralgeneration_deb/usr/bin /tmp/proceduralgeneration_deb/usr/share/proceduralgeneration
@@ -171,175 +180,105 @@ create_linux_installer: $(TARGET_RELEASE) | $(BUILD_DIR)
 	@chmod 755 /tmp/proceduralgeneration_deb/DEBIAN
 	@chmod 644 /tmp/proceduralgeneration_deb/DEBIAN/control
 	@chmod 755 /tmp/proceduralgeneration_deb/DEBIAN/postinst /tmp/proceduralgeneration_deb/DEBIAN/postrm
-	@cp bin/release/$(PROJECT_NAME) /tmp/proceduralgeneration_deb/usr/bin/proceduralgeneration
-	@cp -r bin/release/res /tmp/proceduralgeneration_deb/usr/share/proceduralgeneration/
+	@cp bin/${BUILD_TYPE}/$(PROJECT_NAME) /tmp/proceduralgeneration_deb/usr/bin/proceduralgeneration
+	@cp -r bin/${BUILD_TYPE}/res /tmp/proceduralgeneration_deb/usr/share/proceduralgeneration/
 	@echo "Package created: /tmp/proceduralgeneration_deb"
 	@dpkg-deb --build /tmp/proceduralgeneration_deb/ $(BUILD_DIR)/$(INSTALLER_FILE)
 	@rm -rf /tmp/proceduralgeneration_deb
-	@echo "Linux .deb created: bin/release/$(INSTALLER_FILE)"
+	@echo "Linux .deb created: bin/${BUILD_TYPE}/$(INSTALLER_FILE)"
 
+$(OBJ_DIR_TYPE)/src/icon.o: $(BIN_DIR_TYPE)/$(ICON_RC)
+	$(RC) -i $< -o $@
 
+$(BIN_DIR_TYPE)/$(ICON_RC): $(ICON_NAME)
+	@echo "1 ICON \"$(ICON_NAME)\"" > $@
 
-# Executable Rules
-debug: $(TARGET_DEBUG)
-release: $(TARGET_RELEASE) $(CREATE_INSTALLER_RELEASE)
-	@echo "Release build complete"
-dev: $(TARGET)
 
 # Copy libs
-copy_libs_normal: | $(BIN_DIR)/normal
-	@echo "Copying libraries to $(BIN_DIR)/normal"
-	@cp $(LIBRARIES_DLL_SOURCES) $(BIN_DIR)/normal/
-	@cp $(LIBRARIES_LIB_SOURCES) $(BIN_DIR)/normal/
+copy_libs: | $(BIN_DIR_TYPE)
+	@echo "Copying libraries to $(BIN_DIR_TYPE)"
+	@cp $(LIBRARIES_DLL_SOURCES) $(BIN_DIR_TYPE)
+	@cp $(LIBRARIES_LIB_SOURCES) $(BIN_DIR_TYPE)
 
-copy_libs_debug: | $(BIN_DIR)/debug
-	@echo "Copying libraries to $(BIN_DIR)/debug"
-	@cp $(LIBRARIES_DLL_SOURCES) $(BIN_DIR)/debug/
-	@cp $(LIBRARIES_LIB_SOURCES) $(BIN_DIR)/debug/
 
-copy_libs_release: | $(BIN_DIR)/release
-	@echo "Copying libraries to $(BIN_DIR)/release"
-	@cp $(LIBRARIES_DLL_SOURCES) $(BIN_DIR)/release/
-	@cp $(LIBRARIES_LIB_SOURCES) $(BIN_DIR)/release/
+copy_res: | $(BIN_DIR_TYPE)
+	@echo "Copying resources to $(BIN_DIR_TYPE)"
+	@cp -r $(RES_DIR) $(BIN_DIR_TYPE)
+	@cp -r $(RES_DIR)/* $(BIN_DIR_TYPE)
 
-copy_res_normal: | $(BIN_DIR)/normal
-	@echo "Copying resources to $(BIN_DIR)/normal"
-	@cp -r $(RES_DIR) $(BIN_DIR)/normal
+ifeq ($(OS),Windows_NT)
+all_copy: $(COPY_LIBS) copy_res
+else
+all_copy: copy_res
+endif
 
-copy_res_debug: | $(BIN_DIR)/debug
-	@echo "Copying resources to $(BIN_DIR)/debug"
-	@cp -r $(RES_DIR) $(BIN_DIR)/debug
-
-copy_res_release: | $(BIN_DIR)/release
-	@echo "Copying resources to $(BIN_DIR)/release"
-	@cp -r $(RES_DIR) $(BIN_DIR)/release/
-	@cp -r $(RES_DIR)/* $(BIN_DIR)/release/
-
-all_copy_normal: $(COPY_LIBS_NORMAL) copy_res_normal
-all_copy_debug: $(COPY_LIBS_DEBUG) copy_res_debug
-all_copy_release: $(COPY_LIBS_RELEASE) copy_res_release
- 
 # Build all objects
-# Normal build
-$(TARGET): CXXFLAGS += -O1
-$(TARGET): $(ALL_OBJECTS_NORMAL) all_copy_normal | $(BIN_DIR)/normal
-	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS_NORMAL) $(LDFLAGS) -o $@
+$(TARGET): all_copy $(ALL_OBJECTS) | $(BIN_DIR_TYPE)
+	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS) $(LDFLAGS) -o $@
 	@echo "Compilation successful for: $(TARGET)"
-
-# Debug build
-$(TARGET_DEBUG): CXXFLAGS += -g3 -O0
-$(TARGET_DEBUG): $(ALL_OBJECTS_DEBUG) all_copy_debug | $(BIN_DIR)/debug
-	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS_DEBUG) $(LDFLAGS) -o $@
-	@echo "Debug compilation successful for: $(TARGET_DEBUG)"
-
-# Release build
-$(TARGET_RELEASE): CXXFLAGS += -DNDEBUG -O3
-$(TARGET_RELEASE): $(ALL_OBJECTS_RELEASE) all_copy_release | $(BIN_DIR)/release
-	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS_RELEASE) $(LDFLAGS) -o $@
-	@echo "Release compilation successful for: $(TARGET_RELEASE)"
 
 
 # Files Compilation
 # C++ source files
-$(OBJ_DIR)/normal/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.cpp | $(OBJ_DIR)/normal
+$(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.cpp | $(OBJ_DIR)/${BUILD_TYPE}
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
-	@echo "Compiled (C++ Libraries) normal: $<"
-$(OBJ_DIR)/debug/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.cpp | $(OBJ_DIR)/debug
-	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -DDEBUG -g3 -O0 $(INCLUDES) -c $< -o $@
-	@echo "Compiled (C++ Libraries) debug: $<"
-$(OBJ_DIR)/release/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.cpp | $(OBJ_DIR)/release
-	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -DNDEBUG -DRELEASE -O3 $(INCLUDES) -c $< -o $@
-	@echo "Compiled (C++ Libraries) release: $<"
+	@echo "Compiled (C++ Libraries) $(BUILD_TYPE): $<"
 
 # C source files
-$(OBJ_DIR)/normal/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.c | $(OBJ_DIR)/normal
+$(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.c | $(OBJ_DIR)/${BUILD_TYPE}
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-	@echo "Compiled (C Libraries) normal: $<"
-$(OBJ_DIR)/debug/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.c | $(OBJ_DIR)/debug
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DDEBUG -g3 -O0 $(INCLUDES) -c $< -o $@
-	@echo "Compiled (C Libraries) debug: $<"
-$(OBJ_DIR)/release/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.c | $(OBJ_DIR)/release
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DNDEBUG -O3 $(INCLUDES) -c $< -o $@
-	@echo "Compiled (C Libraries) release: $<"
+	@echo "Compiled (C Libraries) $(BUILD_TYPE): $<"
 
 # C++ main source files
-$(OBJ_DIR)/normal/src/%.o: $(MAIN_SRC_DIR)/%.cpp | $(OBJ_DIR)/normal
+$(OBJ_DIR_TYPE)/src/%.o: $(MAIN_SRC_DIR)/%.cpp | $(OBJ_DIR)/${BUILD_TYPE}
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
-	@echo "Compiled (C++ Main) normal: $<"
-$(OBJ_DIR)/debug/src/%.o: $(MAIN_SRC_DIR)/%.cpp | $(OBJ_DIR)/debug
-	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -DDEBUG -g3 -O0 $(INCLUDES) -c $< -o $@
-	@echo "Compiled (C++ Main) debug: $<"
-$(OBJ_DIR)/release/src/%.o: $(MAIN_SRC_DIR)/%.cpp | $(OBJ_DIR)/release
-	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -DNDEBUG -O3 $(INCLUDES) -c $< -o $@
-	@echo "Compiled (C++ Main) release: $<"
+	@echo "Compiled (C++ Main) $(BUILD_TYPE): $<"
 
 # C main source files
-$(OBJ_DIR)/normal/src/%.o: $(MAIN_SRC_DIR)/%.c | $(OBJ_DIR)/normal
+$(OBJ_DIR_TYPE)/src/%.o: $(MAIN_SRC_DIR)/%.c | $(OBJ_DIR)/${BUILD_TYPE}
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-	@echo "Compiled (C Main) normal: $<"
-$(OBJ_DIR)/debug/src/%.o: $(MAIN_SRC_DIR)/%.c | $(OBJ_DIR)/debug
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DDEBUG -g3 -O0 $(INCLUDES) -c $< -o $@
-	@echo "Compiled (C Main) debug: $<"
-$(OBJ_DIR)/release/src/%.o: $(MAIN_SRC_DIR)/%.c | $(OBJ_DIR)/release
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DNDEBUG -O3 $(INCLUDES) -c $< -o $@
-	@echo "Compiled (C Main) release: $<"
+	@echo "Compiled (C Main) $(BUILD_TYPE): $<"
+
 
 # Create Directories
-$(OBJ_DIR)/normal:
-	mkdir -p $(OBJ_DIR)/normal/Libraries/Game $(OBJ_DIR)/normal/Libraries/Graphics $(OBJ_DIR)/normal/Libraries/Profiler $(OBJ_DIR)/normal/Libraries/ThirdParty $(OBJ_DIR)/normal/src
+$(OBJ_DIR)/${BUILD_TYPE}:
+	mkdir -p $@/Libraries/Game $@/Libraries/Graphics $@/Libraries/Profiler $@/Libraries/ThirdParty $@/src
 
-$(OBJ_DIR)/debug:
-	mkdir -p $(OBJ_DIR)/debug/Libraries/Game $(OBJ_DIR)/debug/Libraries/Graphics $(OBJ_DIR)/debug/Libraries/Profiler $(OBJ_DIR)/debug/Libraries/ThirdParty $(OBJ_DIR)/debug/src
 
-$(OBJ_DIR)/release:
-	mkdir -p $(OBJ_DIR)/release/Libraries/Game $(OBJ_DIR)/release/Libraries/Graphics $(OBJ_DIR)/release/Libraries/Profiler $(OBJ_DIR)/release/Libraries/ThirdParty $(OBJ_DIR)/release/src
-
-$(BIN_DIR)/normal:
-	mkdir -p $(BIN_DIR)/normal
-
-$(BIN_DIR)/debug:
-	mkdir -p $(BIN_DIR)/debug
-
-$(BIN_DIR)/release:
-	mkdir -p $(BIN_DIR)/release
+$(BIN_DIR)/${BUILD_TYPE}:
+	@echo "Creating $@ directory"
+	mkdir -p $@
 
 $(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
+	mkdir -p $@
 
 
+.PHONY: clean fclean re
 # Clean Rules
 clean:
 	rm -rf $(OBJ_DIR)
+	rm -f installers/windows/*.exe
+	rm -f installers/linux/*.deb
 	@echo "Objects deleted"
 
 fclean: clean
 	rm -rf $(BIN_DIR)
 	@echo "Executables deleted"
 
+fclean-build: fclean
+	rm -rf $(BUILD_DIR)
+
 re: fclean all
+re-debug: fclean debug
+re-dev: fclean dev
+re-release: fclean release
 
-# Execution Rules
-run run-dev: $(TARGET)
-	./$(TARGET)
 
-run-debug: $(TARGET_DEBUG)
-	./$(TARGET_DEBUG)
-
-run-release: $(TARGET_RELEASE)
-	./$(TARGET_RELEASE)
-
+.PHONY: check
 # Check 
 check:
 	@echo "Checking C++ syntax..."
@@ -347,7 +286,11 @@ check:
 	@echo "Checking C syntax..."
 	@if [ "$(ALL_C_SOURCES)" != "" ]; then $(CC) $(CFLAGS) $(INCLUDES) -fsyntax-only $(ALL_C_SOURCES); fi
 
+
 # Info 
+debug-info info-debug: info
+dev-info info-dev: info
+release-info info-release: info
 info:
 	@echo "Project: $(PROJECT_NAME)"
 	@echo "OS: $(OS)"
@@ -360,7 +303,7 @@ info:
 	@echo "C++ Flags: $(CXXFLAGS)"
 	@echo "C Flags: $(CFLAGS)"
 	@echo "Includes Directories: $(INCLUDES_DIRS)"
-	@echo "Targets: $(TARGET), $(TARGET_DEBUG), $(TARGET_RELEASE)"
+	@echo "Targets: $(TARGET)"
 	@echo ""
 ifeq ($(OS),Linux)
 	@echo "  Linux/WSL: sudo apt install libglfw3-dev libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libstb-dev"
@@ -373,8 +316,13 @@ else
 	@echo "  Unknown OS"
 endif
 
+
 # Phony Rules
-.PHONY: all clean fclean re debug release dev run run-dev run-debug run-release check info create_windows_installer create_linux_installer
+.PHONY: all release dev debug 
+.PHONY: run run-release run-dev run-debug
+.PHONY: clean fclean re re-debug re-dev re-release
+.PHONY: info info-debug info-dev info-release debug-info dev-info release-info
+.PHONY: check
 
 # Dependencies
--include $(ALL_OBJECTS_NORMAL:.o=.d) $(ALL_OBJECTS_DEBUG:.o=.d) $(ALL_OBJECTS_RELEASE:.o=.d)
+-include $(ALL_OBJECTS:.o=.d)

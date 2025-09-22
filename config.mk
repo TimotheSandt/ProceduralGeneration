@@ -5,7 +5,7 @@ PROJECT_NAME = ProceduralGeneration
 VERSION = 0.0.1
 PUBLISHER = Gasshog
 MAINTAINER = Timothe Sandt <timothe.sandt@proton.me>
-ICON_PATH = ""  # Path to icon.ico for NSIS, e.g., "res/icon.ico"
+ICON_NAME = public/icon.ico
 ARCHITECTURE = amd64
 PROJECT_DESCRIPTION = A C++ application for procedural terrain generation using OpenGL and GLFW. \n\
  .\n\
