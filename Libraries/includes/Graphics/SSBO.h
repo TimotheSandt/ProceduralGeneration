@@ -59,10 +59,13 @@ public:
     static void checkGLError(const std::string& operation);
 
 private:
-    GLuint ID;
+    void Swap(SSBO& other) noexcept;
+    void ensureCapacity(size_t requiredSize);
+
+private:
+    GLuint ID = 0;
     GLuint bindingPoint;
     size_t size;
     Usage usage;
 
-    void ensureCapacity(size_t requiredSize);
 };

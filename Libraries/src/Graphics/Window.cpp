@@ -47,6 +47,21 @@ Window::~Window() {
     this->Close();
 }
 
+Window::Window(Window&& other) noexcept
+{
+    this->Swap(other);
+}
+
+Window& Window::operator=(Window&& other) noexcept
+{
+    if (this != &other) {
+        this->Close();
+        this->Swap(other);
+    }
+    return *this;
+}
+
+
 int Window::Init() {
     // Create a window of size 800x800 and called "OpenGL"
     this->window = glfwCreateWindow(this->parameters.width, this->parameters.height, this->parameters.title.c_str(), NULL, NULL);

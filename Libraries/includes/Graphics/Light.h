@@ -234,6 +234,13 @@ class LightManager
 public:
     LightManager();
     LightManager(glm::vec3 color, float strength);
+
+    LightManager(const LightManager&) noexcept;
+    LightManager& operator=(const LightManager&) noexcept;
+
+    LightManager(LightManager&&) noexcept;
+    LightManager& operator=(LightManager&&) noexcept;
+
     ~LightManager();
 
     void Destroy();
@@ -259,6 +266,9 @@ public:
     lght::Light& GetLight(size_t index);
     std::vector<lght::Light> GetLight();
     lght::Light& GetAmbientLight();
+
+private:
+    void Swap(LightManager& other);
 
 private:
     std::vector<lght::Light> lLight;

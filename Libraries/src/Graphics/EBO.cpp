@@ -9,6 +9,26 @@ EBO::EBO(std::vector<GLuint>& indices) : EBO()
     Initialize(indices);
 }
 
+EBO::EBO(EBO&& other) noexcept
+    : ID(0)
+{
+    std::swap(this->ID, other.ID);
+}
+
+EBO& EBO::operator=(EBO&& other) noexcept
+{
+    if (this != &other) {
+        this->Destroy();
+        this->Swap(other);
+    }
+    return *this;
+}
+
+void EBO::Swap(EBO& other) noexcept
+{
+    std::swap(this->ID, other.ID);
+}
+
 void EBO::Initialize(std::vector<GLuint>& indices)
 {
     glGenBuffers(1, &this->ID);
@@ -50,20 +70,4 @@ void EBO::UploadData(const void* data, GLsizeiptr size)
     glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, size, data);
     GL_CHECK_ERROR_M("Failed to upload data to EBO");
     this->Unbind();
-}
-
-EBO::EBO(EBO&& other) noexcept
-    : ID(0)
-{
-    std::swap(this->ID, other.ID);
-}
-
-EBO& EBO::operator=(EBO&& other) noexcept
-{
-    if (this != &other) {
-        this->Destroy();
-        std::swap(this->ID, other.ID);
-        other.ID = 0;
-    }
-    return *this;
 }

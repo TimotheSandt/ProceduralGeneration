@@ -25,5 +25,5 @@ public:
     void Destroy();
 
 private:
-    GLuint ID;
+    GLuint ID = 0;
 };

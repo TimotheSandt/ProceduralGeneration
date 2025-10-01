@@ -18,8 +18,57 @@ LightManager::LightManager(glm::vec3 color, float strength) {
     this->SetAmbientLight(color, strength);
 }
 
+LightManager::LightManager(const LightManager& other) noexcept {
+    this->lLight = other.lLight;
+    this->ambientLight = other.ambientLight;
+    this->size = other.size;
+    this->LightChanged = std::vector<bool>(other.lLight.size(), false);
+    this->LightsChanged = true;
+    this->AmbientLightChanged = true;
+    this->initSSBO();
+    this->updateSSBO();
+}
+
+LightManager& LightManager::operator=(const LightManager& other) noexcept {
+    if (this != &other) {
+        this->Destroy();
+        this->lLight = other.lLight;
+        this->ambientLight = other.ambientLight;
+        this->size = other.size;
+        this->LightChanged = std::vector<bool>(other.lLight.size(), false);
+        this->LightsChanged = true;
+        this->AmbientLightChanged = true;
+        this->initSSBO();
+        this->updateSSBO();
+    }
+    return *this;
+}
+
+LightManager::LightManager(LightManager&& other) noexcept {
+    this->Swap(other);
+}
+
+LightManager& LightManager::operator=(LightManager&& other) noexcept {
+    if (this != &other) {
+        this->Destroy();
+        this->Swap(other);
+    }
+    return *this;
+}
+
+
 LightManager::~LightManager() {
     this->Destroy();
+}
+
+void LightManager::Swap(LightManager& other) {
+    std::swap(this->lLight, other.lLight);
+    std::swap(this->ambientLight, other.ambientLight);
+    std::swap(this->size, other.size);
+    std::swap(this->LightChanged, other.LightChanged);
+    std::swap(this->LightsChanged, other.LightsChanged);
+    std::swap(this->AmbientLightChanged, other.AmbientLightChanged);
+    std::swap(this->LightSSBO, other.LightSSBO);
 }
 
 void LightManager::initSSBO() { 

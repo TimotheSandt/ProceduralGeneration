@@ -11,6 +11,9 @@ void Game::init() {
     int *w = window.GetWidthptr();
 	int *h = window.GetHeightptr();
 	this->camera.Initialize(w, h, glm::vec3(0.0f, 1.0f, 0.0f));
+    this->camera.SetFOV(75.0f);
+    this->camera.SetNearPlane(0.1f);
+    this->camera.SetFarPlane(1000.0f);
 
     this->world.Init();
 }
@@ -49,7 +52,7 @@ void Game::processInput() {
 
 void Game::update() {
     this->camera.Inputs(this->window.GetWindow(), 1.0 / this->window.GetFPS());
-    this->camera.UpdateMatrix(75.0f, 0.1f, 1000.0f);
+    this->camera.UpdateMatrix();
 
     this->world.Update();
 }

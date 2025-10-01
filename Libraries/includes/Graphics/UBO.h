@@ -24,6 +24,9 @@ public:
     UBO(const UBO&) = delete;
     UBO& operator=(const UBO&) = delete;
 
+    UBO(UBO&&) noexcept;
+    UBO& operator=(UBO&&) noexcept;
+
     bool initialize(size_t size, GLuint bindingPoint, GLenum usage = GL_DYNAMIC_DRAW);
     void Destroy();
 
@@ -42,6 +45,8 @@ public:
     void* mapBuffer(GLenum access = GL_READ_WRITE);
     void unmapBuffer();
 
+private:
+    void Swap(UBO& other) noexcept;
 
 
 private:

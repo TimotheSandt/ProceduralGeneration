@@ -6,10 +6,41 @@ Texture::Texture()
     // Default constructor - creates empty texture object
 }
 
+Texture::Texture(Texture&& other) noexcept {
+    this->Swap(other);
+}
+
+Texture& Texture::operator=(Texture&& other) noexcept {
+    if (this != &other) {
+        this->Destroy();
+        this->Swap(other);
+    }
+    return *this;
+}
+
+void Texture::Swap(Texture& other) noexcept {
+    std::swap(this->ID, other.ID);
+    std::swap(this->slot, other.slot);
+    std::swap(this->format, other.format);
+    std::swap(this->pixelType, other.pixelType);
+    std::swap(this->Width, other.Width);
+    std::swap(this->Height, other.Height);
+    std::swap(this->UniformName, other.UniformName);
+}
+
 void Texture::Copy(Texture& texture)
 {
     void* data = texture.GetTextureData(this->Width, this->Height, this->format, this->pixelType);
     this->SetTextureData(data, this->Width, this->Height, this->format, this->pixelType);
+}
+
+Texture Texture::Copy() const
+{
+    int w, h;
+    GLenum f, p;
+    void* data = this->GetTextureData(w, h, f, p);
+    Texture texture(data, w, h, this->UniformName, this->slot, f, p);
+    return texture;
 }
 
 Texture::Texture(std::string image, const char* name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter) 
@@ -78,7 +109,7 @@ void Texture::SetTextureData(void* data, int width, int height, GLenum format, G
     this->Unbind();
 }
 
-void* Texture::GetTextureData(int& width, int& height, GLenum& format, GLenum& pixelType) {
+void* Texture::GetTextureData(int& width, int& height, GLenum& format, GLenum& pixelType) const {
     width = this->Width;
     height = this->Height;
     format = this->format;
@@ -175,7 +206,7 @@ void Texture::texUnit(Shader &shader)
     glUniform1i(glGetUniformLocation(shader.GetID(), this->UniformName), this->slot);
 }
 
-void Texture::Bind()
+void Texture::Bind() const
 {
     glActiveTexture(GL_TEXTURE0 + this->slot);
     glBindTexture(GL_TEXTURE_2D, this->ID);

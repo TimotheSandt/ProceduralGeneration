@@ -14,27 +14,26 @@ SSBO::~SSBO()
 }
 
 
-SSBO::SSBO(SSBO&& other) noexcept : ID(other.ID), bindingPoint(other.bindingPoint), size(other.size), usage(other.usage) {
-    other.ID = 0;
-    other.bindingPoint = 0;
-    other.size = 0;
-    other.usage = DYNAMIC_DRAW;
+SSBO::SSBO(SSBO&& other) noexcept 
+{
+    this->Swap(other);
 }
 
 SSBO& SSBO::operator=(SSBO&& other) noexcept
 {
-    if (this == &other) return *this;
-    Destroy();
-    ID = other.ID;
-    bindingPoint = other.bindingPoint;
-    size = other.size;
-    usage = other.usage;
-
-    other.ID = 0;
-    other.bindingPoint = 0;
-    other.size = 0;
-    other.usage = DYNAMIC_DRAW;
+    if (this != &other) {
+        this->Destroy();
+        this->Swap(other);
+    }
     return *this;
+}
+
+void SSBO::Swap(SSBO& other) noexcept
+{
+    std::swap(this->ID, other.ID);
+    std::swap(this->bindingPoint, other.bindingPoint);
+    std::swap(this->size, other.size);
+    std::swap(this->usage, other.usage);
 }
 
 bool SSBO::Initialize(size_t size, GLuint bindingPoint, Usage usage)

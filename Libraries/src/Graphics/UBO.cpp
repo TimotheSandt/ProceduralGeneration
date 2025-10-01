@@ -11,6 +11,29 @@ UBO::~UBO()
     Destroy();
 }
 
+UBO::UBO(UBO&& other) noexcept
+{
+    this->Swap(other);
+}
+
+UBO& UBO::operator=(UBO&& other) noexcept
+{
+    if (this != &other) {
+        this->Destroy();
+        this->Swap(other);
+    }
+    return *this;
+}
+
+void UBO::Swap(UBO& other) noexcept
+{
+    std::swap(this->ID, other.ID);
+    std::swap(this->bindingPoint, other.bindingPoint);
+    std::swap(this->size, other.size);
+    std::swap(this->usage, other.usage);
+}
+
+
 bool UBO::initialize(size_t size, GLuint bindingPoint, GLenum usage)
 {
     this->size = size;

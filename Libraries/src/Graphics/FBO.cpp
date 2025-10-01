@@ -9,16 +9,38 @@ FBO::FBO(int width, int height)
     this->Init(width, height);
 }
 
+FBO::FBO(FBO&& other) noexcept {
+    this->Swap(other);
+}
+
+FBO& FBO::operator=(FBO&& other) noexcept {
+    if (this != &other) {
+        this->Destroy();
+        this->Swap(other);
+    }
+    return *this;
+}
+
 FBO::~FBO() {
     this->Destroy();
 }
 
+void FBO::Swap(FBO& other) noexcept {
+    std::swap(this->ID, other.ID);
+    std::swap(this->width, other.width);
+    std::swap(this->height, other.height);
+    std::swap(this->depthBufferID, other.depthBufferID);
+    std::swap(this->screenQuadShader, other.screenQuadShader);
+    std::swap(this->screenQuadVAO, other.screenQuadVAO);
+    std::swap(this->TextureColor, other.TextureColor);
+}
+
 void FBO::Destroy() {
     if (ID != 0) glDeleteFramebuffers(1, &ID);
-    if (depthBuffer != 0) glDeleteRenderbuffers(1, &depthBuffer);
+    if (depthBufferID != 0) glDeleteRenderbuffers(1, &depthBufferID);
     
     ID = 0;
-    depthBuffer = 0;
+    depthBufferID = 0;
     
     this->screenQuadShader.Destroy();
     this->screenQuadVAO.Destroy();
@@ -38,13 +60,13 @@ void FBO::Init(int width, int height) {
     
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
     GL_CHECK_ERROR_M("FBO rebind init");
-    glGenRenderbuffers(1, &depthBuffer);
+    glGenRenderbuffers(1, &depthBufferID);
     GL_CHECK_ERROR_M("FBO depth gen");
-    glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, depthBufferID);
     GL_CHECK_ERROR_M("FBO depth bind");
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
     GL_CHECK_ERROR_M("FBO depth storage");
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBufferID);
     GL_CHECK_ERROR_M("FBO depth attach");
 
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -85,7 +107,7 @@ void FBO::Resize(int newWidth, int newHeight) {
     TextureColor.ResizeFramebufferTexture(width, height);
     
     // Resize the depth buffer
-    glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, depthBufferID);
     GL_CHECK_ERROR_M("FBO resize depth bind");
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
     GL_CHECK_ERROR_M("FBO resize depth storage");

@@ -1,6 +1,22 @@
 #include "VAO.h"
 #include "Logger.h"
 
+
+VAO::VAO(VAO&& other) noexcept
+    : ID(0)
+{
+    std::swap(this->ID, other.ID);
+}
+
+VAO& VAO::operator=(VAO&& other) noexcept
+{
+    if (this != &other) {
+        this->Destroy();
+        std::swap(this->ID, other.ID);
+    }
+    return *this;
+}
+
 void VAO::Initialize()
 {
     glGenVertexArrays(1, &this->ID);
@@ -41,21 +57,4 @@ void VAO::Destroy()
     glDeleteVertexArrays(1, &this->ID);
     GL_CHECK_ERROR_M("VAO delete");
     this->ID = 0;
-}
-
-
-VAO::VAO(VAO&& other) noexcept
-    : ID(0)
-{
-    std::swap(this->ID, other.ID);
-}
-
-VAO& VAO::operator=(VAO&& other) noexcept
-{
-    if (this != &other) {
-        this->Destroy();
-        std::swap(this->ID, other.ID);
-        other.ID = 0;
-    }
-    return *this;
 }

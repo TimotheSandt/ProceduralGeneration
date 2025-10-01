@@ -1,7 +1,20 @@
 #include "VBO.h"
 #include "Logger.h"
 
-VBO::VBO() : ID(0) {}
+
+VBO::VBO(VBO&& other) noexcept
+{
+    std::swap(this->ID, other.ID);
+}
+
+VBO& VBO::operator=(VBO&& other) noexcept
+{
+    if (this != &other) {
+        this->Destroy();
+        std::swap(this->ID, other.ID);
+    }
+    return *this;
+}
 
 VBO::VBO(std::vector<GLfloat>& vertices) : VBO()
 {
@@ -62,20 +75,4 @@ void VBO::UploadData(const void* data, GLsizeiptr size)
     glBufferSubData(GL_ARRAY_BUFFER, 0, size, data);
     GL_CHECK_ERROR();
     this->Unbind();
-}
-
-VBO::VBO(VBO&& other) noexcept
-    : ID(0)
-{
-    std::swap(this->ID, other.ID);
-}
-
-VBO& VBO::operator=(VBO&& other) noexcept
-{
-    if (this != &other) {
-        this->Destroy();
-        std::swap(this->ID, other.ID);
-        other.ID = 0;
-    }
-    return *this;
 }

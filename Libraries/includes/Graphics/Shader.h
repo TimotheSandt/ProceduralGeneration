@@ -14,8 +14,16 @@ std::string get_file_contents(const char* filename);
 class Shader
 {
 public:
-    Shader(const char* vertexPath, const char* fragmentPath);
     Shader() = default;
+    Shader(const char* vertexPath, const char* fragmentPath);
+    ~Shader();
+    
+    Shader(const Shader& shader) noexcept;
+    Shader& operator=(const Shader&) noexcept;
+
+    Shader(Shader&&) noexcept;
+    Shader& operator=(Shader&&) noexcept;
+
 
     void SetShader(const char* vertexPath, const char* fragmentPath);
     void SetShaderCode(std::string vertexCode, std::string fragmentCode);
@@ -37,6 +45,7 @@ private:
     std::string fragmentSource;
 
 private:
+    void Swap(Shader& other) noexcept;
 	bool compileErrors(unsigned int shader, const char* type);
 
     static GLuint& CurrentBoundShader() {

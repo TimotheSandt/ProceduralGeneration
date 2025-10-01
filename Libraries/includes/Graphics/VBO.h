@@ -7,7 +7,7 @@
 class VBO
 {
 public:
-    VBO();
+    VBO() = default;
     VBO(std::vector<GLfloat>& vertices);
     VBO(std::vector<glm::mat4>& mat4);
     ~VBO();
@@ -27,5 +27,5 @@ public:
     void UploadData(const void* data, GLsizeiptr size);
 
 private:
-    GLuint ID;
+    GLuint ID = 0;
 };

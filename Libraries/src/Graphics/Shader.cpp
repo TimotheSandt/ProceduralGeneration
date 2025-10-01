@@ -22,12 +22,49 @@ std::string get_file_contents(const char* filename)
 	throw(errno);
 }
 
+
+
 Shader::Shader(const char* vertexFile, const char* fragmentFile)
 	: vertexShaderPath(vertexFile), fragmentShaderPath(fragmentFile)
 {
 	this->SetShader(vertexFile, fragmentFile);
 	this->CompileShader();
 }
+
+Shader::Shader(const Shader& shader) noexcept {
+	this->SetShader(shader.vertexShaderPath, shader.fragmentShaderPath);
+	this->CompileShader();
+}
+
+Shader& Shader::operator=(const Shader& shader) noexcept {
+	if (this != &shader) {
+		this->SetShader(shader.vertexShaderPath, shader.fragmentShaderPath);
+		this->CompileShader();
+	}
+	return *this;
+}
+
+
+Shader::Shader(Shader&& shader) noexcept {
+	this->Swap(shader);
+}
+
+Shader& Shader::operator=(Shader&& shader) noexcept {
+	if (this != &shader) {
+		this->Destroy();
+		this->Swap(shader);
+	}
+	return *this;
+}
+
+void Shader::Swap(Shader& other) noexcept {
+	std::swap(this->ID, other.ID);
+	std::swap(this->vertexShaderPath, other.vertexShaderPath);
+	std::swap(this->fragmentShaderPath, other.fragmentShaderPath);
+	std::swap(this->vertexSource, other.vertexSource);
+	std::swap(this->fragmentSource, other.fragmentSource);
+}
+
 
 void Shader::SetShader(const char* vertexPath, const char* fragmentPath)
 {

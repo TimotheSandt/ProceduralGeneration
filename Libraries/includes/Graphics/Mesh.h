@@ -23,8 +23,13 @@ public:
     Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib, 
         std::vector<GLfloat> instances, std::vector<GLuint> SizeAttribInstance);
 
-    ~Mesh() { this->Destroy(); }
+    Mesh(const Mesh&) noexcept;
+    Mesh operator=(const Mesh&) noexcept;
+    
+    Mesh(Mesh&&) noexcept;
+    Mesh operator=(Mesh&&) noexcept;
 
+    ~Mesh() { this->Destroy(); }
 
     void Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib);
     void Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib,
@@ -33,7 +38,8 @@ public:
 
     void AddTexture(Texture texture);
     void AddTexture(const char* image, const char* name, GLenum format, GLenum pixelType);
-    void SetShader(Shader shader) { this->shader = shader; }
+    void SetShader(Shader shader) { this->shader = std::move(shader); }
+    void SetShaderCopy(Shader shader) { this->shader = Shader(shader); }
     void SetShader(const char* vertexPath, const char* fragmentPath) { this->shader.SetShader(vertexPath, fragmentPath); }
     void SetPosition(glm::vec3 position) { this->position = position; }
     void SetScale(glm::vec3 scale) { this->scale = scale; }
@@ -61,15 +67,18 @@ public:
 private:
     std::vector<GLfloat> vertices;
     std::vector<GLuint> indices;
+    std::vector<GLuint> sizeAttrib;
     std::vector<Texture> textures;
     Shader shader;
-
+    
     glm::vec3 position = glm::vec3(0.0f);
     glm::vec3 scale = glm::vec3(1.0f);
     glm::vec3 rotation = glm::vec3(0.0f);
-
+    
     GLuint instancing;
-
+    std::vector<GLfloat> instances;
+    std::vector<GLuint> SizeAttribInstance;
+    
     VAO bVAO;
     UBO bUBO;
 
@@ -87,4 +96,5 @@ private:
     bool CacheUniform(const std::string& uniform, void* data, size_t size);
     GLint GetCachedUniformLocation(const std::string& uniform);
     void FreeCache();
+    void Swap(Mesh& other) noexcept;
 };

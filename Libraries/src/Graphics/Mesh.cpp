@@ -10,6 +10,47 @@ Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vect
     this->Initialize(vertices, indices, sizeAttrib, instances, SizeAttribInstance);
 }
 
+Mesh::Mesh(const Mesh& mesh) noexcept
+{
+    this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.SizeAttribInstance);
+}
+
+Mesh Mesh::operator=(const Mesh& mesh) noexcept
+{
+    this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.SizeAttribInstance);
+    return *this;
+}
+
+Mesh::Mesh(Mesh&& mesh) noexcept
+{
+    this->Swap(mesh);
+}
+
+Mesh Mesh::operator=(Mesh&& mesh) noexcept
+{
+    if (this != &mesh) {
+        this->Destroy();
+        this->Swap(mesh);
+    }
+    return *this;
+}
+
+void Mesh::Swap(Mesh& mesh) noexcept
+{
+    std::swap(this->vertices, mesh.vertices);
+    std::swap(this->indices, mesh.indices);
+    std::swap(this->sizeAttrib, mesh.sizeAttrib);
+    std::swap(this->instances, mesh.instances);
+    std::swap(this->SizeAttribInstance, mesh.SizeAttribInstance);
+    std::swap(this->instancing, mesh.instancing);
+    std::swap(this->bVAO, mesh.bVAO);
+    std::swap(this->bUBO, mesh.bUBO);
+    std::swap(this->shader, mesh.shader);
+    std::swap(this->position, mesh.position);
+    std::swap(this->scale, mesh.scale);
+    std::swap(this->rotation, mesh.rotation);
+}
+
 void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib) {
     this->Initialize(vertices, indices, sizeAttrib, {}, {});
 }
@@ -17,8 +58,10 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
 void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib, std::vector<GLfloat> instances, std::vector<GLuint> SizeAttribInstance) {
     this->vertices = vertices;
     this->indices = indices;
-    //this->instancing = (instances.empty()) ? 1 : instances.size();
-    /**/
+    this->sizeAttrib = sizeAttrib;
+    this->instances = instances;
+    this->SizeAttribInstance = SizeAttribInstance;
+    
     if (instances.empty()) {
         this->instancing = 1;
     } else {
@@ -29,7 +72,6 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
         }
         this->instancing = (componentsPerInstance > 0) ? instances.size() / componentsPerInstance : 1;
     }
-    /**/
     
     
     this->bVAO.Initialize();
@@ -100,8 +142,8 @@ void Mesh::Destroy() {
     this->FreeCache();
 }
 
-void Mesh::AddTexture(Texture texture) { 
-    this->textures.push_back(texture);
+void Mesh::AddTexture(Texture texture) {
+    this->textures.push_back(texture.Copy());
 }
 
 void Mesh::AddTexture(const char* image, const char* name, GLenum format, GLenum pixelType) {

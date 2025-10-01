@@ -15,7 +15,7 @@
 
 enum WindowState { WINDOWED, BORDERLESS, FULLSCREEN, FULLSCREEN_UNFOCUSED};
 
-struct Parameters
+struct WindowParameters
 {
     // Window
     std::string title;
@@ -50,6 +50,16 @@ class Window
 {
 public:
     Window();
+    Window(std::string title, int width, int height);
+    Window(std::string title, int width, int height, WindowState windowState);
+    Window(WindowParameters parameters);
+
+    Window(const Window&) = delete;
+    Window& operator=(const Window&) = delete;
+
+    Window(Window&&) noexcept;
+    Window& operator=(Window&&) noexcept;
+
     ~Window();
 
     int Init();
@@ -112,6 +122,8 @@ public:
 
 
 private:
+    void Swap(Window& other) noexcept;
+
     // Window state
     void PostWindowStateChange();
     void SaveWindowedParameters();
@@ -143,12 +155,12 @@ private:
     bool IsWindowHealthy();
 
 private:
-    GLFWwindow* window;
+    GLFWwindow* window = nullptr;
 
     FBO FBORendering;
     FBO FBOUpscaled;
 
-    Parameters parameters;
+    WindowParameters parameters;
 
     FPSCounter fpsCounter;
 

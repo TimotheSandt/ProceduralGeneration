@@ -15,16 +15,23 @@ public:
     Texture(std::string image, const char* name, GLuint slot, GLenum format = GL_RGBA, GLenum pixelType = GL_UNSIGNED_BYTE, GLenum filter = GL_LINEAR);
     ~Texture();
 
+    Texture(const Texture&) = delete;
+    Texture& operator=(const Texture&) = delete;
+
+    Texture(Texture&&) noexcept;
+    Texture& operator=(Texture&&) noexcept;
+
     void Copy(Texture& texture);
+    Texture Copy() const;
 
     void SetTextureData(void* data, int width, int height, GLenum format = GL_RGBA, GLenum pixelType = GL_UNSIGNED_BYTE, GLenum filter = GL_LINEAR);
-    void* GetTextureData(int& width, int& height, GLenum& format, GLenum& pixelType);
+    void* GetTextureData(int& width, int& height, GLenum& format, GLenum& pixelType) const;
 
     void SetFramebufferTexture(const char* uniformName, GLuint slot, int width, int height, GLuint FBO);
     void ResizeFramebufferTexture(int width, int height);
 
     void texUnit(Shader &shader);
-    void Bind();
+    void Bind() const;
     void Unbind();
     void Destroy();
 
@@ -39,11 +46,12 @@ public:
     size_t GetDataSize() const;
 
 private:
+    void Swap(Texture& other) noexcept;
     size_t GetPixelTypeSize(GLenum pixelType) const;
     size_t GetComponentCount(GLenum format) const;
 
 private:
-    GLuint ID;
+    GLuint ID = 0;
     GLuint slot;
     GLenum format;
     GLenum pixelType;

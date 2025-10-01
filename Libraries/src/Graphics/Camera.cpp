@@ -11,8 +11,58 @@ Camera::Camera(int *width, int *height, glm::vec3 position)
         this->Initialize(width, height, position);
     }
 
+Camera::Camera(const Camera& other) noexcept {
+    this->CopyFrom(other);
+}
+
+Camera& Camera::operator=(const Camera& other) noexcept {
+    if (this != &other) {
+        this->Destroy();
+        this->CopyFrom(other);
+    }
+    return *this;
+}
+
+Camera::Camera(Camera&& other) noexcept {
+    this->Swap(other);
+};
+
+Camera& Camera::operator=(Camera&& other) noexcept {
+    if (this != &other) {
+        this->Destroy();
+        this->Swap(other);
+    }
+    return *this;
+}
+
+
 Camera::~Camera() {
     this->Destroy();
+}
+
+void Camera::CopyFrom(const Camera& other) {
+    this->position = other.position;
+    this->Orientation = other.Orientation;
+    this->up = other.up;
+    this->camMatrix = other.camMatrix;
+    this->speed = other.speed;
+    this->sensitivity = other.sensitivity;
+    this->isWireframe = other.isWireframe;
+    this->InitializeUBO();
+    this->UpdateUBO();
+}
+
+void Camera::Swap(Camera& other) noexcept {
+    std::swap(this->position, other.position);
+    std::swap(this->Orientation, other.Orientation);
+    std::swap(this->up, other.up);
+    std::swap(this->camMatrix, other.camMatrix);
+    std::swap(this->width, other.width);
+    std::swap(this->height, other.height);
+    std::swap(this->speed, other.speed);
+    std::swap(this->sensitivity, other.sensitivity);
+    std::swap(this->isWireframe, other.isWireframe);
+    std::swap(this->bUBO, other.bUBO);
 }
 
 void Camera::Destroy() {
@@ -24,20 +74,26 @@ void Camera::Initialize(int *width, int *height, glm::vec3 position) {
     this->position = position;
     this->width = width;
     this->height = height;
-    this->bUBO.initialize(sizeof(CameraUBO), CAMERA_BINDING_POINT, GL_DYNAMIC_DRAW);
+    this->InitializeUBO();
 }
 
-
-void Camera::UpdateMatrix(float FOVdeg, float nearPlane, float farPlane) {
+void Camera::UpdateMatrix() {
     glm::mat4 view = glm::mat4(1.0f);
     glm::mat4 projection = glm::mat4(1.0f);
 
     view = glm::lookAt(this->position, this->position + this->Orientation, this->up);
-    projection = glm::perspective(glm::radians(FOVdeg), (float)(*this->width) / *this->height, nearPlane, farPlane);
+    projection = glm::perspective(glm::radians(this->FOV), (float)(*this->width) / *this->height, this->nearPlane, this->farPlane);
 
     this->camMatrix = projection * view;
     
     this->UpdateUBO();
+}
+
+void Camera::UpdateMatrix(float FOVdeg, float nearPlane, float farPlane) {
+    this->FOV = FOVdeg;
+    this->nearPlane = nearPlane;
+    this->farPlane = farPlane;
+    this->UpdateMatrix();
 }
 
 void Camera::Inputs(GLFWwindow* window, float ElapseTime) {
@@ -112,6 +168,11 @@ void Camera::Inputs(GLFWwindow* window, float ElapseTime) {
 #endif
 }
 
+void Camera::InitializeUBO() {
+    this->bUBO.initialize(sizeof(CameraUBO), CAMERA_BINDING_POINT, GL_DYNAMIC_DRAW);
+    this->UpdateUBO();
+}
+
 void Camera::UpdateUBO() {
     CameraUBO data = { this->position, 0, this->camMatrix };
     this->bUBO.uploadData(&data, sizeof(CameraUBO));
@@ -123,13 +184,6 @@ void Camera::BindUBO() {
 
 
 
-void Camera::SetWireframe(bool enabled) {
-    this->isWireframe = enabled;
-}
-
-bool Camera::GetWireframe() const {
-    return this->isWireframe;
-}
 
 void Camera::ToggleWireframe() {
     SetWireframe(!this->isWireframe);

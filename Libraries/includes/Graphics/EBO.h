@@ -13,8 +13,10 @@ public:
     EBO(const EBO&) = delete;
     EBO& operator=(const EBO&) = delete;
 
-    EBO(EBO&& other) noexcept;
-    EBO& operator=(EBO&& other) noexcept;
+    EBO(EBO&&) noexcept;
+    EBO& operator=(EBO&&) noexcept;
+
+    void Swap(EBO& other) noexcept;
 
     void Initialize(std::vector<GLuint>& indices);
 
@@ -24,5 +26,5 @@ public:
     void UploadData(const void* data, GLsizeiptr size);
 
 private:
-    GLuint ID;
+    GLuint ID = 0;
 };
