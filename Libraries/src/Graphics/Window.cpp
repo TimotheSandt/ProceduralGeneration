@@ -61,6 +61,17 @@ Window& Window::operator=(Window&& other) noexcept
     return *this;
 }
 
+void Window::Swap(Window& other) noexcept
+{
+    std::swap(this->window, other.window);
+    std::swap(this->FBORendering, other.FBORendering);
+    std::swap(this->FBOUpscaled, other.FBOUpscaled);
+    std::swap(this->parameters, other.parameters);
+    std::swap(this->fpsCounter, other.fpsCounter);
+    std::swap(this->lastTime, other.lastTime);
+    std::swap(this->isOpenGLInitialized, other.isOpenGLInitialized);
+}
+
 
 int Window::Init() {
     // Create a window of size 800x800 and called "OpenGL"

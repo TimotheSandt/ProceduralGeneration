@@ -6,7 +6,7 @@ CXX = g++
 CC = gcc
 
 # OS detection
-OS := $(shell uname -s 2>/dev/null || echo Windows)
+OS := $(shell uname -s)
 ifeq ($(OS),Linux)
 	LDFLAGS = -lglfw -lGL -lpthread -lX11 -ldl -lm -lstb
 	COPY_LIBS =
@@ -17,7 +17,6 @@ else ifeq ($(OS),Windows_NT)
 	LDFLAGS = -LLibraries/libs/ThirdParty/ -lglfw3dll -lstb_image -lpsapi -lwinmm
 	COPY_LIBS = copy_libs
 else
-	@echo "Unknown OS"
 	LDFLAGS =
 	COPY_LIBS =
 endif
@@ -304,7 +303,7 @@ info:
 	@echo "C Flags: $(CFLAGS)"
 	@echo "Includes Directories: $(INCLUDES_DIRS)"
 	@echo "Targets: $(TARGET)"
-	@echo ""
+	@echo "OS : $(OS)"
 ifeq ($(OS),Linux)
 	@echo "  Linux/WSL: sudo apt install libglfw3-dev libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libstb-dev"
 else ifeq ($(OS),Darwin)

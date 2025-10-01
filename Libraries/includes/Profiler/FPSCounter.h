@@ -11,6 +11,13 @@ class FPSCounter
 public:
     FPSCounter();
     ~FPSCounter();
+
+    FPSCounter(const FPSCounter&) = delete;
+    FPSCounter& operator=(const FPSCounter&) = delete;
+
+    FPSCounter(FPSCounter&&) noexcept;
+    FPSCounter& operator=(FPSCounter&&) noexcept;
+
     void Destroy() noexcept;
 
     void newFrame(unsigned int maxFPS);
@@ -64,6 +71,8 @@ public:
     int64_t getTotalFramesDropped() const noexcept { return this->framesDropped; }
 
 private:
+    void Swap(FPSCounter& other) noexcept;
+
     // Frame rate limiting strategies
     void hybridSleep(std::chrono::nanoseconds sleepTime);
     void adaptiveSleep(std::chrono::nanoseconds sleepTime);

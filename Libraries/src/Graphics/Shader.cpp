@@ -31,6 +31,10 @@ Shader::Shader(const char* vertexFile, const char* fragmentFile)
 	this->CompileShader();
 }
 
+Shader::~Shader() {
+	this->Destroy();
+}
+
 Shader::Shader(const Shader& shader) noexcept {
 	this->SetShader(shader.vertexShaderPath, shader.fragmentShaderPath);
 	this->CompileShader();
