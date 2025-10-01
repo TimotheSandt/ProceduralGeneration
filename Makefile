@@ -71,7 +71,7 @@ else ifneq ($(findstring dev,$(MAKECMDGOALS)),)
 CFLAGS := -Wall -Wextra -m64 -g3 -O0 -DDEBUG
 BUILD_TYPE = dev
 TARGET_NAME = main
-else ifneq ($(findstring release,$(MAKECMDGOALS)),)
+else ifneq ($(or $(findstring release,$(MAKECMDGOALS)),$(findstring installer,$(MAKECMDGOALS))),)
 CFLAGS := -Wall -Wextra -Werror -m64 -O3 -flto -DNDEBUG -DRELEASE
 BUILD_TYPE = release
 CXXFLAGS += -flto=jobserver
@@ -116,20 +116,24 @@ LIBRARIES_CPP_OBJECTS += $(OBJ_DIR_TYPE)/src/icon.o
 endif
 
 # Build Rules
-.PHONY: all debug dev release
+all: $(TARGET)
 
-all debug dev: $(TARGET)
-release: $(TARGET) $(CREATE_INSTALLER)
+debug dev: $(TARGET)
+
+installer: $(CREATE_INSTALLER)
+
+release: $(TARGET) installer
 	@echo "Release build complete"
+
 
 # Execution Rules
 run run-dev run-debug: $(TARGET)
 	./$(TARGET)
-run-release: $(TARGET) $(CREATE_INSTALLER)
+run-release: $(TARGET) installer
 	./$(TARGET)
 	
 
-create_windows_installer: $(TARGET)
+create_windows_installer:
 	@echo "Creating Windows installer..."
 
 	@if [ ! -f "installers/windows/installer.nsi" ]; then \
@@ -139,17 +143,17 @@ create_windows_installer: $(TARGET)
 	fi
 
 	@echo "Installer File: $(INSTALLER_FILE)"
-	@cd installers/windows && \
-	makensis \
-		/DPRODUCT_NAME="$(PROJECT_NAME)" \
-		/DVERSION="$(VERSION)" \
-		/DPUBLISHER="$(PUBLISHER)" \
-		/DMANTAINER="$(MAINTAINER)" \
-		/DARCH="$(ARCHITECTURE)" \
-		/DICON_NAME="$(ICON_NAME)" \
-		/DOUTPUT_FILE="$(INSTALLER_FILE)" \
-		/DPROJECT_DESCRIPTION="$(PROJECT_DESCRIPTION)" \
-		installer.nsi || { \
+	
+	@makensis \
+		-DPRODUCT_NAME="$(PROJECT_NAME)" \
+		-DVERSION="$(VERSION)" \
+		-DPUBLISHER="$(PUBLISHER)" \
+		-DMANTAINER="$(MAINTAINER)" \
+		-DARCH="$(ARCHITECTURE)" \
+		-DICON_NAME="$(ICON_NAME)" \
+		-DOUTPUT_FILE="$(INSTALLER_FILE)" \
+		-DPROJECT_DESCRIPTION="$(PROJECT_DESCRIPTION)" \
+		installers/windows/installer.nsi || { \
 			echo "makensis failed"; exit 1; \
 		}
 
@@ -162,7 +166,7 @@ create_windows_installer: $(TARGET)
 	@echo "Windows installer created: $(BUILD_DIR)/$(INSTALLER_FILE)"
 
 
-create_linux_installer: $(TARGET)
+create_linux_installer:
 	@rm -rf /tmp/proceduralgeneration_deb
 	@echo "Creating Linux .deb package..."
 	@mkdir -p /tmp/proceduralgeneration_deb/usr/bin /tmp/proceduralgeneration_deb/usr/share/proceduralgeneration
@@ -260,7 +264,6 @@ $(BUILD_DIR):
 	mkdir -p $@
 
 
-.PHONY: clean fclean re
 # Clean Rules
 clean:
 	rm -rf $(OBJ_DIR)
@@ -281,7 +284,7 @@ re-dev: fclean dev
 re-release: fclean release
 
 
-.PHONY: check
+
 # Check 
 check:
 	@echo "Checking C++ syntax..."
@@ -321,7 +324,8 @@ endif
 
 
 # Phony Rules
-.PHONY: all release dev debug 
+.PHONY: all 
+.PHONY: release dev debug 
 .PHONY: run run-release run-dev run-debug
 .PHONY: clean fclean re re-debug re-dev re-release
 .PHONY: info info-debug info-dev info-release debug-info dev-info release-info
