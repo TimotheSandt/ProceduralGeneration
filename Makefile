@@ -61,6 +61,8 @@ CFLAGS = -Wall -Wextra -Werror -m64 -O2 -DNDEBUG
 BUILD_TYPE = normal
 TARGET_NAME = $(PROJECT_NAME)
 
+CXXFLAGS = -std=c++23
+
 ifneq ($(findstring debug,$(MAKECMDGOALS)),)
 CFLAGS := -Wall -Wextra -m64 -O1 -DDEBUG
 BUILD_TYPE = debug
@@ -70,16 +72,18 @@ CFLAGS := -Wall -Wextra -m64 -g3 -O0 -DDEBUG
 BUILD_TYPE = dev
 TARGET_NAME = main
 else ifneq ($(findstring release,$(MAKECMDGOALS)),)
-CFLAGS := -Wall -Wextra -Werror -m64 -O3 -DNDEBUG -DRELEASE
+CFLAGS := -Wall -Wextra -Werror -m64 -O3 -flto -DNDEBUG -DRELEASE
 BUILD_TYPE = release
+CXXFLAGS += -flto=jobserver
 endif
+
+CXXFLAGS += $(CFLAGS) 
 
 BIN_DIR_TYPE = $(BIN_DIR)/$(BUILD_TYPE)
 OBJ_DIR_TYPE = $(OBJ_DIR)/$(BUILD_TYPE)
 
 TARGET = $(BIN_DIR_TYPE)/$(TARGET_NAME)
 
-CXXFLAGS = $(CFLAGS) -std=c++23
 
 
 # Source Files
