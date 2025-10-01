@@ -70,7 +70,7 @@ public:
     static bool InitOpenGL();
     static void TerminateOpenGL();
 
-    void Clear();
+    void Clear() const;
 
 
     // Window state
@@ -93,40 +93,39 @@ public:
     void SetTrueEvery(double ms) { this->parameters.trueEveryms = ms; }
 
     // Getters
-    int GetWidth() { return this->parameters.width; }
-    int GetHeight() { return this->parameters.height; }
+    int GetWidth() const { return this->parameters.width; }
+    int GetHeight() const { return this->parameters.height; }
     int* GetWidthptr() { return &this->parameters.width; }
     int* GetHeightptr() { return &this->parameters.height; }
-    bool ShouldClose() { return glfwWindowShouldClose(this->window); }
-    double GetAspectRatio () { return (double)this->parameters.width / (double)this->parameters.height; }
-    GLFWwindow* GetWindow() { return this->window; }
+    bool ShouldClose() const { return glfwWindowShouldClose(this->window); }
+    double GetAspectRatio() const { return (double)this->parameters.width / (double)this->parameters.height; }
+    GLFWwindow* GetWindow() const { return this->window; }
 
 
     // Performance
-    int GetFrame() { return this->fpsCounter.getFrame(); }
-    void trueEvery(double ms) { this->parameters.trueEveryms = ms; };
-    double GetFPS() { return this->fpsCounter.getFPS(); }
-    double GetAverageFPS() { return this->fpsCounter.getAverageFPS(); }
-    double GetMaxFPS() { return this->fpsCounter.getMaxFPS(); }
-    double GetMinFPS() { return this->fpsCounter.getMinFPS(); }
+    int GetFrame() const { return this->fpsCounter.getFrame(); }
+    double GetFPS()  const{ return this->fpsCounter.getFPS(); }
+    double GetAverageFPS() const { return this->fpsCounter.getAverageFPS(); }
+    double GetMaxFPS() const { return this->fpsCounter.getMaxFPS(); }
+    double GetMinFPS() const { return this->fpsCounter.getMinFPS(); }
 
-    double GetElapseTimeSecond() { return this->fpsCounter.getElapseTimeInSeconds(); }
-    double GetAverageElapseTimeSecond() { return this->fpsCounter.getAverageElapseTimeInSeconds(); }
-    double GetMaxElapseTimeSecond() { return this->fpsCounter.getMaxElapseTimeInSeconds(); }
-    double GetMinElapseTimeSecond() { return this->fpsCounter.getMinElapseTimeInSeconds(); }
+    double GetElapseTimeSecond() const { return this->fpsCounter.getElapseTimeInSeconds(); }
+    double GetAverageElapseTimeSecond() const { return this->fpsCounter.getAverageElapseTimeInSeconds(); }
+    double GetMaxElapseTimeSecond() const { return this->fpsCounter.getMaxElapseTimeInSeconds(); }
+    double GetMinElapseTimeSecond() const { return this->fpsCounter.getMinElapseTimeInSeconds(); }
     
-    double GetElapseTimeMillisecond() { return this->fpsCounter.getElapseTimeInMilliseconds(); }
-    double GetAverageElapseTimeMillisecond() { return this->fpsCounter.getAverageElapseTimeInMilliseconds(); }
-    double GetMaxElapseTimeMillisecond() { return this->fpsCounter.getMaxElapseTimeInMilliseconds(); }
-    double GetMinElapseTimeMillisecond() { return this->fpsCounter.getMinElapseTimeInMilliseconds(); }
+    double GetElapseTimeMillisecond() const { return this->fpsCounter.getElapseTimeInMilliseconds(); }
+    double GetAverageElapseTimeMillisecond() const { return this->fpsCounter.getAverageElapseTimeInMilliseconds(); }
+    double GetMaxElapseTimeMillisecond() const { return this->fpsCounter.getMaxElapseTimeInMilliseconds(); }
+    double GetMinElapseTimeMillisecond() const { return this->fpsCounter.getMinElapseTimeInMilliseconds(); }
 
 
 private:
     void Swap(Window& other) noexcept;
 
     // Window state
-    void PostWindowStateChange();
     void SaveWindowedParameters();
+    void PostWindowStateChange() const;
     
     void ActivateFullscreen();
     void ActivateWindowed();
@@ -135,8 +134,8 @@ private:
 
     // Resolution Scaling methods
     void InitFBOs();
-    void StartRenderFBO();
-    void EndRenderFBO();
+    void BindRenderFBO() const;
+    void UnbindRenderFBO() const;
     void UpdateFBOResotution();
 
 
@@ -152,7 +151,7 @@ private:
 
     // Error handling
     static void SetupErrorHandling();
-    bool IsWindowHealthy();
+    bool IsWindowHealthy() const;
 
 private:
     GLFWwindow* window = nullptr;

@@ -6,7 +6,7 @@
 class EBO
 {
 public:
-    EBO();
+    EBO() = default;
     EBO(std::vector<GLuint>& indices);
     ~EBO();
 
@@ -20,8 +20,8 @@ public:
 
     void Initialize(std::vector<GLuint>& indices);
 
-    void Bind();
-    void Unbind();
+    void Bind() const;
+    void Unbind() const;
     void Destroy();
     void UploadData(const void* data, GLsizeiptr size);
 

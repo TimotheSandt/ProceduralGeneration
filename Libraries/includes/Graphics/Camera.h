@@ -31,7 +31,7 @@ public:
     void UpdateMatrix(float FOVdeg, float nearPlane, float farPlane);
     void Inputs(GLFWwindow* window, float ElapseTime);
 
-    void BindUBO();
+    void BindUBO() const;
     
 public:
     void SetPosition(glm::vec3 position) { this->position = position; }
@@ -54,7 +54,7 @@ public:
 
 
 private:
-    void CopyFrom(const Camera& other);
+    void Copy(const Camera& other);
     void Swap(Camera& other) noexcept;
 
 private:

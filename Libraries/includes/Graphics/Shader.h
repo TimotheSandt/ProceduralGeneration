@@ -29,12 +29,12 @@ public:
     void SetShaderCode(std::string vertexCode, std::string fragmentCode);
     void CompileShader();
 
-    void Bind();
-    void Unbind();
+    void Bind() const;
+    void Unbind() const;
     void Destroy();
 
-    GLuint GetID() { return this->ID; }
-    bool IsCompiled() { return this->ID != 0; }
+    GLuint GetID() const { return this->ID; }
+    bool IsCompiled() const { return this->ID != 0; }
 
 private:
     GLuint ID = 0;
@@ -46,10 +46,5 @@ private:
 
 private:
     void Swap(Shader& other) noexcept;
-	bool compileErrors(unsigned int shader, const char* type);
-
-    static GLuint& CurrentBoundShader() {
-        static GLuint currentBoundShader = 0;
-        return currentBoundShader;
-    } ;
+	bool compileErrors(unsigned int shader, const char* type) const;
 };

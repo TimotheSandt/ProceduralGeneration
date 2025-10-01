@@ -11,10 +11,9 @@
 #endif
 
 FPSCounter::FPSCounter() :
-    lastTime(std::chrono::high_resolution_clock::now()),
-    frameStartTime(std::chrono::high_resolution_clock::now()),
-    nextFrameTime(std::chrono::high_resolution_clock::now())
-{
+        lastTime(std::chrono::high_resolution_clock::now()),
+        frameStartTime(std::chrono::high_resolution_clock::now()),
+        nextFrameTime(std::chrono::high_resolution_clock::now()) {
     this->fpsBuffer.Init(this->BufferSize);
     this->elapseTimeBuffer.Init(this->BufferSize);
     this->initializePlatformTimer();

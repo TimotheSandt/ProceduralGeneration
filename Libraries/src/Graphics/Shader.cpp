@@ -6,8 +6,7 @@
 
 
 // Reads a text file and outputs a string with everything in the text file
-std::string get_file_contents(const char* filename)
-{
+std::string get_file_contents(const char* filename) {
 	std::ifstream in(filename, std::ios::binary);
 	if (in)
 	{
@@ -25,8 +24,7 @@ std::string get_file_contents(const char* filename)
 
 
 Shader::Shader(const char* vertexFile, const char* fragmentFile)
-	: vertexShaderPath(vertexFile), fragmentShaderPath(fragmentFile)
-{
+		: vertexShaderPath(vertexFile), fragmentShaderPath(fragmentFile) {
 	this->SetShader(vertexFile, fragmentFile);
 	this->CompileShader();
 }
@@ -70,8 +68,7 @@ void Shader::Swap(Shader& other) noexcept {
 }
 
 
-void Shader::SetShader(const char* vertexPath, const char* fragmentPath)
-{
+void Shader::SetShader(const char* vertexPath, const char* fragmentPath) {
 	this->vertexShaderPath = vertexPath;
 	this->fragmentShaderPath = fragmentPath;
 	
@@ -91,8 +88,7 @@ void Shader::SetShader(const char* vertexPath, const char* fragmentPath)
 	this->CompileShader();
 }
 
-void Shader::SetShaderCode(std::string vertexCode, std::string fragmentCode)
-{
+void Shader::SetShaderCode(std::string vertexCode, std::string fragmentCode) {
 	this->vertexShaderPath = nullptr;
 	this->fragmentShaderPath = nullptr;
 
@@ -103,8 +99,7 @@ void Shader::SetShaderCode(std::string vertexCode, std::string fragmentCode)
 	this->CompileShader();
 }
 
-void Shader::CompileShader()
-{
+void Shader::CompileShader() {
 	this->Destroy();
 
 	const char* vSource = this->vertexSource.c_str();
@@ -137,21 +132,16 @@ void Shader::CompileShader()
     glDeleteShader(fragmentShader);
 }
 
-void Shader::Bind()
-{
-	if (this->ID == 0 || this->ID == CurrentBoundShader()) return;
-	CurrentBoundShader() = this->ID;
+void Shader::Bind() const {
+	if (this->ID == 0) return;
 	glUseProgram(this->ID);
 }
 
-void Shader::Unbind()
-{
+void Shader::Unbind() const {
 	glUseProgram(0);
-	CurrentBoundShader() = 0;
 }
 
-void Shader::Destroy()
-{
+void Shader::Destroy() {
     if (this->ID == 0)  return;
 	glDeleteProgram(this->ID);
 	this->ID = 0;
@@ -159,8 +149,7 @@ void Shader::Destroy()
 
 
 // Checks if the different Shaders have compiled properly
-bool Shader::compileErrors(unsigned int shader, const char* type)
-{
+bool Shader::compileErrors(unsigned int shader, const char* type) const {
 	// Stores status of compilation
 	GLint hasCompiled;
 	// Character array to store error message in

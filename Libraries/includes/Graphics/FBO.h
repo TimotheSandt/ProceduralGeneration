@@ -12,7 +12,7 @@
 class FBO
 {
 public:
-    FBO();
+    FBO() = default;
     FBO(int width, int height);
 
     FBO(const FBO&) = delete;
@@ -26,13 +26,13 @@ public:
     void Init(int width, int height);
     void Resize(int newWidth, int newHeight);
     void Destroy();
-    void Bind();
-    void Unbind();
+    void Bind() const;
+    void Unbind() const;
     
-    void BlitFBO(FBO& oFBO);
-    void BlitToScreen(int sWidth, int sHeight);
-    void RenderScreenQuad();
-    void RenderScreenQuad(int fWidth, int fHeight);
+    void BlitFBO(FBO& oFBO) const;
+    void BlitToScreen(int sWidth, int sHeight) const;
+    void RenderScreenQuad() const;
+    void RenderScreenQuad(int fWidth, int fHeight) const;
     
     
     GLuint GetID() const { return ID; }
@@ -49,7 +49,7 @@ private:
     GLuint ID = 0;
     GLuint depthBufferID = 0;
     Texture TextureColor;
-    int width, height;
+    int width = 0, height = 0;
 
     VAO screenQuadVAO;
     Shader screenQuadShader;

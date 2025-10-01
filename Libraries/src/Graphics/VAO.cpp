@@ -3,13 +3,11 @@
 
 
 VAO::VAO(VAO&& other) noexcept
-    : ID(0)
-{
+        : ID(0) {
     std::swap(this->ID, other.ID);
 }
 
-VAO& VAO::operator=(VAO&& other) noexcept
-{
+VAO& VAO::operator=(VAO&& other) noexcept {
     if (this != &other) {
         this->Destroy();
         std::swap(this->ID, other.ID);
@@ -17,22 +15,13 @@ VAO& VAO::operator=(VAO&& other) noexcept
     return *this;
 }
 
-void VAO::Initialize()
-{
+void VAO::Initialize() {
+    if (this->ID != 0) return;
     glGenVertexArrays(1, &this->ID);
     GL_CHECK_ERROR_M("VAO gen");
 }
 
-void VAO::Generate()
-{
-    glDeleteVertexArrays(1, &this->ID);
-    GL_CHECK_ERROR_M("VAO delete");
-    glGenVertexArrays(1, &this->ID);
-    GL_CHECK_ERROR_M("VAO gen");
-}
-
-void VAO::LinkAttrib(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void* offset)
-{
+void VAO::LinkAttrib(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void* offset) const {
     VBO.Bind();
     glVertexAttribPointer(layout, numComponents, type, GL_FALSE, stride, offset);
     GL_CHECK_ERROR_M("VAO attrib pointer");
@@ -41,18 +30,15 @@ void VAO::LinkAttrib(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type,
     VBO.Unbind();
 }
 
-void VAO::Bind()
-{
+void VAO::Bind() const {
     glBindVertexArray(this->ID);
 }
 
-void VAO::Unbind()
-{
+void VAO::Unbind() const {
     glBindVertexArray(0);
 }
 
-void VAO::Destroy()
-{
+void VAO::Destroy() {
     if (this->ID == 0) return;
     glDeleteVertexArrays(1, &this->ID);
     GL_CHECK_ERROR_M("VAO delete");

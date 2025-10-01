@@ -2,21 +2,15 @@
 
 #include "Logger.h"
 
-EBO::EBO() : ID(0) {}
-
-EBO::EBO(std::vector<GLuint>& indices) : EBO()
-{
+EBO::EBO(std::vector<GLuint>& indices) {
     Initialize(indices);
 }
 
-EBO::EBO(EBO&& other) noexcept
-    : ID(0)
-{
+EBO::EBO(EBO&& other) noexcept {
     std::swap(this->ID, other.ID);
 }
 
-EBO& EBO::operator=(EBO&& other) noexcept
-{
+EBO& EBO::operator=(EBO&& other) noexcept {
     if (this != &other) {
         this->Destroy();
         this->Swap(other);
@@ -24,13 +18,11 @@ EBO& EBO::operator=(EBO&& other) noexcept
     return *this;
 }
 
-void EBO::Swap(EBO& other) noexcept
-{
+void EBO::Swap(EBO& other) noexcept {
     std::swap(this->ID, other.ID);
 }
 
-void EBO::Initialize(std::vector<GLuint>& indices)
-{
+void EBO::Initialize(std::vector<GLuint>& indices) {
     glGenBuffers(1, &this->ID);
     GL_CHECK_ERROR();
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ID);
@@ -39,24 +31,20 @@ void EBO::Initialize(std::vector<GLuint>& indices)
     GL_CHECK_ERROR();
 }
 
-EBO::~EBO()
-{
+EBO::~EBO() {
     this->Destroy();
 }
 
-void EBO::Bind()
-{
+void EBO::Bind() const {
     if (this->ID == 0) return;
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ID);
 }
 
-void EBO::Unbind()
-{
+void EBO::Unbind() const {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-void EBO::Destroy()
-{
+void EBO::Destroy() {
     if (this->ID == 0) return;
     glDeleteBuffers(1, &this->ID);
     GL_CHECK_ERROR_M("Failed to delete EBO");
@@ -64,8 +52,7 @@ void EBO::Destroy()
     
 }
 
-void EBO::UploadData(const void* data, GLsizeiptr size)
-{
+void EBO::UploadData(const void* data, GLsizeiptr size) {
     this->Bind();
     glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, size, data);
     GL_CHECK_ERROR_M("Failed to upload data to EBO");

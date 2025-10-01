@@ -30,9 +30,9 @@ public:
     void SetFramebufferTexture(const char* uniformName, GLuint slot, int width, int height, GLuint FBO);
     void ResizeFramebufferTexture(int width, int height);
 
-    void texUnit(Shader &shader);
+    void texUnit(const Shader &shader) const;
     void Bind() const;
-    void Unbind();
+    void Unbind() const;
     void Destroy();
 
     GLuint GetID() const { return this->ID; }

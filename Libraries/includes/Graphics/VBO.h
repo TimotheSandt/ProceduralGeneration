@@ -9,23 +9,23 @@ class VBO
 public:
     VBO() = default;
     VBO(std::vector<GLfloat>& vertices);
-    VBO(std::vector<glm::mat4>& mat4);
     ~VBO();
 
     VBO(const VBO&) = delete;
     VBO& operator=(const VBO&) = delete;
 
-    VBO(VBO&& other) noexcept;
-    VBO& operator=(VBO&& other) noexcept;
+    VBO(VBO&&) noexcept;
+    VBO& operator=(VBO&&) noexcept;
 
     void Initialize(std::vector<GLfloat>& vertices);
-    void Initialize(std::vector<glm::mat4>& mat4);
 
-    void Bind();
-    void Unbind();
+    void Bind() const;
+    void Unbind() const;
     void Destroy();
-    void UploadData(const void* data, GLsizeiptr size);
 
-private:
-    GLuint ID = 0;
+protected:
+    void Swap(VBO& other) noexcept;
+
+protected:
+    GLuint ID = 0;    
 };

@@ -47,13 +47,11 @@ Window::~Window() {
     this->Close();
 }
 
-Window::Window(Window&& other) noexcept
-{
+Window::Window(Window&& other) noexcept {
     this->Swap(other);
 }
 
-Window& Window::operator=(Window&& other) noexcept
-{
+Window& Window::operator=(Window&& other) noexcept {
     if (this != &other) {
         this->Close();
         this->Swap(other);
@@ -61,8 +59,7 @@ Window& Window::operator=(Window&& other) noexcept
     return *this;
 }
 
-void Window::Swap(Window& other) noexcept
-{
+void Window::Swap(Window& other) noexcept {
     std::swap(this->window, other.window);
     std::swap(this->FBORendering, other.FBORendering);
     std::swap(this->FBOUpscaled, other.FBOUpscaled);
@@ -175,7 +172,7 @@ void Window::TerminateOpenGL() {
 }
 
 
-void Window::Clear() {
+void Window::Clear() const {
     glClearColor(
         this->parameters.clearColor.r, 
         this->parameters.clearColor.g, 
@@ -198,7 +195,7 @@ bool Window::NewFrame() {
     this->fpsCounter.newFrame(this->parameters.maxFPS);
 
     if (this->parameters.enableUpscaling) {
-        this->StartRenderFBO();
+        this->BindRenderFBO();
     }
     
     if (this->parameters.trueEveryms == 0) {
@@ -223,7 +220,7 @@ void Window::SwapBuffers() {
     Profiler::Process();
 
     if (this->parameters.enableUpscaling) {
-        Profiler::ProfileGPU("Upscale", &Window::EndRenderFBO, this);
+        Profiler::ProfileGPU("Upscale", &Window::UnbindRenderFBO, this);
     }
 
     glfwSwapBuffers(this->window);
@@ -405,7 +402,7 @@ void Window::SaveWindowedParameters() {
 }
 
 
-void Window::PostWindowStateChange() {
+void Window::PostWindowStateChange() const {
     if (!this->window) return;
     glfwMakeContextCurrent(this->window);
     GL_CHECK_ERROR_M("glfwMakeContextCurrent");
@@ -647,7 +644,7 @@ void Window::SetupErrorHandling() {
 
 
 // Fonction pour vérifier l'état de la fenêtre
-bool Window::IsWindowHealthy() {
+bool Window::IsWindowHealthy() const {
     if (!this->window) {
         return false;
     }

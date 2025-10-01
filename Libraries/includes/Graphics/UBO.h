@@ -30,11 +30,11 @@ public:
     bool initialize(size_t size, GLuint bindingPoint, GLenum usage = GL_DYNAMIC_DRAW);
     void Destroy();
 
-    void Bind();
-    void BindToBindingPoint();
-    void Unbind();
+    void Bind() const;
+    void BindToBindingPoint() const;
+    void Unbind() const;
 
-    void uploadData(const void* data, size_t size, size_t offset = 0);
+    void uploadData(const void* data, size_t size, size_t offset = 0) const;
 
     /*
     access :
@@ -42,8 +42,8 @@ public:
         GL_WRITE_ONLY - écriture seule
         GL_READ_WRITE - lecture/écriture
     */
-    void* mapBuffer(GLenum access = GL_READ_WRITE);
-    void unmapBuffer();
+    void* mapBuffer(GLenum access = GL_READ_WRITE) const;
+    void unmapBuffer() const;
 
 private:
     void Swap(UBO& other) noexcept;

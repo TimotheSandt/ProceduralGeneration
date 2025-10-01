@@ -17,11 +17,10 @@ public:
 
     void Initialize();
 
-    void Generate();
 
-	void LinkAttrib(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void* offset);
-    void Bind();
-    void Unbind();
+	void LinkAttrib(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void* offset) const;
+    void Bind() const;
+    void Unbind() const;
     void Destroy();
 
 private:

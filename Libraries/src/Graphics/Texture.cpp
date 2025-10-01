@@ -2,9 +2,7 @@
 
 Texture::Texture() 
     : ID(0), slot(0), format(GL_RGBA), pixelType(GL_UNSIGNED_BYTE), Width(0), Height(0), UniformName("")
-{
-    // Default constructor - creates empty texture object
-}
+{ }
 
 Texture::Texture(Texture&& other) noexcept {
     this->Swap(other);
@@ -28,14 +26,12 @@ void Texture::Swap(Texture& other) noexcept {
     std::swap(this->UniformName, other.UniformName);
 }
 
-void Texture::Copy(Texture& texture)
-{
+void Texture::Copy(Texture& texture) {
     void* data = texture.GetTextureData(this->Width, this->Height, this->format, this->pixelType);
     this->SetTextureData(data, this->Width, this->Height, this->format, this->pixelType);
 }
 
-Texture Texture::Copy() const
-{
+Texture Texture::Copy() const {
     int w, h;
     GLenum f, p;
     void* data = this->GetTextureData(w, h, f, p);
@@ -44,8 +40,7 @@ Texture Texture::Copy() const
 }
 
 Texture::Texture(std::string image, const char* name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter) 
-    : slot(slot), format(format), pixelType(pixelType), Width(0), Height(0), UniformName(name)
-{
+        : slot(slot), format(format), pixelType(pixelType), Width(0), Height(0), UniformName(name) {
     stbi_set_flip_vertically_on_load(true);
     int numColCh;
     bool isLoaded = true;
@@ -75,8 +70,7 @@ Texture::Texture(std::string image, const char* name, GLuint slot, GLenum format
 }
 
 Texture::Texture(void* data, int width, int height, const char* name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter) 
-    : slot(slot), format(format), pixelType(pixelType), Width(width), Height(height), UniformName(name)
-{
+        : slot(slot), format(format), pixelType(pixelType), Width(width), Height(height), UniformName(name) {
     this->SetTextureData(data, width, height, this->format, pixelType, filter);
 }
 
@@ -200,25 +194,21 @@ void Texture::ResizeFramebufferTexture(int width, int height) {
     glTexImage2D(GL_TEXTURE_2D, 0, this->format, this->Width, this->Height, 0, this->format, GL_UNSIGNED_BYTE, NULL);
 }
 
-void Texture::texUnit(Shader &shader)
-{
+void Texture::texUnit(const Shader &shader) const {
     shader.Bind();
     glUniform1i(glGetUniformLocation(shader.GetID(), this->UniformName), this->slot);
 }
 
-void Texture::Bind() const
-{
+void Texture::Bind() const {
     glActiveTexture(GL_TEXTURE0 + this->slot);
     glBindTexture(GL_TEXTURE_2D, this->ID);
 }
 
-void Texture::Unbind()
-{
+void Texture::Unbind() const {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void Texture::Destroy()
-{
+void Texture::Destroy() {
     if (this->ID == 0) return;
     glDeleteTextures(1, &this->ID);
     this->ID = 0;

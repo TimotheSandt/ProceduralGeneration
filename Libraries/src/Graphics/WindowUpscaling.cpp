@@ -47,10 +47,10 @@ void Window::InitFBOs() {
     FBORendering.Init(parameters.renderWidth, parameters.renderHeight);
 }
 
-void Window::StartRenderFBO(){
+void Window::BindRenderFBO() const {
     FBORendering.Bind();
 }
-void Window::EndRenderFBO(){
+void Window::UnbindRenderFBO() const{
     glViewport(0, 0, parameters.width, parameters.height);
 
     FBORendering.Unbind();

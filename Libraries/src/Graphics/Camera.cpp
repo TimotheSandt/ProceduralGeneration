@@ -7,18 +7,18 @@ struct CameraUBO {
 };
 
 Camera::Camera(int *width, int *height, glm::vec3 position)
-    : position(position), width(width), height(height) {
-        this->Initialize(width, height, position);
-    }
+        : position(position), width(width), height(height) {
+    this->Initialize(width, height, position);
+}
 
 Camera::Camera(const Camera& other) noexcept {
-    this->CopyFrom(other);
+    this->Copy(other);
 }
 
 Camera& Camera::operator=(const Camera& other) noexcept {
     if (this != &other) {
         this->Destroy();
-        this->CopyFrom(other);
+        this->Copy(other);
     }
     return *this;
 }
@@ -40,7 +40,7 @@ Camera::~Camera() {
     this->Destroy();
 }
 
-void Camera::CopyFrom(const Camera& other) {
+void Camera::Copy(const Camera& other) {
     this->position = other.position;
     this->Orientation = other.Orientation;
     this->up = other.up;
@@ -178,7 +178,7 @@ void Camera::UpdateUBO() {
     this->bUBO.uploadData(&data, sizeof(CameraUBO));
 }
 
-void Camera::BindUBO() {
+void Camera::BindUBO() const {
     this->bUBO.BindToBindingPoint();
 }
 

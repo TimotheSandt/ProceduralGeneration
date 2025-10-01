@@ -28,11 +28,9 @@ namespace lght
 
         Light(const Light& other) = default;
 
-        bool operator==(const Light& other) const
-        {
+        bool operator==(const Light& other) const {
             if (type != other.type) return false;
-            switch (type)
-            {
+            switch (type) {
                 case AMBIENT: 
                     return (
                         color == other.color && 
@@ -123,8 +121,7 @@ namespace lght
         LightBlock() = default;
         LightBlock(const Light& light) { *this = light; }
 
-        LightBlock operator=(const Light& light)
-        {
+        LightBlock operator=(const Light& light) {
             type = light.type;
             position = glm::vec4(light.position, 1.0f);
             direction = glm::vec4(light.direction, 0.0f);
@@ -137,8 +134,7 @@ namespace lght
             return *this;
         }
 
-        bool operator==(const LightBlock& other) const
-        {
+        bool operator==(const LightBlock& other) const {
             if (type != other.type) return false;
             switch (type)
             {
@@ -247,7 +243,7 @@ public:
 
     void initSSBO();
     void updateSSBO();
-    void BindSSBO();
+    void BindSSBO() const;
 
     void AddLight(lght::Light Light);
     void AddLight(std::vector<lght::Light> Light);
@@ -264,7 +260,7 @@ public:
     
 
     lght::Light& GetLight(size_t index);
-    std::vector<lght::Light> GetLight();
+    std::vector<lght::Light>& GetLight();
     lght::Light& GetAmbientLight();
 
 private:

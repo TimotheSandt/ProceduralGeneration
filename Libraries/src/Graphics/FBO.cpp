@@ -3,9 +3,7 @@
 #include "Logger.h"
 #include "utilities.h"
 
-FBO::FBO() : width(0), height(0) {}
-FBO::FBO(int width, int height)
-{
+FBO::FBO(int width, int height){
     this->Init(width, height);
 }
 
@@ -81,7 +79,7 @@ void FBO::Init(int width, int height) {
     this->Setup();
 }
 
-void FBO::Bind() {
+void FBO::Bind() const {
     if (ID == 0) return;
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
     GL_CHECK_ERROR_M("FBO bind");
@@ -89,7 +87,7 @@ void FBO::Bind() {
     GL_CHECK_ERROR_M("FBO viewport");
 }
 
-void FBO::Unbind() {
+void FBO::Unbind() const {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     GL_CHECK_ERROR_M("FBO unbind");
 }
@@ -124,8 +122,7 @@ void FBO::Resize(int newWidth, int newHeight) {
     Unbind();
 }
 
-void FBO::BlitFBO(FBO& oFBO) {
-
+void FBO::BlitFBO(FBO& oFBO) const {
     GLuint oID = oFBO.GetID();
     int oWidth = oFBO.GetWidth();
     int oHeight = oFBO.GetHeight();
@@ -150,7 +147,7 @@ void FBO::BlitFBO(FBO& oFBO) {
     this->Unbind();
 }
 
-void FBO::BlitToScreen(int sWidth, int sHeight) {
+void FBO::BlitToScreen(int sWidth, int sHeight) const {
     if (ID == 0) {
         LOG_ERROR(1, "Invalid FBO ID");
         return;
@@ -190,7 +187,7 @@ void FBO::Setup() {
 
     this->screenQuadVAO.Initialize();
     GL_CHECK_ERROR_M("FBO screen VAO init");
-    this->screenQuadVAO.Generate();
+    this->screenQuadVAO.Initialize();
     GL_CHECK_ERROR_M("FBO screen VAO gen");
     this->screenQuadVAO.Bind();
     GL_CHECK_ERROR_M("FBO screen VAO bind");
@@ -209,11 +206,11 @@ void FBO::Setup() {
 }
 
 
-void FBO::RenderScreenQuad() {
+void FBO::RenderScreenQuad() const {
     RenderScreenQuad(width, height);
 }
 
-void FBO::RenderScreenQuad(int fWidth, int fHeight) {
+void FBO::RenderScreenQuad(int fWidth, int fHeight) const {
     glViewport(0, 0, fWidth, fHeight);
     GL_CHECK_ERROR_M("FBO screen viewport");
     

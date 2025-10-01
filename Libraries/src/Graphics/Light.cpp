@@ -100,7 +100,7 @@ void LightManager::updateSSBO() {
     } 
 }
 
-void LightManager::BindSSBO() { 
+void LightManager::BindSSBO() const { 
     this->LightSSBO.BindToPoint();
 }
 
@@ -175,7 +175,7 @@ lght::Light& LightManager::GetLight(size_t index) {
 }
 
 
-std::vector<lght::Light> LightManager::GetLight() { 
+std::vector<lght::Light>& LightManager::GetLight() { 
     return this->lLight;
 }
 

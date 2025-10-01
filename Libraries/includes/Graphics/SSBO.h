@@ -42,8 +42,6 @@ public:
     void BindToPoint() const;
     void Unbind() const;
 
-    void Clear();
-
     void Destroy();
 
     bool isInitialized() const { return ID != 0; }
@@ -53,8 +51,8 @@ public:
     GLuint getBindingPoint() const { return bindingPoint; }
     Usage getUsage() const { return usage; }
 
-    void* MapBuffer(GLenum access = GL_READ_WRITE);
-    void UnmapBuffer();
+    void* MapBuffer(GLenum access = GL_READ_WRITE) const;
+    void UnmapBuffer() const;
 
     static void checkGLError(const std::string& operation);
 

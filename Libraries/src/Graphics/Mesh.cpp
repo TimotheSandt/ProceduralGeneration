@@ -1,33 +1,27 @@
 #include "Mesh.h"
 
-Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib)
-{
+Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib) {
     this->Initialize(vertices, indices, sizeAttrib);
 }
 
-Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib, std::vector<GLfloat> instances, std::vector<GLuint> SizeAttribInstance)
-{
+Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib, std::vector<GLfloat> instances, std::vector<GLuint> SizeAttribInstance) {
     this->Initialize(vertices, indices, sizeAttrib, instances, SizeAttribInstance);
 }
 
-Mesh::Mesh(const Mesh& mesh) noexcept
-{
+Mesh::Mesh(const Mesh& mesh) noexcept {
     this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.SizeAttribInstance);
 }
 
-Mesh Mesh::operator=(const Mesh& mesh) noexcept
-{
+Mesh Mesh::operator=(const Mesh& mesh) noexcept {
     this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.SizeAttribInstance);
     return *this;
 }
 
-Mesh::Mesh(Mesh&& mesh) noexcept
-{
+Mesh::Mesh(Mesh&& mesh) noexcept {
     this->Swap(mesh);
 }
 
-Mesh Mesh::operator=(Mesh&& mesh) noexcept
-{
+Mesh Mesh::operator=(Mesh&& mesh) noexcept {
     if (this != &mesh) {
         this->Destroy();
         this->Swap(mesh);
@@ -35,8 +29,7 @@ Mesh Mesh::operator=(Mesh&& mesh) noexcept
     return *this;
 }
 
-void Mesh::Swap(Mesh& mesh) noexcept
-{
+void Mesh::Swap(Mesh& mesh) noexcept {
     std::swap(this->vertices, mesh.vertices);
     std::swap(this->indices, mesh.indices);
     std::swap(this->sizeAttrib, mesh.sizeAttrib);
@@ -78,7 +71,6 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
     if (glGetError() != GL_NO_ERROR) {
         LOG_ERROR(1, "VAO initialization failed");
     }
-    this->bVAO.Generate();
     this->bVAO.Bind();
 
     VBO bVBO(this->vertices);
@@ -152,8 +144,7 @@ void Mesh::AddTexture(const char* image, const char* name, GLenum format, GLenum
 }
 
 
-void Mesh::Render(Camera& camera)
-{
+void Mesh::Render(Camera& camera) {
     if (!this->shader.IsCompiled()) {
         LOG_WARNING("Shader not compiled");
         return;
@@ -183,7 +174,7 @@ void Mesh::Render(Camera& camera)
     }
 }
 
-void Mesh::Draw(bool wireframe) {
+void Mesh::Draw(bool wireframe) const {
     if (wireframe) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         // Optional: disable depth testing for wireframe to avoid z-fighting
@@ -206,8 +197,7 @@ void Mesh::Draw(bool wireframe) {
     }
 }
 
-void Mesh::UpdateUBO()
-{
+void Mesh::UpdateUBO() {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, this->position);
     model = glm::rotate(model, glm::radians(this->rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
