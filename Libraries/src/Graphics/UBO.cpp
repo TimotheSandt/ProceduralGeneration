@@ -10,7 +10,7 @@ UBO::~UBO() {
     Destroy();
 }
 
-UBO::UBO(UBO&& other) noexcept {
+UBO::UBO(UBO&& other) noexcept : bindingPoint(0), size(0), usage(GL_DYNAMIC_DRAW) {
     this->Swap(other);
 }
 

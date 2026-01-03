@@ -4,7 +4,7 @@ Texture::Texture()
     : ID(0), slot(0), format(GL_RGBA), pixelType(GL_UNSIGNED_BYTE), Width(0), Height(0), UniformName("")
 { }
 
-Texture::Texture(Texture&& other) noexcept {
+Texture::Texture(Texture&& other) noexcept : ID(0), slot(0), format(GL_RGBA), pixelType(GL_UNSIGNED_BYTE), Width(0), Height(0), UniformName("") {
     this->Swap(other);
 }
 

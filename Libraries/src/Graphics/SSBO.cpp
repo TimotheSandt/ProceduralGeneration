@@ -13,7 +13,7 @@ SSBO::~SSBO() {
 }
 
 
-SSBO::SSBO(SSBO&& other) noexcept {
+SSBO::SSBO(SSBO&& other) noexcept : ID(0), bindingPoint(0), size(0), usage(DYNAMIC_DRAW) {
     this->Swap(other);
 }
 

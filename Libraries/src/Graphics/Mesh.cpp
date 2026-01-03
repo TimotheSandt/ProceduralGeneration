@@ -17,7 +17,7 @@ Mesh Mesh::operator=(const Mesh& mesh) noexcept {
     return *this;
 }
 
-Mesh::Mesh(Mesh&& mesh) noexcept {
+Mesh::Mesh(Mesh&& mesh) noexcept : position(0.0f), scale(1.0f), rotation(0.0f), instancing(1) {
     this->Swap(mesh);
 }
 

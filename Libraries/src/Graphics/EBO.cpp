@@ -6,7 +6,7 @@ EBO::EBO(std::vector<GLuint>& indices) {
     Initialize(indices);
 }
 
-EBO::EBO(EBO&& other) noexcept {
+EBO::EBO(EBO&& other) noexcept : ID(0) {
     std::swap(this->ID, other.ID);
 }
 

@@ -47,7 +47,7 @@ Shader& Shader::operator=(const Shader& shader) noexcept {
 }
 
 
-Shader::Shader(Shader&& shader) noexcept {
+Shader::Shader(Shader&& shader) noexcept : ID(0), vertexShaderPath(nullptr), fragmentShaderPath(nullptr) {
 	this->Swap(shader);
 }
 

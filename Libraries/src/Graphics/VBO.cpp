@@ -2,7 +2,7 @@
 #include "Logger.h"
 
 
-VBO::VBO(VBO&& other) noexcept {
+VBO::VBO(VBO&& other) noexcept : ID(0) {
     this->Swap(other);
 }
 
