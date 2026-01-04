@@ -96,10 +96,10 @@ int Window::Init() {
 
     glfwSwapInterval(this->parameters.vsync ? 1 : 0);
     GL_CHECK_ERROR_M("glfwSwapInterval");
-    
+
     glEnable(GL_DEPTH_TEST);
     GL_CHECK_ERROR_M("glEnable");
-    
+
 
     glfwGetWindowPos(this->window, &this->parameters.posX, &this->parameters.posY);
     GL_CHECK_ERROR_M("glfwGetWindowPos");
@@ -112,6 +112,8 @@ int Window::Init() {
     this->ChangeWindowState(this->parameters.windowState);
     this->InitFBOs();
 
+    this->inputManager = &InputManager::GetInstance(this->window);
+
     return 0;
 }
 
@@ -119,10 +121,13 @@ void Window::Close() {
     if (!this->window) return;
 
     this->ClearCallbacks();
-    
+
     this->FBORendering.Destroy();
     this->FBOUpscaled.Destroy();
-    
+
+    InputManager::RemoveInstance(this->window);
+    this->inputManager = nullptr;
+
     glfwDestroyWindow(this->window);
     GL_CHECK_ERROR_M("glfwDestroyWindow");
     this->window = nullptr;
@@ -174,9 +179,9 @@ void Window::TerminateOpenGL() {
 
 void Window::Clear() const {
     glClearColor(
-        this->parameters.clearColor.r, 
-        this->parameters.clearColor.g, 
-        this->parameters.clearColor.b, 
+        this->parameters.clearColor.r,
+        this->parameters.clearColor.g,
+        this->parameters.clearColor.b,
         this->parameters.clearColor.a
     );
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -186,6 +191,8 @@ void Window::Clear() const {
 
 bool Window::NewFrame() {
     Profiler::Profile("PollEvents", &glfwPollEvents);
+    this->inputManager->Update();
+    this->HandleInput();
 
     if (!Profiler::Profile("HealthCheck", &Window::IsWindowHealthy, this)) {
         LOG_WARNING("Window is not healthy");
@@ -197,7 +204,7 @@ bool Window::NewFrame() {
     if (this->parameters.enableUpscaling) {
         this->BindRenderFBO();
     }
-    
+
     if (this->parameters.trueEveryms == 0) {
         this->fpsCounter.updateStat();
         return true;
@@ -210,7 +217,7 @@ bool Window::NewFrame() {
         this->lastTime = now;
         return true;
     }
-    
+
     return false;
 }
 
@@ -227,6 +234,36 @@ void Window::SwapBuffers() {
     GL_CHECK_ERROR_M("glfwSwapBuffers");
 }
 
+
+void Window::HandleInput() {
+    if (this->inputManager->IsKeyJustPressed(KeyButton::ESCAPE)) {
+        glfwSetWindowShouldClose(window, true);
+    }
+    if (this->inputManager->IsKeyJustPressed(KeyButton::F11)) {
+        this->ToggleBorderless();
+    }
+
+#ifdef DEBUG
+    if (this->inputManager->IsKeyJustPressed(KeyButton::F12)) {
+        this->ToggleFullscreen();
+    }
+    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_1)) {
+        this->SetRenderScale(0.25f);  // 25%
+    }
+    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_2)) {
+        this->SetRenderScale(0.5f);   // 50%
+    }
+    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_3)) {
+        this->SetRenderScale(0.75f);  // 75%
+    }
+    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_4)) {
+        this->SetRenderScale(1.0f);   // 100% (native)
+    }
+    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_5)) {
+        this->EnableUpscaling(!parameters.enableUpscaling);
+    }
+#endif
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -251,7 +288,7 @@ void Window::ChangeWindowState(WindowState state) {
 
 
 void Window::ToggleFullscreen() {
-    if (this->parameters.windowState == WindowState::FULLSCREEN || 
+    if (this->parameters.windowState == WindowState::FULLSCREEN ||
         this->parameters.windowState == WindowState::FULLSCREEN_UNFOCUSED) {
         this->ActivateWindowed();
     } else {
@@ -279,14 +316,14 @@ void Window::ActivateFullscreen() {
     if (this->parameters.windowState == WindowState::WINDOWED) {
         this->SaveWindowedParameters();
     }
-    
+
     // Get primary monitor
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
     if (!monitor) {
         LOG_ERROR(1, "Failed to get primary monitor");
         return;
     }
-    
+
     // Get monitor's video mode
     const GLFWvidmode* mode = glfwGetVideoMode(monitor);
     if (!mode) {
@@ -298,13 +335,13 @@ void Window::ActivateFullscreen() {
     glfwSetWindowMonitor(this->window, monitor, 0, 0,
         mode->width, mode->height, mode->refreshRate);
     GL_CHECK_ERROR_M("glfwSetWindowMonitor");
-    
+
     // Update internal parameters
     this->parameters.width = mode->width;
     this->parameters.height = mode->height;
     this->parameters.windowState = WindowState::FULLSCREEN;
-    
-    
+
+
     PostWindowStateChange();
     LOG_DEBUG("Switched to fullscreen: ", mode->width, "x", mode->height, " @ ", mode->refreshRate, "Hz");
 }
@@ -321,7 +358,7 @@ void Window::ActivateWindowed() {
     ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_SHOW);
 #endif
 
-    
+
 
     glfwSetWindowMonitor(this->window, nullptr, this->parameters.windowedPosX, this->parameters.windowedPosY,
             this->parameters.windowedWidth, this->parameters.windowedHeight, GLFW_DONT_CARE);
@@ -333,8 +370,8 @@ void Window::ActivateWindowed() {
     this->parameters.width = this->parameters.windowedWidth;
     this->parameters.height = this->parameters.windowedHeight;
     this->parameters.windowState = WindowState::WINDOWED;
-    
-    
+
+
     PostWindowStateChange();
     LOG_DEBUG("Switched to windowed: ", this->parameters.windowedWidth, "x", this->parameters.windowedHeight);
 }
@@ -373,18 +410,18 @@ void Window::ActivateBorderless() {
     ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_HIDE);
 #endif
 
-    
+
 
     glfwSetWindowAttrib(this->window, GLFW_DECORATED, GLFW_FALSE);
     GL_CHECK_ERROR_M("glfwSetWindowAttrib");
     glfwSetWindowMonitor(this->window, nullptr, 0, 0, width, height, GLFW_DONT_CARE);
     GL_CHECK_ERROR_M("glfwSetWindowMonitor");
-    
+
     // Update internal parameters
     this->parameters.width = width;
     this->parameters.height = height;
     this->parameters.windowState = WindowState::BORDERLESS;
-    
+
 
     PostWindowStateChange();
     LOG_DEBUG("Switched to borderless: ", width, "x", height);
@@ -413,9 +450,9 @@ void Window::PostWindowStateChange() const {
     glEnable(GL_DEPTH_TEST);
 
     glClearColor(
-        this->parameters.clearColor.r, 
-        this->parameters.clearColor.g, 
-        this->parameters.clearColor.b, 
+        this->parameters.clearColor.r,
+        this->parameters.clearColor.g,
+        this->parameters.clearColor.b,
         this->parameters.clearColor.a
     );
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -439,24 +476,6 @@ void Window::PostWindowStateChange() const {
 
 
 void Window::SetupCallbacks() {
-    glfwSetKeyCallback(this->window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
-        UNREFERENCED_PARAMETER(scancode);
-        UNREFERENCED_PARAMETER(mods);
-
-        try {
-            Window* windowObj = static_cast<Window*>(glfwGetWindowUserPointer(window));
-            if (!windowObj) return;
-            windowObj->CallbackInput(window, action, key);
-            
-        }
-        catch (const std::exception& e) {
-            LOG_ERROR(1, "Error in key callback: ", e.what());
-        }
-        catch (...) {
-            LOG_ERROR(1, "Unknown error in key callback");
-        }
-    });
-    
     // Callback pour gérer la perte de focus (peut aider avec la touche Windows)
     glfwSetWindowFocusCallback(this->window, [](GLFWwindow* window, int focused) {
         try {
@@ -468,7 +487,7 @@ void Window::SetupCallbacks() {
             // Ignorer les erreurs dans ce callback
         }
     });
-    
+
     glfwSetWindowSizeCallback(this->window, [](GLFWwindow* window, int width, int height) {
         try {
             Window* windowObj = static_cast<Window*>(glfwGetWindowUserPointer(window));
@@ -491,50 +510,6 @@ void Window::SetupCallbacks() {
             // Ignorer les erreurs dans ce callback
         }
     });
-}
-
-
-void Window::CallbackInput(GLFWwindow* window, int action, int key) {
-    if (key == GLFW_KEY_LEFT_SUPER || key == GLFW_KEY_RIGHT_SUPER || 
-        key < 0 || key > GLFW_KEY_LAST) {
-        return;
-    }
-    
-
-    if (action == GLFW_PRESS) {
-        switch (key) {
-            case GLFW_KEY_ESCAPE:
-                glfwSetWindowShouldClose(window, true);
-                break;
-            case GLFW_KEY_F11:
-                this->ToggleBorderless();
-                break;
-
-#ifdef DEBUG
-            case GLFW_KEY_F12:
-                this->ToggleFullscreen();
-                break;
-            
-            // Resolution
-            case GLFW_KEY_1:
-                this->SetRenderScale(0.25f);  // 25%
-                break;
-            case GLFW_KEY_2:
-                this->SetRenderScale(0.5f);   // 50%
-                break;
-            case GLFW_KEY_3:
-                this->SetRenderScale(0.75f);  // 75%
-                break;
-            case GLFW_KEY_4:
-                this->SetRenderScale(1.0f);   // 100% (native)
-                break;
-            case GLFW_KEY_5:
-                this->EnableUpscaling(!parameters.enableUpscaling);
-                break;
-
-#endif
-        }
-    }
 }
 
 
@@ -561,7 +536,7 @@ void Window::CallbackFocus(GLFWwindow* window, int focused) {
 
     if (!focused) {
         LOG_DEBUGGING("Window lost focus");
-        if (this->parameters.windowState == WindowState::FULLSCREEN) { 
+        if (this->parameters.windowState == WindowState::FULLSCREEN) {
             std::this_thread::sleep_for(std::chrono::milliseconds(75));
             this->ActivateBorderless();
             this->parameters.windowState = WindowState::FULLSCREEN_UNFOCUSED;
@@ -607,14 +582,14 @@ void Window::ClearCallbacks() {
 
 void Window::SetupErrorHandling() {
 #ifdef _WIN32
-    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | 
+    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX |
                  SEM_NOALIGNMENTFAULTEXCEPT | SEM_NOOPENFILEERRORBOX);
 #endif
-    
+
     // Callback d'erreur GLFW global
     glfwSetErrorCallback([](int error_code, const char* description) {
         LOG_ERROR(error_code, "GLFW Error: ", description);
-        
+
         // Log plus détaillé pour certaines erreurs critiques
         switch (error_code) {
             case GLFW_INVALID_ENUM:
@@ -648,14 +623,14 @@ bool Window::IsWindowHealthy() const {
     if (!this->window) {
         return false;
     }
-    
+
     // Vérifier si le contexte OpenGL est toujours valide
     GLFWwindow* currentContext = glfwGetCurrentContext();
     if (currentContext != this->window) {
         LOG_WARNING("OpenGL context mismatch");
         glfwMakeContextCurrent(this->window);
     }
-    
+
 #ifdef DEBUG
     // Vérifier les erreurs OpenGL*
     GLenum error = glGetError();
@@ -664,6 +639,6 @@ bool Window::IsWindowHealthy() const {
         return false;
     }
 #endif
-    
+
     return true;
 }

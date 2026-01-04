@@ -25,14 +25,15 @@ public:
 
     ~Camera();
     void Destroy();
-    
+
     void Initialize(int *width, int *height, glm::vec3 position);
+    void InitializeInputs();
     void UpdateMatrix();
     void UpdateMatrix(float FOVdeg, float nearPlane, float farPlane);
     void Inputs(GLFWwindow* window, float ElapseTime);
 
     void BindUBO() const;
-    
+
 public:
     void SetPosition(glm::vec3 position) { this->position = position; }
     void SetOrientation(glm::vec3 orientation) { this->Orientation = orientation; }

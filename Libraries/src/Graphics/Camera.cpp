@@ -1,4 +1,5 @@
 #include "Camera.h"
+#include "InputManager.h"
 
 struct CameraUBO {
     glm::vec3 position;
@@ -75,6 +76,20 @@ void Camera::Initialize(int *width, int *height, glm::vec3 position) {
     this->width = width;
     this->height = height;
     this->InitializeUBO();
+    this->InitializeInputs();
+}
+
+void Camera::InitializeInputs() {
+    InputManager::BindActionToInput("Camera::MoveForward", KeyButton::W);
+    InputManager::BindActionToInput("Camera::MoveBackward", KeyButton::S);
+    InputManager::BindActionToInput("Camera::MoveLeft", KeyButton::A);
+    InputManager::BindActionToInput("Camera::MoveRight", KeyButton::D);
+    InputManager::BindActionToInput("Camera::MoveUp", KeyButton::SPACE);
+    InputManager::BindActionToInput("Camera::MoveDown", KeyButton::LEFT_SHIFT);
+    InputManager::BindActionToInput("Camera::SpeedDown", KeyButton::Q);
+    InputManager::BindActionToInput("Camera::SpeedUp", KeyButton::E);
+    InputManager::BindActionToInput("Camera::Rotate", MouseButton::RIGHT);
+    InputManager::BindActionToInput("Camera::ToggleWireframe", KeyButton::Z);
 }
 
 void Camera::UpdateMatrix() {
@@ -85,7 +100,7 @@ void Camera::UpdateMatrix() {
     projection = glm::perspective(glm::radians(this->FOV), (float)(*this->width) / *this->height, this->nearPlane, this->farPlane);
 
     this->camMatrix = projection * view;
-    
+
     this->UpdateUBO();
 }
 
@@ -99,38 +114,36 @@ void Camera::UpdateMatrix(float FOVdeg, float nearPlane, float farPlane) {
 void Camera::Inputs(GLFWwindow* window, float ElapseTime) {
     float speed = this->speed * ElapseTime;
 
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+    InputManager& inputManager = InputManager::GetInstance(window);
+
+    if (inputManager.IsActionActive("Camera::MoveForward")) {
         this->position += speed * this->Orientation;
     }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+    if (inputManager.IsActionActive("Camera::MoveBackward")) {
         this->position -= speed * this->Orientation;
     }
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+    if (inputManager.IsActionActive("Camera::MoveLeft")) {
         this->position -= glm::normalize(glm::cross(this->Orientation, this->up)) * speed;
     }
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+    if (inputManager.IsActionActive("Camera::MoveRight")) {
         this->position += glm::normalize(glm::cross(this->Orientation, this->up)) * speed;
     }
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+    if (inputManager.IsActionActive("Camera::MoveUp")) {
         this->position += this->up * speed;
     }
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+    if (inputManager.IsActionActive("Camera::MoveDown")) {
         this->position -= this->up * speed;
     }
 
-    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
+    if (inputManager.IsActionActive("Camera::SpeedDown")) {
         this->speed = 1.0f;
-    } else if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_RELEASE) {
-        this->speed = 6.0f;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+    } else if (inputManager.IsActionActive("Camera::SpeedUp")) {
         this->speed = 25.0f;
-    } else if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_RELEASE) {
+    } else {
         this->speed = 6.0f;
     }
 
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+    if (inputManager.IsActionActive("Camera::Rotate")) {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
         if (firstClick) {
@@ -154,15 +167,15 @@ void Camera::Inputs(GLFWwindow* window, float ElapseTime) {
 
         glfwSetCursorPos(window, (*this->width / 2), (*this->height / 2));
     }
-    else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE) {
+    else {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         firstClick = true;
     }
 
 #if defined(_DEBUG) || defined(DEBUG)
-    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS) {
+    if (inputManager.IsActionActive("Camera::ToggleWireframe")) {
         SetWireframe(true);
-    } else if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_RELEASE) {
+    } else {
         SetWireframe(false);
     }
 #endif

@@ -6,12 +6,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/rotate_vector.hpp>
-#include <glm/gtx/vector_angle.hpp> 
+#include <glm/gtx/vector_angle.hpp>
 
 #include "FBO.h"
 
 #include "FPSCounter.h"
 #include "Profiler.h"
+#include "InputManager.h"
 
 enum WindowState { WINDOWED, BORDERLESS, FULLSCREEN, FULLSCREEN_UNFOCUSED};
 
@@ -22,11 +23,11 @@ struct WindowParameters
     WindowState windowState;
     int width, height;
     int posX, posY;
-    
+
     // Timing
     int maxFPS;
     bool vsync;
-    
+
     // Color
     glm::vec4 clearColor;
     double trueEveryms;
@@ -36,7 +37,7 @@ struct WindowParameters
     int windowedPosX, windowedPosY;
 
     bool taskbarVisible; // TODO
-    
+
 
     // Upscaling
     float renderScale;
@@ -113,7 +114,7 @@ public:
     double GetAverageElapseTimeSecond() const { return this->fpsCounter.getAverageElapseTimeInSeconds(); }
     double GetMaxElapseTimeSecond() const { return this->fpsCounter.getMaxElapseTimeInSeconds(); }
     double GetMinElapseTimeSecond() const { return this->fpsCounter.getMinElapseTimeInSeconds(); }
-    
+
     double GetElapseTimeMillisecond() const { return this->fpsCounter.getElapseTimeInMilliseconds(); }
     double GetAverageElapseTimeMillisecond() const { return this->fpsCounter.getAverageElapseTimeInMilliseconds(); }
     double GetMaxElapseTimeMillisecond() const { return this->fpsCounter.getMaxElapseTimeInMilliseconds(); }
@@ -121,12 +122,13 @@ public:
 
 
 private:
+    void HandleInput();
     void Swap(Window& other) noexcept;
 
     // Window state
     void SaveWindowedParameters();
     void PostWindowStateChange() const;
-    
+
     void ActivateFullscreen();
     void ActivateWindowed();
     void ActivateBorderless();
@@ -142,7 +144,6 @@ private:
 
     // Callbacks
     void SetupCallbacks();
-    void CallbackInput(GLFWwindow* window, int action, int key);
     void CallbackFocus(GLFWwindow* window, int focused);
     void CallbackResize(GLFWwindow* window, int width, int height);
     void CallbackPosition(GLFWwindow* window, int x, int y);
@@ -160,6 +161,8 @@ private:
     FBO FBOUpscaled;
 
     WindowParameters parameters;
+
+    InputManager* inputManager;
 
     FPSCounter fpsCounter;
 
