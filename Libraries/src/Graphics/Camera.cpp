@@ -80,16 +80,16 @@ void Camera::Initialize(int *width, int *height, glm::vec3 position) {
 }
 
 void Camera::InitializeInputs() {
-    InputManager::BindActionToInput("Camera::MoveForward", KeyButton::W);
+    InputManager::BindActionToInput("Camera::MoveForward", KeyButton::Z);
     InputManager::BindActionToInput("Camera::MoveBackward", KeyButton::S);
-    InputManager::BindActionToInput("Camera::MoveLeft", KeyButton::A);
+    InputManager::BindActionToInput("Camera::MoveLeft", KeyButton::Q);
     InputManager::BindActionToInput("Camera::MoveRight", KeyButton::D);
     InputManager::BindActionToInput("Camera::MoveUp", KeyButton::SPACE);
     InputManager::BindActionToInput("Camera::MoveDown", KeyButton::LEFT_SHIFT);
-    InputManager::BindActionToInput("Camera::SpeedDown", KeyButton::Q);
-    InputManager::BindActionToInput("Camera::SpeedUp", KeyButton::E);
+    InputManager::BindActionToInput("Camera::SpeedDown", KeyButton::E);
+    InputManager::BindActionToInput("Camera::SpeedUp", KeyButton::A);
     InputManager::BindActionToInput("Camera::Rotate", MouseButton::RIGHT);
-    InputManager::BindActionToInput("Camera::ToggleWireframe", KeyButton::Z);
+    InputManager::BindActionToInput("Camera::ToggleWireframe", KeyButton::W);
 }
 
 void Camera::UpdateMatrix() {
