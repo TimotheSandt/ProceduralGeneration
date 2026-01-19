@@ -17,6 +17,10 @@ ifeq ($(OS),Windows_NT)
 	SHELL_TYPE = windows
 	PATH_SEP = \\
 	EXE_EXT = .exe
+
+	# Vcpkg Configuration
+	VCPKG_TRIPLET ?= x64-mingw-static
+	VCPKG_ROOT := ./vcpkg_installed/$(VCPKG_TRIPLET)
 else
 	DETECTED_OS := $(shell uname -s)
 	RM = rm -f
@@ -28,17 +32,22 @@ else
 	SHELL_TYPE = unix
 	PATH_SEP = /
 	EXE_EXT =
+
+	# Vcpkg Configuration
+	VCPKG_TRIPLET ?= x64-linux
+	VCPKG_ROOT := ./vcpkg_installed/$(VCPKG_TRIPLET)
 endif
 
 # Platform-specific linker flags
 ifeq ($(DETECTED_OS),Linux)
-	LDFLAGS = -lglfw -lGL -lpthread -lX11 -ldl -lm -lstb
+	LDFLAGS = -lglfw -lGL -lpthread -lX11 -ldl -lm
 	COPY_LIBS =
 else ifeq ($(DETECTED_OS),Darwin)
 	LDFLAGS = -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
 	COPY_LIBS =
 else ifeq ($(DETECTED_OS),Windows)
-	LDFLAGS = -LLibraries/libs/ThirdParty/ -lglfw3dll -lstb_image -lpsapi -lwinmm
+	# Vcpkg libs
+	LDFLAGS = -L$(VCPKG_ROOT)/lib -lglfw3 -lglad -lpsapi -lwinmm -lgdi32
 	COPY_LIBS = copy_libs
 else
 	LDFLAGS =
@@ -50,7 +59,7 @@ ifeq ($(DETECTED_OS),Windows)
 	CREATE_INSTALLER = create_windows_installer
 	ARCHITECTURE = $(ARCHITECTURE_WINDOWS)
 	INSTALLER_FILE = $(PROJECT_NAME)-$(VERSION)-$(ARCHITECTURE)-setup.exe
-	
+
 	# Detect makensis
 	ifneq ($(wildcard C:/Program\ Files\ (x86)/NSIS/makensis.exe),)
 		NSIS_COMPILER = "C:\Program Files (x86)\NSIS\makensis.exe"
@@ -71,7 +80,7 @@ endif
 # Includes
 INCLUDES_BASE = Libraries/includes
 INCLUDES_DIRS := $(notdir $(wildcard $(INCLUDES_BASE)/*))
-INCLUDES := -I$(INCLUDES_BASE) $(foreach dir,$(INCLUDES_DIRS),-I$(INCLUDES_BASE)/$(dir))
+INCLUDES := -I$(INCLUDES_BASE) $(foreach dir,$(INCLUDES_DIRS),-I$(INCLUDES_BASE)/$(dir)) -I$(VCPKG_ROOT)/include
 
 # Directories
 LIBRARIES_SRC_DIR = Libraries/src
@@ -109,7 +118,7 @@ else ifneq ($(or $(findstring release,$(MAKECMDGOALS)),$(findstring installer,$(
 	CXXFLAGS += -flto=jobserver
 endif
 
-CXXFLAGS += $(CFLAGS) 
+CXXFLAGS += $(CFLAGS) -DGLM_ENABLE_EXPERIMENTAL
 
 BIN_DIR_TYPE = $(BIN_DIR)/$(BUILD_TYPE)
 OBJ_DIR_TYPE = $(OBJ_DIR)/$(BUILD_TYPE)
@@ -239,11 +248,9 @@ endif
 copy_libs: | $(BIN_DIR_TYPE)
 	@echo "Copying libraries to $(BIN_DIR_TYPE)"
 ifeq ($(SHELL_TYPE),windows)
-	@for %%f in ($(subst /,\,$(LIBRARIES_DLL_SOURCES))) do @copy "%%f" "$(subst /,\,$(BIN_DIR_TYPE))" >nul 2>nul || cd .
-	@for %%f in ($(subst /,\,$(LIBRARIES_LIB_SOURCES))) do @copy "%%f" "$(subst /,\,$(BIN_DIR_TYPE))" >nul 2>nul || cd .
+	@if exist "$(subst /,\,$(VCPKG_ROOT))\bin\*.dll" copy "$(subst /,\,$(VCPKG_ROOT))\bin\*.dll" "$(subst /,\,$(BIN_DIR_TYPE))" >nul 2>nul
 else
-	@cp $(LIBRARIES_DLL_SOURCES) $(BIN_DIR_TYPE) 2>/dev/null || :
-	@cp $(LIBRARIES_LIB_SOURCES) $(BIN_DIR_TYPE) 2>/dev/null || :
+	@cp $(VCPKG_ROOT)/bin/*.dll $(BIN_DIR_TYPE) 2>/dev/null || :
 endif
 
 copy_res: | $(BIN_DIR_TYPE)
@@ -265,6 +272,10 @@ endif
 $(TARGET): all_copy $(ALL_OBJECTS) | $(BIN_DIR_TYPE)
 	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS) $(LDFLAGS) -o $@
 	@echo "Compilation successful for: $(TARGET)"
+
+$(ALL_OBJECTS): | install_deps
+
+$(COPY_LIBS): | install_deps
 
 # Files Compilation
 $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.cpp | $(OBJ_DIR)/${BUILD_TYPE}
@@ -363,14 +374,14 @@ re-debug: fclean debug
 re-dev: fclean dev
 re-release: fclean release
 
-# Check 
+# Check
 check:
 	@echo "Checking C++ syntax..."
 	@if [ "$(ALL_CPP_SOURCES)" != "" ]; then $(CXX) $(CXXFLAGS) $(INCLUDES) -fsyntax-only $(ALL_CPP_SOURCES); fi
 	@echo "Checking C syntax..."
 	@if [ "$(ALL_C_SOURCES)" != "" ]; then $(CC) $(CFLAGS) $(INCLUDES) -fsyntax-only $(ALL_C_SOURCES); fi
 
-# Info 
+# Info
 debug-info info-debug: info
 dev-info info-dev: info
 release-info info-release: info
@@ -400,12 +411,12 @@ else
 endif
 
 # Phony Rules
-.PHONY: all release dev debug 
+.PHONY: all release dev debug
 .PHONY: run run-release run-dev run-debug
 .PHONY: clean fclean fclean-build re re-debug re-dev re-release
 .PHONY: info info-debug info-dev info-release debug-info dev-info release-info
 .PHONY: check copy_libs copy_res all_copy
-.PHONY: create_windows_installer create_linux_installer installer
+.PHONY: create_windows_installer create_linux_installer installer install_deps
 
 # Dependencies (only include if they exist)
 -include $(wildcard $(ALL_OBJECTS:.o=.d))
