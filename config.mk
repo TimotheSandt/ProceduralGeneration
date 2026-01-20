@@ -5,7 +5,7 @@ PROJECT_NAME = ProceduralGeneration
 VERSION = 0.0.1
 PUBLISHER = Gasshog
 MAINTAINER = Timothe Sandt <timothe.sandt@proton.me>
-ICON_NAME = public/icon.ico
+ICON_NAME = res/public/icon.ico
 ARCHITECTURE = amd64
 PROJECT_DESCRIPTION = A C++ application for procedural terrain generation using OpenGL and GLFW. \n\
  .\n\
@@ -25,4 +25,3 @@ ARCHITECTURE_LINUX = amd64
 DEPENDS = libglfw3 (>= 3.3), libx11-6, libc6, libstdc++6
 SECTION = utils
 PRIORITY = optional
-

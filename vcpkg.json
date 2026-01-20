@@ -1,5 +1,11 @@
 {
   "name": "procedural-generation",
-  "version-string": "0.0.1",
-  "dependencies": ["glfw3", "glad", "glm", "stb"]
+  "version": "0.1.0",
+  "dependencies": [
+    "glad",
+    "glfw3",
+    "glm",
+    "stb",
+    "freetype"
+  ]
 }

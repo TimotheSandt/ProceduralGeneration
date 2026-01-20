@@ -234,6 +234,11 @@ create_linux_installer:
 	@rm -rf /tmp/proceduralgeneration_deb
 	@echo "Linux .deb created: $(BUILD_DIR)/$(INSTALLER_FILE)"
 
+# Règle pour installer les dépendances via vcpkg
+install_deps:
+	@echo "Vérification et installation des dépendances avec vcpkg..."
+	vcpkg install --triplet=$(VCPKG_TRIPLET) --x-install-root=./vcpkg_installed
+
 $(OBJ_DIR_TYPE)/src/icon.o: $(BIN_DIR_TYPE)/$(ICON_RC)
 	$(RC) -i $< -o $@
 

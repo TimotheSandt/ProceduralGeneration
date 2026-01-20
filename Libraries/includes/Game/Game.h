@@ -3,7 +3,7 @@
 #include "World.h"
 #include "Camera.h"
 #include "Window.h"
-#include "UIManager.h"
+// #include "UIManager.h"
 #include "InputManager.h"
 
 
