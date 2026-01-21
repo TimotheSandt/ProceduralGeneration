@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "World.h"
 #include "Camera.h"
 #include "Window.h"
@@ -28,5 +30,5 @@ private:
 private:
     Window window;
     Camera camera;
-    World world;
+    std::unique_ptr<World> world = nullptr;
 };

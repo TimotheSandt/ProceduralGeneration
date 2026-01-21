@@ -1,26 +1,30 @@
 #include "Game.h"
 
 Game::Game() {
-    window.Init(); 
+    LOG_TRACE("Initializing window");
+    window.Init();
 }
-Game::~Game() { 
+Game::~Game() {
     this->stop();
 }
 
 void Game::init() {
     int *w = window.GetWidthptr();
 	int *h = window.GetHeightptr();
+    
 	this->camera.Initialize(w, h, glm::vec3(0.0f, 1.0f, 0.0f));
     this->camera.SetFOV(75.0f);
     this->camera.SetNearPlane(0.1f);
     this->camera.SetFarPlane(1000.0f);
 
-    this->world.Init();
+    this->world = std::make_unique<World>();
+    this->world->Init();
 }
 
 void Game::stop() {
     glfwMakeContextCurrent(this->window.GetWindow());
-    this->world.Destroy();
+    this->world->Destroy();
+    this->world.reset();
     this->camera.Destroy();
     this->window.Close();
 }
@@ -28,9 +32,9 @@ void Game::stop() {
 void Game::run() {
     glGetError();
     while (!window.ShouldClose()) {
-        
+
         if (this->window.NewFrame()) {
-            std::string title = "fps: " + std::to_string(window.GetFPS()) + 
+            std::string title = "fps: " + std::to_string(window.GetFPS()) +
                                 ", Avg fps: " + std::to_string(window.GetAverageFPS()) +
                                 ", Avg Elapsed Time: " + std::to_string(window.GetAverageElapseTimeMillisecond()) + "ms" +
                                 ", Render Time: " + std::to_string(Profiler::GetAverageTime("Render").count() * 1e-6) + "ms" +
@@ -54,11 +58,11 @@ void Game::update() {
     this->camera.Inputs(this->window.GetWindow(), 1.0 / this->window.GetFPS());
     this->camera.UpdateMatrix();
 
-    this->world.Update();
+    this->world->Update();
 }
 
 void Game::render() {
     Profiler::ProfileGPU("Clear", &Window::Clear, window);
     this->camera.BindUBO();
-    this->world.Render(this->camera);
+    this->world->Render(this->camera);
 }

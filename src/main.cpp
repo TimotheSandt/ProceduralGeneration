@@ -13,18 +13,20 @@ int main() {
 #endif
 
 
-
 	if (!Window::InitOpenGL())
-		return 1;
+		return EXIT_FAILURE;
 
-	
+	LOG_INFO("Starting game");
+
 	Game game;
+	LOG_TRACE("Game created");
 	game.init();
+	LOG_TRACE("Game initialized");
 	game.run();
-	game.stop();	
+	game.stop();
 
-
+	LOG_INFO("Game stopped");
 	Window::TerminateOpenGL();
 	FLUSH_LOG_TO_FILE;
-	return 0;
+	return EXIT_SUCCESS;
 }

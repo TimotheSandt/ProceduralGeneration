@@ -17,8 +17,6 @@ ifeq ($(OS),Windows_NT)
 	SHELL_TYPE = windows
 	PATH_SEP = \\
 	EXE_EXT = .exe
-
-	# Vcpkg Configuration
 	VCPKG_TRIPLET ?= x64-mingw-static
 	VCPKG_ROOT := ./vcpkg_installed/$(VCPKG_TRIPLET)
 else
@@ -32,8 +30,6 @@ else
 	SHELL_TYPE = unix
 	PATH_SEP = /
 	EXE_EXT =
-
-	# Vcpkg Configuration
 	VCPKG_TRIPLET ?= x64-linux
 	VCPKG_ROOT := ./vcpkg_installed/$(VCPKG_TRIPLET)
 endif
@@ -46,7 +42,6 @@ else ifeq ($(DETECTED_OS),Darwin)
 	LDFLAGS = -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
 	COPY_LIBS =
 else ifeq ($(DETECTED_OS),Windows)
-	# Vcpkg libs
 	LDFLAGS = -L$(VCPKG_ROOT)/lib -lglfw3 -lglad -lpsapi -lwinmm -lgdi32
 	COPY_LIBS = copy_libs
 else
@@ -59,8 +54,6 @@ ifeq ($(DETECTED_OS),Windows)
 	CREATE_INSTALLER = create_windows_installer
 	ARCHITECTURE = $(ARCHITECTURE_WINDOWS)
 	INSTALLER_FILE = $(PROJECT_NAME)-$(VERSION)-$(ARCHITECTURE)-setup.exe
-
-	# Detect makensis
 	ifneq ($(wildcard C:/Program\ Files\ (x86)/NSIS/makensis.exe),)
 		NSIS_COMPILER = "C:\Program Files (x86)\NSIS\makensis.exe"
 	else ifeq ($(wildcard C:/Program Files/NSIS/makensis.exe),)
@@ -77,12 +70,8 @@ else
 	INSTALLER_FILE =
 endif
 
-# Includes
-INCLUDES_BASE = Libraries/includes
-INCLUDES_DIRS := $(notdir $(wildcard $(INCLUDES_BASE)/*))
-INCLUDES := -I$(INCLUDES_BASE) $(foreach dir,$(INCLUDES_DIRS),-I$(INCLUDES_BASE)/$(dir)) -I$(VCPKG_ROOT)/include
-
 # Directories
+INCLUDES_BASE = Libraries/includes
 LIBRARIES_SRC_DIR = Libraries/src
 LIBRARIES_LIB_DIR = Libraries/libs
 MAIN_SRC_DIR = src
@@ -91,18 +80,21 @@ BIN_DIR = bin
 BUILD_DIR = build
 RES_DIR = res
 
+# Includes
+INCLUDES_DIRS := $(notdir $(wildcard $(INCLUDES_BASE)/*))
+INCLUDES := -I$(INCLUDES_BASE) $(foreach dir,$(INCLUDES_DIRS),-I$(INCLUDES_BASE)/$(dir)) -I$(VCPKG_ROOT)/include
+
 # Icon
 RC = windres
 ICON_RC = $(RES_DIR)/icon.rc
 
 # Flags
 CFLAGS = -Wall -Wextra -Werror -m64 -O2 -DNDEBUG
+CXXFLAGS = -std=c++23
 
 # Target Executable
 BUILD_TYPE = normal
 TARGET_NAME = $(PROJECT_NAME)
-
-CXXFLAGS = -std=c++23
 
 ifneq ($(findstring debug,$(MAKECMDGOALS)),)
 	CFLAGS := -Wall -Wextra -m64 -O1 -DDEBUG
@@ -122,12 +114,10 @@ CXXFLAGS += $(CFLAGS) -DGLM_ENABLE_EXPERIMENTAL
 
 BIN_DIR_TYPE = $(BIN_DIR)/$(BUILD_TYPE)
 OBJ_DIR_TYPE = $(OBJ_DIR)/$(BUILD_TYPE)
-
 TARGET = $(BIN_DIR_TYPE)/$(TARGET_NAME)$(EXE_EXT)
 
-# Source Files - use shell find on Unix, forfiles on Windows
+# Source Files
 ifeq ($(SHELL_TYPE),windows)
-	# Windows: Use wildcard with subst for relative paths
 	rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
 	LIBRARIES_CPP_SOURCES = $(call rwildcard,$(LIBRARIES_SRC_DIR),*.cpp)
 	LIBRARIES_C_SOURCES = $(call rwildcard,$(LIBRARIES_SRC_DIR),*.c)
@@ -136,7 +126,6 @@ ifeq ($(SHELL_TYPE),windows)
 	MAIN_CPP_SOURCES = $(call rwildcard,$(MAIN_SRC_DIR),*.cpp)
 	MAIN_C_SOURCES = $(call rwildcard,$(MAIN_SRC_DIR),*.c)
 else
-	# Unix: Use find
 	LIBRARIES_CPP_SOURCES = $(shell find $(LIBRARIES_SRC_DIR) -name "*.cpp" -type f 2>/dev/null)
 	LIBRARIES_C_SOURCES = $(shell find $(LIBRARIES_SRC_DIR) -name "*.c" -type f 2>/dev/null)
 	LIBRARIES_DLL_SOURCES = $(shell find $(LIBRARIES_LIB_DIR) -name "*.dll" -type f 2>/dev/null)
@@ -146,8 +135,6 @@ else
 endif
 
 LIB_SOURCES = $(LIBRARIES_DLL_SOURCES) $(LIBRARIES_LIB_SOURCES)
-
-# Combines all source files
 ALL_CPP_SOURCES = $(LIBRARIES_CPP_SOURCES) $(MAIN_CPP_SOURCES)
 ALL_C_SOURCES = $(LIBRARIES_C_SOURCES) $(MAIN_C_SOURCES)
 
@@ -189,6 +176,7 @@ else
 	./$(TARGET)
 endif
 
+# Windows Installer
 create_windows_installer:
 	@echo "Creating Windows installer..."
 	@echo Installer File: $(INSTALLER_FILE)
@@ -209,6 +197,7 @@ create_windows_installer:
 	@$(MV) "installers\windows\$(INSTALLER_FILE)" "$(BUILD_DIR)"
 	@echo Windows installer created: $(BUILD_DIR)/$(INSTALLER_FILE)
 
+# Linux Installer
 create_linux_installer:
 	@rm -rf /tmp/proceduralgeneration_deb
 	@echo "Creating Linux .deb package..."
@@ -234,11 +223,12 @@ create_linux_installer:
 	@rm -rf /tmp/proceduralgeneration_deb
 	@echo "Linux .deb created: $(BUILD_DIR)/$(INSTALLER_FILE)"
 
-# Règle pour installer les dépendances via vcpkg
+# Install dependencies via vcpkg
 install_deps:
-	@echo "Vérification et installation des dépendances avec vcpkg..."
+	@echo "Checking and installing dependencies with vcpkg..."
 	vcpkg install --triplet=$(VCPKG_TRIPLET) --x-install-root=./vcpkg_installed
 
+# Icon Resource
 $(OBJ_DIR_TYPE)/src/icon.o: $(BIN_DIR_TYPE)/$(ICON_RC)
 	$(RC) -i $< -o $@
 
@@ -258,13 +248,19 @@ else
 	@cp $(VCPKG_ROOT)/bin/*.dll $(BIN_DIR_TYPE) 2>/dev/null || :
 endif
 
+# Copy resources
 copy_res: | $(BIN_DIR_TYPE)
 	@echo "Copying resources to $(BIN_DIR_TYPE)"
 ifeq ($(SHELL_TYPE),windows)
-	@if exist "$(subst /,\,$(RES_DIR))" xcopy "$(subst /,\,$(RES_DIR))" "$(subst /,\,$(BIN_DIR_TYPE))\res" /E /I /Y >nul
+	@if exist "$(subst /,\,$(RES_DIR))" ( \
+		xcopy "$(subst /,\,$(RES_DIR))" "$(subst /,\,$(BIN_DIR_TYPE))\res" /E /I /Y >nul && \
+		xcopy "$(subst /,\,$(RES_DIR))\*" "$(subst /,\,$(BIN_DIR_TYPE))" /E /Y >nul \
+	)
 else
-	@cp -r $(RES_DIR) $(BIN_DIR_TYPE)
-	@cp -r $(RES_DIR)/* $(BIN_DIR_TYPE)
+	@if [ -d "$(RES_DIR)" ]; then \
+		cp -r $(RES_DIR) $(BIN_DIR_TYPE)/ && \
+		cp -r $(RES_DIR)/* $(BIN_DIR_TYPE)/; \
+	fi
 endif
 
 ifeq ($(DETECTED_OS),Windows)
@@ -273,7 +269,7 @@ else
 all_copy: copy_res
 endif
 
-# Build all objects
+# Build target
 $(TARGET): all_copy $(ALL_OBJECTS) | $(BIN_DIR_TYPE)
 	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS) $(LDFLAGS) -o $@
 	@echo "Compilation successful for: $(TARGET)"
@@ -282,7 +278,7 @@ $(ALL_OBJECTS): | install_deps
 
 $(COPY_LIBS): | install_deps
 
-# Files Compilation
+# Compilation Rules
 $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.cpp | $(OBJ_DIR)/${BUILD_TYPE}
 ifeq ($(SHELL_TYPE),windows)
 	@if not exist "$(subst /,\,$(dir $@))" mkdir "$(subst /,\,$(dir $@))" 2>nul || cd .
@@ -379,7 +375,7 @@ re-debug: fclean debug
 re-dev: fclean dev
 re-release: fclean release
 
-# Check
+# Check Syntax
 check:
 	@echo "Checking C++ syntax..."
 	@if [ "$(ALL_CPP_SOURCES)" != "" ]; then $(CXX) $(CXXFLAGS) $(INCLUDES) -fsyntax-only $(ALL_CPP_SOURCES); fi
@@ -423,5 +419,5 @@ endif
 .PHONY: check copy_libs copy_res all_copy
 .PHONY: create_windows_installer create_linux_installer installer install_deps
 
-# Dependencies (only include if they exist)
+# Dependencies
 -include $(wildcard $(ALL_OBJECTS:.o=.d))

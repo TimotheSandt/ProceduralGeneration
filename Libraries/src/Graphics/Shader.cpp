@@ -71,18 +71,25 @@ void Shader::Swap(Shader& other) noexcept {
 void Shader::SetShader(const char* vertexPath, const char* fragmentPath) {
 	this->vertexShaderPath = vertexPath;
 	this->fragmentShaderPath = fragmentPath;
-	
+
 	try {
 	    vertexSource = get_file_contents(this->vertexShaderPath);
 	} catch (const std::exception& e) {
 	    LOG_ERROR(1, "Failed to load vertex shader from ", this->vertexShaderPath, ": ", e.what());
 	    vertexSource = "#version 330 core\nvoid main() { gl_Position = vec4(0.0); }";
+	} catch (int e) {
+		LOG_ERROR(1, "Failed to load vertex shader from ", this->vertexShaderPath, ": ", strerror(e));
+		vertexSource = "#version 330 core\nvoid main() { gl_Position = vec4(0.0); }";
 	}
+
 	try {
 	    fragmentSource = get_file_contents(this->fragmentShaderPath);
 	} catch (const std::exception& e) {
 	    LOG_ERROR(1, "Failed to load fragment shader from ", this->fragmentShaderPath, ": ", e.what());
 	    fragmentSource = "#version 330 core\nout vec4 FragColor; void main() { FragColor = vec4(1.0); }";
+	} catch (int e) {
+		LOG_ERROR(1, "Failed to load fragment shader from ", this->fragmentShaderPath, ": ", strerror(e));
+		fragmentSource = "#version 330 core\nout vec4 FragColor; void main() { FragColor = vec4(1.0); }";
 	}
 
 	this->CompileShader();
@@ -92,10 +99,10 @@ void Shader::SetShaderCode(std::string vertexCode, std::string fragmentCode) {
 	this->vertexShaderPath = nullptr;
 	this->fragmentShaderPath = nullptr;
 
-	
+
 	this->vertexSource = vertexCode;
 	this->fragmentSource = fragmentCode;
-	
+
 	this->CompileShader();
 }
 
@@ -117,7 +124,7 @@ void Shader::CompileShader() {
     glShaderSource(fragmentShader, 1, &fSource, NULL);
     glCompileShader(fragmentShader);
     this->compileErrors(fragmentShader, "FRAGMENT");
-    
+
     // Link the vertex and fragment shader into a shader program
     this->ID = glCreateProgram();
     glAttachShader(this->ID, vertexShader);
