@@ -11,7 +11,7 @@ Game::~Game() {
 void Game::init() {
     int *w = window.GetWidthptr();
 	int *h = window.GetHeightptr();
-    
+
 	this->camera.Initialize(w, h, glm::vec3(0.0f, 1.0f, 0.0f));
     this->camera.SetFOV(75.0f);
     this->camera.SetNearPlane(0.1f);
@@ -19,6 +19,10 @@ void Game::init() {
 
     this->world = std::make_unique<World>();
     this->world->Init();
+
+    this->textRenderer = std::make_unique<UI::TextRenderer>();
+    textRenderer->init(*window.GetWidthptr(), *window.GetHeightptr());
+    textRenderer->loadFont(GET_RESOURCE_PATH("fonts/Roboto-Regular.ttf"), "default", 48);
 }
 
 void Game::stop() {
@@ -34,13 +38,13 @@ void Game::run() {
     while (!window.ShouldClose()) {
 
         if (this->window.NewFrame()) {
-            std::string title = "fps: " + std::to_string(window.GetFPS()) +
-                                ", Avg fps: " + std::to_string(window.GetAverageFPS()) +
-                                ", Avg Elapsed Time: " + std::to_string(window.GetAverageElapseTimeMillisecond()) + "ms" +
-                                ", Render Time: " + std::to_string(Profiler::GetAverageTime("Render").count() * 1e-6) + "ms" +
-                                ", Upscale Time: " + std::to_string(Profiler::GetAverageTime("Upscale").count() * 1e-6) + "ms" +
-                                ", Swap Buffers Time: " + std::to_string(Profiler::GetAverageTime("SwapBuffers").count() * 1e-6) + "ms";
-            glfwSetWindowTitle(window.GetWindow(), title.c_str());
+            // std::string title = "fps: " + std::to_string(window.GetFPS()) +
+            //                     ", Avg fps: " + std::to_string(window.GetAverageFPS()) +
+            //                     ", Avg Elapsed Time: " + std::to_string(window.GetAverageElapseTimeMillisecond()) + "ms" +
+            //                     ", Render Time: " + std::to_string(Profiler::GetAverageTime("Render").count() * 1e-6) + "ms" +
+            //                     ", Upscale Time: " + std::to_string(Profiler::GetAverageTime("Upscale").count() * 1e-6) + "ms" +
+            //                     ", Swap Buffers Time: " + std::to_string(Profiler::GetAverageTime("SwapBuffers").count() * 1e-6) + "ms";
+            // glfwSetWindowTitle(window.GetWindow(), title.c_str());
         }
 
         Profiler::ProfileGPU("Render", &Game::render, this);
@@ -65,4 +69,8 @@ void Game::render() {
     Profiler::ProfileGPU("Clear", &Window::Clear, window);
     this->camera.BindUBO();
     this->world->Render(this->camera);
+
+    textRenderer->updateScreenSize(*window.GetWidthptr(), *window.GetHeightptr());
+    textRenderer->renderText("fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 1.0f,
+        glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
 }

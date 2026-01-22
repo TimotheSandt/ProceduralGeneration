@@ -6,6 +6,7 @@
 #include "Camera.h"
 #include "Window.h"
 // #include "UIManager.h"
+#include "UI/TextRenderer.h"
 #include "InputManager.h"
 
 
@@ -31,4 +32,5 @@ private:
     Window window;
     Camera camera;
     std::unique_ptr<World> world = nullptr;
+    std::unique_ptr<UI::TextRenderer> textRenderer;
 };

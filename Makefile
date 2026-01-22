@@ -42,7 +42,7 @@ else ifeq ($(DETECTED_OS),Darwin)
 	LDFLAGS = -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
 	COPY_LIBS =
 else ifeq ($(DETECTED_OS),Windows)
-	LDFLAGS = -L$(VCPKG_ROOT)/lib -lglfw3 -lglad -lpsapi -lwinmm -lgdi32
+	LDFLAGS = -L$(VCPKG_ROOT)/lib -lglfw3 -lglad -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lpsapi -lwinmm -lgdi32
 	COPY_LIBS = copy_libs
 else
 	LDFLAGS =
