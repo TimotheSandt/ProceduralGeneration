@@ -68,9 +68,17 @@ void Game::update() {
 void Game::render() {
     Profiler::ProfileGPU("Clear", &Window::Clear, window);
     this->camera.BindUBO();
-    this->world->Render(this->camera);
+    Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), this->camera);
 
     textRenderer->updateScreenSize(*window.GetWidthptr(), *window.GetHeightptr());
-    textRenderer->renderText("fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 1.0f,
+    textRenderer->renderText("fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f,
+        glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    textRenderer->renderText(std::format("Render: {:.3f}ms", Profiler::GetAverageTime("Render").count() * 1e-6), 10, 50, 0.3f,
+        glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    textRenderer->renderText(std::format("Render World: {:.3f}ms", Profiler::GetAverageTime("RenderWorld").count() * 1e-6), 10, 70, 0.3f,
+        glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    textRenderer->renderText(std::format("Upscale: {:.3f}ms", Profiler::GetAverageTime("Upscale").count() * 1e-6), 10, 90, 0.3f,
+        glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    textRenderer->renderText(std::format("Swap Buffers: {:.3f}ms", Profiler::GetAverageTime("SwapBuffers").count() * 1e-6), 10, 110, 0.3f,
         glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
 }

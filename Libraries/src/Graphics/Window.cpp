@@ -191,6 +191,7 @@ void Window::Clear() const {
 
 bool Window::NewFrame() {
     Profiler::Profile("PollEvents", &glfwPollEvents);
+    Profiler::Process();
     this->inputManager->Update();
     this->HandleInput();
 
@@ -223,8 +224,6 @@ bool Window::NewFrame() {
 
 void Window::SwapBuffers() {
     if (!this->window) return;
-
-    Profiler::Process();
 
     if (this->parameters.enableUpscaling) {
         Profiler::ProfileGPU("Upscale", &Window::UnbindRenderFBO, this);
