@@ -129,7 +129,6 @@ void Window::Close() {
     this->inputManager = nullptr;
 
     glfwDestroyWindow(this->window);
-    GL_CHECK_ERROR_M("glfwDestroyWindow");
     this->window = nullptr;
 
 #ifdef _WIN32
