@@ -89,7 +89,7 @@ RC = windres
 ICON_RC = $(RES_DIR)/icon.rc
 
 # Flags
-CFLAGS = -Wall -Wextra -Werror -m64 -O2 -DNDEBUG
+CFLAGS =  -m64 -O2 -DNDEBUG
 CXXFLAGS = -std=c++23
 
 # Target Executable
@@ -101,7 +101,7 @@ ifneq ($(findstring debug,$(MAKECMDGOALS)),)
 	BUILD_TYPE = debug
 	TARGET_NAME = main
 else ifneq ($(findstring dev,$(MAKECMDGOALS)),)
-	CFLAGS := -Wall -Wextra -m64 -g3 -O0 -DDEBUG
+	CFLAGS :=  -m64 -g3 -O0 -DDEBUG
 	BUILD_TYPE = dev
 	TARGET_NAME = main
 else ifneq ($(or $(findstring release,$(MAKECMDGOALS)),$(findstring installer,$(MAKECMDGOALS))),)
