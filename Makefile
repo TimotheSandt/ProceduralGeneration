@@ -42,7 +42,7 @@ else ifeq ($(DETECTED_OS),Darwin)
 	LDFLAGS = -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
 	COPY_LIBS =
 else ifeq ($(DETECTED_OS),Windows)
-	LDFLAGS = -L$(VCPKG_ROOT)/lib -lglfw3 -lglad -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lpsapi -lwinmm -lgdi32
+	LDFLAGS = -L$(VCPKG_ROOT)/lib -lglfw3 -lglad -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lpsapi -lwinmm -lgdi32 -lstdc++exp
 	COPY_LIBS = copy_libs
 else
 	LDFLAGS =
@@ -97,7 +97,7 @@ BUILD_TYPE = normal
 TARGET_NAME = $(PROJECT_NAME)
 
 ifneq ($(findstring debug,$(MAKECMDGOALS)),)
-	CFLAGS := -Wall -Wextra -m64 -O1 -DDEBUG
+	CFLAGS := -Wall -Wextra -m64 -O1 -g -DDEBUG
 	BUILD_TYPE = debug
 	TARGET_NAME = main
 else ifneq ($(findstring dev,$(MAKECMDGOALS)),)

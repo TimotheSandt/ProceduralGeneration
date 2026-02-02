@@ -7,16 +7,19 @@
 #include <fstream>
 #include <memory>
 #include <sstream>
+#ifdef DEBUG
+#include <stacktrace>
+#endif
 
 enum LogLevel {
 #ifdef DEBUG
     L_DEBUGGING = -1, // Mostly for testing variables when added, shouldn't be keep long even for debugging
 #endif
-    L_DEBUG, 
+    L_DEBUG,
     L_TRACE,
-    L_INFO, 
-    L_WARNING, 
-    L_ERROR, 
+    L_INFO,
+    L_WARNING,
+    L_ERROR,
     L_FATAL
 };
 
@@ -33,21 +36,25 @@ private:
 #endif
         int errorCode = 0; // 0 = no error
         std::string message;
+#ifdef DEBUG
+        std::string stackTrace;
+#endif
 
 
-        bool operator==(const LogMessage& other) const { 
+        bool operator==(const LogMessage& other) const {
             return (
                 level == other.level &&
                 message == other.message &&
                 errorCode == other.errorCode
 #ifdef DEBUG
-                && file == other.file && line == other.line
+                && file == other.file && line == other.line &&
+                stackTrace == other.stackTrace
 #endif
             );
         }
 
-        bool operator!=(const LogMessage& other) const { 
-            return !(*this == other); 
+        bool operator!=(const LogMessage& other) const {
+            return !(*this == other);
         }
     };
 
@@ -61,21 +68,21 @@ public:
 
     template <typename... Args>
     static void Log(
-        LogLevel level, 
+        LogLevel level,
 #ifdef DEBUG
-        const std::string& file, 
-        int line, 
+        const std::string& file,
+        int line,
 #endif
         Args&&... args);
-    
+
     template <typename... Args>
     static void LogError(
-        LogLevel level, 
+        LogLevel level,
 #ifdef DEBUG
-        const std::string& file, 
+        const std::string& file,
         int line,
-#endif 
-        int errorCode, 
+#endif
+        int errorCode,
         Args&&... args);
 
 private:
@@ -90,6 +97,9 @@ private:
     static void ChangeColor(LogLevel level);
     static void ChangeColor(const std::string& color);
     static void ResetColor();
+#ifdef DEBUG
+    static std::string CaptureStackTrace();
+#endif
 
     static std::vector<LogMessage> logs;
     static LogLevel lLevelPrinted;
@@ -104,34 +114,34 @@ private:
 
 template <typename... Args>
 void Logger::Log(
-    LogLevel level, 
+    LogLevel level,
 #ifdef DEBUG
-    const std::string& file, 
-    int line, 
+    const std::string& file,
+    int line,
 #endif
-    Args&&... args) 
+    Args&&... args)
 {
-    Logger::LogError(level, 
+    Logger::LogError(level,
 #ifdef DEBUG
         file, line,
-#endif 
+#endif
         0, std::forward<Args>(args)...
     );
 }
 
 template <typename... Args>
 void Logger::LogError(
-    LogLevel level, 
+    LogLevel level,
 #ifdef DEBUG
-    const std::string& file, 
+    const std::string& file,
     int line,
-#endif 
-    int errorCode, 
-    Args&&... args) 
-{    
+#endif
+    int errorCode,
+    Args&&... args)
+{
     std::ostringstream oss;
     ((oss << args), ...);
-    
+
     LogMessage msg;
     msg.level = level;
     msg.time = std::chrono::system_clock::now();
@@ -141,7 +151,10 @@ void Logger::LogError(
 #endif
     msg.message = oss.str();
     msg.errorCode = errorCode;
-    
+#ifdef DEBUG
+    msg.stackTrace = CaptureStackTrace();
+#endif
+
     Logger::AddLog(std::move(msg));
 }
 
