@@ -27,9 +27,21 @@ void RestoreFBOState(GLint oldFBO, GLint viewport[4]) {
     glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 }
 
+float UIContainer::GetPadding() const {
+    if (padding >= 0) return padding;
+    if (auto t = theme.lock()) return t->GetPadding();
+    return 0.0f;
+}
+
+float UIContainer::GetSpacing() const {
+    if (spacing >= 0) return spacing;
+    if (auto t = theme.lock()) return t->GetSpacing();
+    return 0.0f;
+}
+
 void UIContainer::AddChild(std::shared_ptr<UIComponent> child) {
     children.push_back(child);
-    child->SetParent(shared_from_this());
+    child->SetParent(std::static_pointer_cast<UIContainer>(shared_from_this()));
 
     // Recalculate bounds when adding children
     RecalculateChildBounds();
@@ -228,11 +240,11 @@ void UIContainer::MarkDirty(DirtyType d) {
 
 
 void UIContainer::RecalculateChildBounds() {
-    // Default implementation: stack children at origin
-    // Override in HBox/VBox for proper layout
+    float p = GetPadding();
+    // Default implementation: stack children at origin + padding
     for (auto& child : children) {
         glm::vec2 childSize = child->GetPixelSize();
-        child->SetCachedBoundsInParent({0, 0, childSize.x, childSize.y});
+        child->SetCachedBoundsInParent({p, p, childSize.x, childSize.y});
     }
 }
 
@@ -240,41 +252,118 @@ void UIContainer::RecalculateChildBounds() {
 // ============ UIHBox Implementation ============
 
 void UIHBox::RecalculateChildBounds() {
-    float xOffset = 0;
-    float maxHeight = 0;
+    float padding = GetPadding();
+    float spacing = GetSpacing();
 
-    // First pass: calculate total width and max height
+    float maxHeight = 0;
+    float totalChildrenWidth = 0;
+    int visibleChildrenCount = 0;
+
+    // First pass: calculate dimensions
     for (auto& child : children) {
         glm::vec2 childSize = child->GetPixelSize();
         maxHeight = std::max(maxHeight, childSize.y);
+        totalChildrenWidth += childSize.x;
+        visibleChildrenCount++;
+    }
+
+    // Add spacing to total width calculation
+    if (visibleChildrenCount > 1) {
+        totalChildrenWidth += (visibleChildrenCount - 1) * spacing;
     }
 
     // Content size
-    float containerHeight = std::max(maxHeight, localBounds.scale.y);
+    float containerHeight = std::max(maxHeight + 2 * padding, localBounds.scale.y);
+    float containerWidth = std::max(totalChildrenWidth + 2 * padding, localBounds.scale.x);
+
+    // Calculate starting offset and extra spacing based on JustifyContent
+    float xOffset = padding;
+    float currentSpacing = spacing;
+
+    // Only apply justification if we have extra space and not START alignment
+    if (justifyContent != JustifyContent::START && containerWidth > totalChildrenWidth + 2 * padding) {
+        float freeSpace = containerWidth - 2 * padding - (totalChildrenWidth - (visibleChildrenCount > 1 ? (visibleChildrenCount - 1) * spacing : 0));
+        // Note: totalChildrenWidth included spacing, so we remove it to get raw children width for freeSpace calc if we reconstruct it,
+        // OR simply: freeSpace = containerWidth - (2*padding + totalChildrenWidth).
+        freeSpace = containerWidth - (2 * padding + totalChildrenWidth);
+
+        switch (justifyContent) {
+            case JustifyContent::CENTER:
+                xOffset = padding + freeSpace / 2.0f;
+                break;
+            case JustifyContent::END:
+                xOffset = containerWidth - padding - totalChildrenWidth + (visibleChildrenCount > 1 ? (visibleChildrenCount - 1) * spacing : 0);
+                // Actually simpler: containerWidth - padding - (width of children sans spacing) - (spacing between them)
+                // Let's use standard logic: xOffset start.
+                xOffset = containerWidth - padding - totalChildrenWidth;
+                break;
+            case JustifyContent::SPACE_BETWEEN:
+                xOffset = padding;
+                if (visibleChildrenCount > 1) {
+                    currentSpacing = spacing + freeSpace / (visibleChildrenCount - 1);
+                }
+                break;
+            case JustifyContent::SPACE_AROUND:
+                if (visibleChildrenCount > 0) {
+                    float extraPerItem = freeSpace / visibleChildrenCount;
+                    currentSpacing = spacing + extraPerItem; // Not quite, Space Around puts half space at ends
+                    // Space Around: | 0.5 | Item | 1 | Item | 0.5 |
+                    // Simpler impl: distribute free space
+                    currentSpacing = spacing + freeSpace / visibleChildrenCount;
+                    xOffset = padding + (freeSpace / visibleChildrenCount) / 2.0f;
+                    // Wait, standard Space Around distributes specific way.
+                    // Let's stick to standard flexbox:
+                    // spread = freeSpace / count.
+                    // gap = spacing + spread? No, spacing is fixed usually.
+                    // If we emulate explicit spacing:
+                    // Space Between ignores fixed spacing? No, usually adds to it or overrides it.
+                    // Let's assume Justify overrides fixed spacing for Between/Around.
+                     if (visibleChildrenCount > 1) currentSpacing = freeSpace / (visibleChildrenCount - 1);
+                }
+                break;
+             default: break;
+        }
+
+        // Refined Space Around/Between logic for fixed spacing + justify?
+        // Usually JustifyContent interacts with gap.
+        // Let's stick to: Justify distributes FREE space.
+        // If Justify::CENTER, we just move start.
+        // If Justify::SPACE_BETWEEN, we increase spacing.
+
+        if (justifyContent == JustifyContent::SPACE_BETWEEN && visibleChildrenCount > 1) {
+             currentSpacing = spacing + freeSpace / (visibleChildrenCount - 1);
+             xOffset = padding;
+        } else if (justifyContent == JustifyContent::SPACE_AROUND && visibleChildrenCount > 0) {
+             float extra = freeSpace / visibleChildrenCount;
+             currentSpacing = spacing + extra; // This expands spacing
+             xOffset = padding + extra / 2.0f;
+        }
+    }
 
     // Second pass: set positions with vertical alignment
-    xOffset = 0;
     for (auto& child : children) {
         glm::vec2 childSize = child->GetPixelSize();
 
-        float yPos = 0;
+        float yPos = padding;
         switch (childAlignment) {
             case VAlign::TOP:
-                yPos = 0;
+                yPos = padding;
                 break;
             case VAlign::CENTER:
                 yPos = (containerHeight - childSize.y) / 2.0f;
                 break;
             case VAlign::BOTTOM:
-                yPos = containerHeight - childSize.y;
+                yPos = containerHeight - padding - childSize.y;
                 break;
         }
 
         child->SetCachedBoundsInParent({xOffset, yPos, childSize.x, childSize.y});
-        xOffset += childSize.x;
+        xOffset += childSize.x + currentSpacing;
     }
 
-    contentSize = {xOffset, containerHeight};
+    // Use calculated container size (assuming we expand to fill if justify is used, or just bounding box)
+    // Actually we keep calculated size.
+    contentSize = {containerWidth, containerHeight};
 }
 
 
@@ -344,41 +433,70 @@ void UIHBox::Draw(glm::vec2 containerSize, glm::vec2 offset) {
 // ============ UIVBox Implementation ============
 
 void UIVBox::RecalculateChildBounds() {
-    float yOffset = 0;
+    float padding = GetPadding();
+    float spacing = GetSpacing();
+
+    float yOffset = padding;
     float maxWidth = 0;
+    float totalChildrenHeight = 0;
+    int visibleChildrenCount = 0;
 
     // First pass: calculate max width
     for (auto& child : children) {
         glm::vec2 childSize = child->GetPixelSize();
         maxWidth = std::max(maxWidth, childSize.x);
+        totalChildrenHeight += childSize.y;
+        visibleChildrenCount++;
     }
 
-    // Content width
-    float containerWidth = std::max(maxWidth, localBounds.scale.x);
+    if (visibleChildrenCount > 1) totalChildrenHeight += (visibleChildrenCount - 1) * spacing;
+
+    // Content dimensions
+    float containerWidth = std::max(maxWidth + 2 * padding, localBounds.scale.x);
+    float containerHeight = std::max(totalChildrenHeight + 2 * padding, localBounds.scale.y);
+
+    // Calculate starting offset and extra spacing based on JustifyContent
+    float currentSpacing = spacing;
+
+    if (justifyContent != JustifyContent::START && containerHeight > totalChildrenHeight + 2 * padding) {
+        float freeSpace = containerHeight - (2 * padding + totalChildrenHeight);
+        switch (justifyContent) {
+            case JustifyContent::CENTER: yOffset = padding + freeSpace / 2.0f; break;
+            case JustifyContent::END: yOffset = containerHeight - padding - totalChildrenHeight; break;
+            case JustifyContent::SPACE_BETWEEN:
+                yOffset = padding; if (visibleChildrenCount > 1) currentSpacing = spacing + freeSpace / (visibleChildrenCount - 1); break;
+            case JustifyContent::SPACE_AROUND:
+                if (visibleChildrenCount > 0) { float ex = freeSpace / visibleChildrenCount; currentSpacing = spacing + ex; yOffset = padding + ex / 2.0f; } break;
+            default: break;
+        }
+    }
 
     // Second pass: set positions with horizontal alignment
-    yOffset = 0;
+    // yOffset is already initialized
     for (auto& child : children) {
         glm::vec2 childSize = child->GetPixelSize();
 
-        float xPos = 0;
+        float xPos = padding;
         switch (childAlignment) {
             case HAlign::LEFT:
-                xPos = 0;
+                xPos = padding;
                 break;
             case HAlign::CENTER:
                 xPos = (containerWidth - childSize.x) / 2.0f;
                 break;
             case HAlign::RIGHT:
-                xPos = containerWidth - childSize.x;
+                xPos = containerWidth - padding - childSize.x;
                 break;
         }
 
         child->SetCachedBoundsInParent({xPos, yOffset, childSize.x, childSize.y});
-        yOffset += childSize.y;
+        yOffset += childSize.y + currentSpacing;
     }
 
-    contentSize = {containerWidth, yOffset};
+    if (!children.empty()) yOffset -= spacing; // Remove last spacing
+    yOffset += padding;
+
+    contentSize = {containerWidth, containerHeight};
 }
 
 

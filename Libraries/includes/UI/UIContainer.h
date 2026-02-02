@@ -10,8 +10,11 @@ enum class HAlign { LEFT, CENTER, RIGHT };
 // Vertical alignment for HBox children
 enum class VAlign { TOP, CENTER, BOTTOM };
 
+// Main Axis Alignment (Flexbox style)
+enum class JustifyContent { START, CENTER, END, SPACE_BETWEEN, SPACE_AROUND };
 
-class UIContainer : public UIComponent, public std::enable_shared_from_this<UIContainer> {
+
+class UIContainer : public UIComponent {
 protected:
     std::vector<std::shared_ptr<UIComponent>> children;
 
@@ -67,6 +70,25 @@ public:
     // Content size
     glm::vec2 GetContentSize() const { return contentSize; }
 
+    // Chaining methods
+    std::shared_ptr<UIContainer> SetPadding(float p) { padding = p; RecalculateChildBounds(); MarkDirty(); return std::static_pointer_cast<UIContainer>(shared_from_this()); }
+    std::shared_ptr<UIContainer> SetSpacing(float s) { spacing = s; RecalculateChildBounds(); MarkDirty(); return std::static_pointer_cast<UIContainer>(shared_from_this()); }
+
+    // Shadow SetColor to return UIContainer type
+    std::shared_ptr<UIContainer> SetColor(glm::vec4 c) {
+        UIComponent::SetColor(c);
+        return std::static_pointer_cast<UIContainer>(shared_from_this());
+    }
+
+    // Getters for layout (resolve with theme)
+    float GetPadding() const;
+    float GetSpacing() const;
+
+protected:
+    // Layout overrides (-1 = use theme)
+    float padding = -1.0f;
+    float spacing = -1.0f;
+
     // Recalculate child bounds (override in HBox/VBox for layout)
     virtual void RecalculateChildBounds();
 
@@ -95,12 +117,20 @@ protected:
 class UIHBox : public UIContainer {
 protected:
     VAlign childAlignment = VAlign::TOP;
+    JustifyContent justifyContent = JustifyContent::START;
 
 public:
     using UIContainer::UIContainer;
 
-    void SetChildAlignment(VAlign align) { childAlignment = align; RecalculateChildBounds(); MarkDirty(); }
+    // Chaining methods specialized for UIHBox
+    std::shared_ptr<UIHBox> SetChildAlignment(VAlign align) { childAlignment = align; RecalculateChildBounds(); MarkDirty(); return std::static_pointer_cast<UIHBox>(shared_from_this()); }
+    std::shared_ptr<UIHBox> SetJustifyContent(JustifyContent align) { justifyContent = align; RecalculateChildBounds(); MarkDirty(); return std::static_pointer_cast<UIHBox>(shared_from_this()); }
+    std::shared_ptr<UIHBox> SetPadding(float p) { UIContainer::SetPadding(p); return std::static_pointer_cast<UIHBox>(shared_from_this()); }
+    std::shared_ptr<UIHBox> SetSpacing(float s) { UIContainer::SetSpacing(s); return std::static_pointer_cast<UIHBox>(shared_from_this()); }
+    std::shared_ptr<UIHBox> SetColor(glm::vec4 c) { UIContainer::SetColor(c); return std::static_pointer_cast<UIHBox>(shared_from_this()); }
+
     VAlign GetChildAlignment() const { return childAlignment; }
+    JustifyContent GetJustifyContent() const { return justifyContent; }
 
     void RecalculateChildBounds() override;
     void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0}) override;
@@ -110,12 +140,20 @@ public:
 class UIVBox : public UIContainer {
 protected:
     HAlign childAlignment = HAlign::LEFT;
+    JustifyContent justifyContent = JustifyContent::START;
 
 public:
     using UIContainer::UIContainer;
 
-    void SetChildAlignment(HAlign align) { childAlignment = align; RecalculateChildBounds(); MarkDirty(); }
+    // Chaining methods specialized for UIVBox
+    std::shared_ptr<UIVBox> SetChildAlignment(HAlign align) { childAlignment = align; RecalculateChildBounds(); MarkDirty(); return std::static_pointer_cast<UIVBox>(shared_from_this()); }
+    std::shared_ptr<UIVBox> SetJustifyContent(JustifyContent align) { justifyContent = align; RecalculateChildBounds(); MarkDirty(); return std::static_pointer_cast<UIVBox>(shared_from_this()); }
+    std::shared_ptr<UIVBox> SetPadding(float p) { UIContainer::SetPadding(p); return std::static_pointer_cast<UIVBox>(shared_from_this()); }
+    std::shared_ptr<UIVBox> SetSpacing(float s) { UIContainer::SetSpacing(s); return std::static_pointer_cast<UIVBox>(shared_from_this()); }
+    std::shared_ptr<UIVBox> SetColor(glm::vec4 c) { UIContainer::SetColor(c); return std::static_pointer_cast<UIVBox>(shared_from_this()); }
+
     HAlign GetChildAlignment() const { return childAlignment; }
+    JustifyContent GetJustifyContent() const { return justifyContent; }
 
     void RecalculateChildBounds() override;
     void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0}) override;
@@ -176,6 +214,45 @@ inline std::shared_ptr<UIComponent> Box(Bounds bounds, glm::vec4 color) {
     auto box = std::make_shared<UIComponent>(bounds);
     box->SetColor(color);
     return box;
+}
+
+// ============ Overloads with IdentifierKind ============
+
+template<typename... Children>
+std::shared_ptr<UIContainer> Container(Bounds bounds, IdentifierKind kind, std::shared_ptr<Children>... children) {
+    auto container = std::make_shared<UIContainer>(bounds, UITheme::GetTheme("default"), kind);
+    (container->AddChild(children), ...);
+    return container;
+}
+
+template<typename... Children>
+std::shared_ptr<UIVBox> VBox(Bounds bounds, IdentifierKind kind, std::shared_ptr<Children>... children) {
+    auto vbox = std::make_shared<UIVBox>(bounds, UITheme::GetTheme("default"), kind);
+    (vbox->AddChild(children), ...);
+    return vbox;
+}
+
+template<typename... Children>
+std::shared_ptr<UIVBox> VBox(Bounds bounds, IdentifierKind kind, HAlign align, std::shared_ptr<Children>... children) {
+    auto vbox = std::make_shared<UIVBox>(bounds, UITheme::GetTheme("default"), kind);
+    vbox->SetChildAlignment(align);
+    (vbox->AddChild(children), ...);
+    return vbox;
+}
+
+template<typename... Children>
+std::shared_ptr<UIHBox> HBox(Bounds bounds, IdentifierKind kind, std::shared_ptr<Children>... children) {
+    auto hbox = std::make_shared<UIHBox>(bounds, UITheme::GetTheme("default"), kind);
+    (hbox->AddChild(children), ...);
+    return hbox;
+}
+
+template<typename... Children>
+std::shared_ptr<UIHBox> HBox(Bounds bounds, IdentifierKind kind, VAlign align, std::shared_ptr<Children>... children) {
+    auto hbox = std::make_shared<UIHBox>(bounds, UITheme::GetTheme("default"), kind);
+    hbox->SetChildAlignment(align);
+    (hbox->AddChild(children), ...);
+    return hbox;
 }
 
 

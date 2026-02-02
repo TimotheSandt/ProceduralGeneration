@@ -18,12 +18,13 @@ void UIManager::CreateUI(int w, int h) {
     rootContainer = Container(
         Bounds({static_cast<float>(w), ValueType::PIXEL}, {static_cast<float>(h), ValueType::PIXEL}),
         VBox(
-            Bounds({200, ValueType::PIXEL}, {150, ValueType::PIXEL}, Anchor::CENTER),
+            Bounds(200, 200, Anchor::CENTER),
             UI::IdentifierKind::TRANSPARENT,
             HAlign::CENTER,
-            Box(Bounds({150, ValueType::PIXEL}, {50, ValueType::PIXEL}), {1.0f, 0.2f, 0.2f, 1.0f}),
-            Box(Bounds({100, ValueType::PIXEL}, {50, ValueType::PIXEL}), {0.2f, 1.0f, 0.2f, 1.0f})
-        )
+            Box(Bounds(150, 50), {1.0f, 0.2f, 0.2f, 1.0f}),
+            Box(Bounds(100, 50), {0.2f, 1.0f, 0.2f, 1.0f})
+        )->SetPadding(10.0f)->SetSpacing(5.0f)->SetColor({0.3f, 0.6f, 1.0f, 0.5f})
+         ->SetJustifyContent(UI::JustifyContent::CENTER) // Center content vertically
     );
 
     // Set root's size

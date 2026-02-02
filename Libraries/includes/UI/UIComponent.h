@@ -42,8 +42,13 @@ struct Bounds {
     glm::vec2 scale = {0, 0};
 
     Bounds() {}
-    Bounds(Value width, Value height) : width(width), height(height) {}
+    Bounds(Value width, Value height) : Bounds(width, height, Anchor::TOP_LEFT) {}
+    Bounds(int width, int height) : Bounds(width, height, Anchor::TOP_LEFT) {}
+    Bounds(float width, float height) : Bounds(width, height, Anchor::TOP_LEFT) {}
+
     Bounds(Value width, Value height, Anchor anchor) : width(width), height(height), anchor(anchor) {}
+    Bounds(int width, int height, Anchor anchor) : width(Value(width, ValueType::PIXEL)), height(Value(height, ValueType::PIXEL)), anchor(anchor) {}
+    Bounds(float width, float height, Anchor anchor) : width(Value(width, ValueType::PIXEL)), height(Value(height, ValueType::PIXEL)), anchor(anchor) {}
 
     glm::vec2 getPixelSize() const;
     glm::vec2 getPixelSize(const glm::vec2& parentSize);
@@ -56,7 +61,7 @@ struct Bounds {
     bool isHover(const glm::vec2& mousePos) const;
 };
 
-class UIComponent {
+class UIComponent : public std::enable_shared_from_this<UIComponent> {
 protected:
     Bounds localBounds;
     Mesh mesh;
@@ -109,7 +114,7 @@ public:
 
     // Style
     glm::vec4 GetColor() const { return color;}
-    void SetColor(glm::vec4 c) { color = c; MarkDirty(DirtyType::CONTENT); }
+    std::shared_ptr<UIComponent> SetColor(glm::vec4 c) { color = c; MarkDirty(DirtyType::CONTENT); return shared_from_this(); }
 
     // Dirty state management
     virtual void MarkDirty(DirtyType d = DirtyType::ALL);
