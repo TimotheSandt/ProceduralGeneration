@@ -6,13 +6,13 @@
 namespace UI {
 
 std::vector<GLfloat> UIComponent::GetVertices() const {
-    std::array<glm::vec2, 4> bounds = localBounds.getPixelBounds();
-    std::vector<GLfloat> vertices;
-    for (int i = 0; i < 4; i++) {
-        vertices.push_back(bounds[i].x);
-        vertices.push_back(bounds[i].y);
-    }
-    return vertices;
+    // Unit quad (0-1 range) - shader will multiply by scale and add offset
+    return {
+        0.0f, 0.0f,  // bottom-left
+        1.0f, 0.0f,  // bottom-right
+        1.0f, 1.0f,  // top-right
+        0.0f, 1.0f   // top-left
+    };
 }
 
 UIComponent::UIComponent(
@@ -52,11 +52,19 @@ void UIComponent::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     // Total offset = parent offset + anchor offset
     glm::vec2 totalOffset = offset + anchorOffset;
 
+    // Bind shader and set uniforms
+    mesh.BindShader();
+    mesh.BindVAO();
+
     mesh.InitUniform2f("offset", glm::value_ptr(totalOffset));
     mesh.InitUniform2f("scale", glm::value_ptr(this->localBounds.scale));
     mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
     mesh.InitUniform4f("color", glm::value_ptr(this->color));
+
     mesh.Draw();
+
+    mesh.UnbindVAO();
+    mesh.UnbindShader();
 }
 
 bool UIComponent::IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const {

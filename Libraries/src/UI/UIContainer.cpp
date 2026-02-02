@@ -146,43 +146,19 @@ void UIContainer::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     // Update our pixel size based on parent
     GetPixelSize();
 
-    // Ensure content size is at least as big as our visible size
-    if (contentSize.x < localBounds.scale.x) contentSize.x = localBounds.scale.x;
-    if (contentSize.y < localBounds.scale.y) contentSize.y = localBounds.scale.y;
+    // Calculate container's position with anchor
+    glm::vec2 anchorOffset = localBounds.getAnchorOffset(containerSize);
+    glm::vec2 myOffset = offset + anchorOffset;
 
-    EnsureFBOInitialized();
-    GL_CHECK_ERROR_M("Draw EnsureFBO");
+    // Render children directly (no FBO for now)
+    RecalculateChildBounds();
 
-    if (dirty != DirtyType::NONE) {
-        // Save current GL state before rendering children (which might change FBO, etc)
-        // Actually RenderToFBO handles saving/restoring FBO, but ensure nothing else leaks
-
-        if (dirty == DirtyType::ALL || dirty == DirtyType::TRANSFORM) {
-            RenderToFBO();
-        } else {
-            RenderDirtyChildren();
-        }
+    for (auto& child : children) {
+        glm::vec2 childOffset = GetChildOffset(child);
+        child->Draw(containerSize, myOffset + childOffset);
     }
 
-    // Clear our dirty state (but don't notify parent, we're in Draw)
     dirty = DirtyType::NONE;
-
-    // Draw the FBO as a textured quad with scroll offset
-    mesh.InitUniform2f("offset", glm::value_ptr(offset));
-    mesh.InitUniform2f("scale", glm::value_ptr(localBounds.scale));
-    mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
-    mesh.InitUniform2f("scrollOffset", glm::value_ptr(scrollOffset));
-    mesh.InitUniform2f("contentSize", glm::value_ptr(contentSize));
-    mesh.InitUniform4f("color", glm::value_ptr(this->color));
-
-    // Bind FBO texture directly
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, fbo.GetTextureID());
-    GLint texSamplerLoc = 0;
-    mesh.InitUniform1i("textureSampler", &texSamplerLoc);
-
-    mesh.Draw();
-    GL_CHECK_ERROR_M("UIContainer Draw Mesh");
 }
 
 
@@ -259,35 +235,18 @@ void UIHBox::Draw(glm::vec2 containerSize, glm::vec2 offset) {
 
     GetPixelSize();
     RecalculateChildBounds();
-    EnsureFBOInitialized();
-    GL_CHECK_ERROR_M("HBox EnsureFBO");
 
-    if (dirty != DirtyType::NONE) {
-        if (dirty == DirtyType::ALL || dirty == DirtyType::TRANSFORM) {
-            RenderToFBO();
-        } else {
-            RenderDirtyChildren();
-        }
+    // Calculate anchor offset
+    glm::vec2 anchorOffset = localBounds.getAnchorOffset(containerSize);
+    glm::vec2 myOffset = offset + anchorOffset;
+
+    // Render children directly (no FBO)
+    for (auto& child : children) {
+        glm::vec2 childOffset = GetChildOffset(child);
+        child->Draw(containerSize, myOffset + childOffset);
     }
 
     dirty = DirtyType::NONE;
-
-    // Draw with scroll support
-    mesh.InitUniform2f("offset", glm::value_ptr(offset));
-    mesh.InitUniform2f("scale", glm::value_ptr(localBounds.scale));
-    mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
-    mesh.InitUniform2f("scrollOffset", glm::value_ptr(scrollOffset));
-    mesh.InitUniform2f("contentSize", glm::value_ptr(contentSize));
-    mesh.InitUniform4f("color", glm::value_ptr(this->color));
-
-    // Bind FBO texture directly
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, fbo.GetTextureID());
-    GLint texSamplerLoc = 0;
-    mesh.InitUniform1i("textureSampler", &texSamplerLoc);
-
-    mesh.Draw();
-    GL_CHECK_ERROR_M("HBox Draw Mesh");
 }
 
 
@@ -342,35 +301,18 @@ void UIVBox::Draw(glm::vec2 containerSize, glm::vec2 offset) {
 
     GetPixelSize();
     RecalculateChildBounds();
-    EnsureFBOInitialized();
-    GL_CHECK_ERROR_M("VBox EnsureFBO");
 
-    if (dirty != DirtyType::NONE) {
-        if (dirty == DirtyType::ALL || dirty == DirtyType::TRANSFORM) {
-            RenderToFBO();
-        } else {
-            RenderDirtyChildren();
-        }
+    // Calculate anchor offset
+    glm::vec2 anchorOffset = localBounds.getAnchorOffset(containerSize);
+    glm::vec2 myOffset = offset + anchorOffset;
+
+    // Render children directly (no FBO)
+    for (auto& child : children) {
+        glm::vec2 childOffset = GetChildOffset(child);
+        child->Draw(containerSize, myOffset + childOffset);
     }
 
     dirty = DirtyType::NONE;
-
-    // Draw with scroll support
-    mesh.InitUniform2f("offset", glm::value_ptr(offset));
-    mesh.InitUniform2f("scale", glm::value_ptr(localBounds.scale));
-    mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
-    mesh.InitUniform2f("scrollOffset", glm::value_ptr(scrollOffset));
-    mesh.InitUniform2f("contentSize", glm::value_ptr(contentSize));
-    mesh.InitUniform4f("color", glm::value_ptr(this->color));
-
-    // Bind FBO texture directly
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, fbo.GetTextureID());
-    GLint texSamplerLoc = 0;
-    mesh.InitUniform1i("textureSampler", &texSamplerLoc);
-
-    mesh.Draw();
-    GL_CHECK_ERROR_M("VBox Draw Mesh");
 }
 
 

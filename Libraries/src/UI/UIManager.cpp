@@ -1,5 +1,6 @@
 #include "UIManager.h"
 #include <iostream>
+#include <glad/glad.h>
 
 namespace UI {
 
@@ -26,6 +27,7 @@ void UIManager::CreateUI(int w, int h) {
 
     // Set root's size
     rootContainer->SetPixelSize({static_cast<float>(w), static_cast<float>(h)});
+    rootContainer->SetColor(glm::vec4(0.0f,0.0f,0.0f,0.0f));
     rootContainer->MarkDirty(DirtyType::ALL);
 }
 
@@ -53,20 +55,37 @@ void UIManager::Update(float dt, int w, int h) {
 void UIManager::Render(int w, int h) {
     if (!active) return;
 
-    try {
-        // Ensure UI exists
-        if (!rootContainer) {
-            CreateUI(w, h);
-            lastWidth = w;
-            lastHeight = h;
-        }
-
-        // Draw root container with screen as container size
-        glm::vec2 screenSize = {static_cast<float>(w), static_cast<float>(h)};
-        rootContainer->Draw(screenSize, {0, 0});
-    } catch (const std::exception& e) {
-        std::cerr << "[UIManager] Render error: " << e.what() << std::endl;
+    // Ensure UI exists
+    if (!rootContainer) {
+        CreateUI(w, h);
+        lastWidth = w;
+        lastHeight = h;
     }
+
+    // Save GL state
+    GLint oldViewport[4];
+    glGetIntegerv(GL_VIEWPORT, oldViewport);
+    GLint oldFBO;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &oldFBO);
+    GLboolean oldDepthTest = glIsEnabled(GL_DEPTH_TEST);
+    GLboolean oldBlend = glIsEnabled(GL_BLEND);
+
+    // Setup GL state for UI rendering
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);  // Ensure we render to screen
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glViewport(0, 0, w, h);
+
+    // Draw root container with screen as container size
+    glm::vec2 screenSize = {static_cast<float>(w), static_cast<float>(h)};
+    rootContainer->Draw(screenSize, {0, 0});
+
+    // Restore GL state
+    glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+    glViewport(oldViewport[0], oldViewport[1], oldViewport[2], oldViewport[3]);
+    if (oldDepthTest) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+    if (oldBlend) glEnable(GL_BLEND); else glDisable(GL_BLEND);
 }
 
 }

@@ -60,6 +60,13 @@ public:
     void Render(Camera& camera);
     void Draw(bool wireframe = false) const;
 
+    // Bind/Unbind for custom rendering (UI)
+    void BindShader() { shader.Bind(); }
+    void UnbindShader() { shader.Unbind(); }
+    void BindVAO() { bVAO.Bind(); }
+    void UnbindVAO() { bVAO.Unbind(); }
+    bool IsShaderCompiled() const { return shader.IsCompiled(); }
+
     glm::vec3& GetPosition() { return this->position; }
     glm::vec3& GetScale() { return this->scale; }
     glm::vec3& GetRotation() { return this->rotation; }
