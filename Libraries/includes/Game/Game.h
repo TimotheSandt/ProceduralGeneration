@@ -5,8 +5,8 @@
 #include "World.h"
 #include "Camera.h"
 #include "Window.h"
-// #include "UIManager.h"
-#include "UI/TextRenderer.h"
+#include "UIManager.h"
+#include "TextRenderer.h"
 #include "InputManager.h"
 
 

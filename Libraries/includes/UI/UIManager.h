@@ -1,8 +1,10 @@
 #pragma once
-#include "UINavigator.h"
+#include "UIContainer.h"
+
+namespace UI {
 
 class UIManager {
-    UINavigator navigator;
+    std::shared_ptr<UIContainer> rootContainer;
     bool active = true;
 
     int lastWidth = 0;
@@ -13,12 +15,16 @@ public:
 
     void Init();
     void Shutdown();
+    void CreateUI(int w, int h);
 
-    void Update(float dt, InputManager* input, int w, int h);
+    void Update(float dt, int w, int h);
     void Render(int w, int h);
 
-    UINavigator& GetNavigator() { return navigator; }
+    void SetRootContainer(std::shared_ptr<UIContainer> root) { rootContainer = root; }
+    std::shared_ptr<UIContainer> GetRootContainer() { return rootContainer; }
 
     void SetActive(bool a) { active = a; }
     bool IsActive() const { return active; }
 };
+
+}

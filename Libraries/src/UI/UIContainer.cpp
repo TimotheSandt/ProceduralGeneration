@@ -1,6 +1,7 @@
 #include "UIContainer.h"
 #include "utilities.h"
 #include <glad/glad.h>
+#include "Logger.h"
 
 namespace UI {
 
@@ -15,6 +16,16 @@ UIContainer::UIContainer(Bounds bounds, std::weak_ptr<UITheme> theme, Identifier
     );
 }
 
+// ... helper for handling GL state ...
+void SaveFBOState(GLint& oldFBO, GLint viewport[4]) {
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &oldFBO);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+}
+
+void RestoreFBOState(GLint oldFBO, GLint viewport[4]) {
+    glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
+    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+}
 
 void UIContainer::AddChild(std::shared_ptr<UIComponent> child) {
     children.push_back(child);
@@ -44,6 +55,7 @@ void UIContainer::EnsureFBOInitialized() {
         if (contentSize.x > 0 && contentSize.y > 0) {
             fbo.Init(static_cast<int>(contentSize.x), static_cast<int>(contentSize.y));
             fboInitialized = true;
+            GL_CHECK_ERROR_M("UIContainer FBO Init");
         }
     }
 }
@@ -63,11 +75,13 @@ void UIContainer::ClearZone(glm::vec4 bounds) {
 
 
 void UIContainer::RenderToFBO() {
-    fbo.Bind();
-
-    // Save current viewport
+    GLint oldFBO;
     GLint viewport[4];
-    glGetIntegerv(GL_VIEWPORT, viewport);
+    SaveFBOState(oldFBO, viewport);
+
+    fbo.Bind(); // This binds our FBO
+    // No need to check error here as Bind() does it, but let's be safe
+    GL_CHECK_ERROR_M("RenderToFBO Bind");
 
     // Set viewport to FBO size
     glViewport(0, 0, static_cast<GLsizei>(contentSize.x), static_cast<GLsizei>(contentSize.y));
@@ -75,25 +89,28 @@ void UIContainer::RenderToFBO() {
     // Clear entire FBO
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // Render all children
+    // Render all children with their calculated offsets
     for (auto& child : children) {
-        child->Draw(contentSize);
+        glm::vec2 childOffset = GetChildOffset(child);
+        child->Draw(contentSize, childOffset);
         child->ClearDirty();
+        // Check for error after each child draw to identify culprit
+        GL_CHECK_ERROR_M("RenderToFBO Child Draw");
     }
 
-    fbo.Unbind();
-
-    // Restore viewport
-    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    // Instead of fbo.Unbind(), we restore previous state
+    RestoreFBOState(oldFBO, viewport);
+    GL_CHECK_ERROR_M("RenderToFBO Restore");
 }
 
 
 void UIContainer::RenderDirtyChildren() {
-    fbo.Bind();
-
-    // Save current viewport
+    GLint oldFBO;
     GLint viewport[4];
-    glGetIntegerv(GL_VIEWPORT, viewport);
+    SaveFBOState(oldFBO, viewport);
+
+    fbo.Bind();
+    GL_CHECK_ERROR_M("RenderDirtyChildren Bind");
 
     // Set viewport to FBO size
     glViewport(0, 0, static_cast<GLsizei>(contentSize.x), static_cast<GLsizei>(contentSize.y));
@@ -104,16 +121,16 @@ void UIContainer::RenderDirtyChildren() {
             // Clear only the zone of this child
             ClearZone(child->GetCachedBoundsInParent());
 
-            // Render the child
-            child->Draw(contentSize);
+            // Render the child with its offset
+            glm::vec2 childOffset = GetChildOffset(child);
+            child->Draw(contentSize, childOffset);
             child->ClearDirty();
+            GL_CHECK_ERROR_M("RenderDirtyChildren Child Draw");
         }
     }
 
-    fbo.Unbind();
-
-    // Restore viewport
-    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    RestoreFBOState(oldFBO, viewport);
+    GL_CHECK_ERROR_M("RenderDirtyChildren Restore");
 }
 
 
@@ -134,13 +151,15 @@ void UIContainer::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     if (contentSize.y < localBounds.scale.y) contentSize.y = localBounds.scale.y;
 
     EnsureFBOInitialized();
+    GL_CHECK_ERROR_M("Draw EnsureFBO");
 
     if (dirty != DirtyType::NONE) {
+        // Save current GL state before rendering children (which might change FBO, etc)
+        // Actually RenderToFBO handles saving/restoring FBO, but ensure nothing else leaks
+
         if (dirty == DirtyType::ALL || dirty == DirtyType::TRANSFORM) {
-            // Full re-render when ALL or TRANSFORM dirty
             RenderToFBO();
         } else {
-            // Partial re-render for CONTENT, ANIMATION, etc.
             RenderDirtyChildren();
         }
     }
@@ -163,6 +182,7 @@ void UIContainer::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     mesh.InitUniform1i("textureSampler", &texSamplerLoc);
 
     mesh.Draw();
+    GL_CHECK_ERROR_M("UIContainer Draw Mesh");
 }
 
 
@@ -194,15 +214,38 @@ void UIHBox::RecalculateChildBounds() {
     float xOffset = 0;
     float maxHeight = 0;
 
+    // First pass: calculate total width and max height
     for (auto& child : children) {
         glm::vec2 childSize = child->GetPixelSize();
-        child->SetCachedBoundsInParent({xOffset, 0, childSize.x, childSize.y});
-        xOffset += childSize.x;
         maxHeight = std::max(maxHeight, childSize.y);
     }
 
-    // Content size is total width of all children, max height
-    contentSize = {xOffset, std::max(maxHeight, localBounds.scale.y)};
+    // Content size
+    float containerHeight = std::max(maxHeight, localBounds.scale.y);
+
+    // Second pass: set positions with vertical alignment
+    xOffset = 0;
+    for (auto& child : children) {
+        glm::vec2 childSize = child->GetPixelSize();
+
+        float yPos = 0;
+        switch (childAlignment) {
+            case VAlign::TOP:
+                yPos = 0;
+                break;
+            case VAlign::CENTER:
+                yPos = (containerHeight - childSize.y) / 2.0f;
+                break;
+            case VAlign::BOTTOM:
+                yPos = containerHeight - childSize.y;
+                break;
+        }
+
+        child->SetCachedBoundsInParent({xOffset, yPos, childSize.x, childSize.y});
+        xOffset += childSize.x;
+    }
+
+    contentSize = {xOffset, containerHeight};
 }
 
 
@@ -217,6 +260,7 @@ void UIHBox::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     GetPixelSize();
     RecalculateChildBounds();
     EnsureFBOInitialized();
+    GL_CHECK_ERROR_M("HBox EnsureFBO");
 
     if (dirty != DirtyType::NONE) {
         if (dirty == DirtyType::ALL || dirty == DirtyType::TRANSFORM) {
@@ -243,6 +287,7 @@ void UIHBox::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     mesh.InitUniform1i("textureSampler", &texSamplerLoc);
 
     mesh.Draw();
+    GL_CHECK_ERROR_M("HBox Draw Mesh");
 }
 
 
@@ -252,15 +297,38 @@ void UIVBox::RecalculateChildBounds() {
     float yOffset = 0;
     float maxWidth = 0;
 
+    // First pass: calculate max width
     for (auto& child : children) {
         glm::vec2 childSize = child->GetPixelSize();
-        child->SetCachedBoundsInParent({0, yOffset, childSize.x, childSize.y});
-        yOffset += childSize.y;
         maxWidth = std::max(maxWidth, childSize.x);
     }
 
-    // Content size is max width, total height of all children
-    contentSize = {std::max(maxWidth, localBounds.scale.x), yOffset};
+    // Content width
+    float containerWidth = std::max(maxWidth, localBounds.scale.x);
+
+    // Second pass: set positions with horizontal alignment
+    yOffset = 0;
+    for (auto& child : children) {
+        glm::vec2 childSize = child->GetPixelSize();
+
+        float xPos = 0;
+        switch (childAlignment) {
+            case HAlign::LEFT:
+                xPos = 0;
+                break;
+            case HAlign::CENTER:
+                xPos = (containerWidth - childSize.x) / 2.0f;
+                break;
+            case HAlign::RIGHT:
+                xPos = containerWidth - childSize.x;
+                break;
+        }
+
+        child->SetCachedBoundsInParent({xPos, yOffset, childSize.x, childSize.y});
+        yOffset += childSize.y;
+    }
+
+    contentSize = {containerWidth, yOffset};
 }
 
 
@@ -275,6 +343,7 @@ void UIVBox::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     GetPixelSize();
     RecalculateChildBounds();
     EnsureFBOInitialized();
+    GL_CHECK_ERROR_M("VBox EnsureFBO");
 
     if (dirty != DirtyType::NONE) {
         if (dirty == DirtyType::ALL || dirty == DirtyType::TRANSFORM) {
@@ -301,6 +370,7 @@ void UIVBox::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     mesh.InitUniform1i("textureSampler", &texSamplerLoc);
 
     mesh.Draw();
+    GL_CHECK_ERROR_M("VBox Draw Mesh");
 }
 
 

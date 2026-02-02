@@ -46,7 +46,13 @@ void UIComponent::Draw(glm::vec2 containerSize, glm::vec2 offset) {
         needsInitialize = false;
     }
 
-    mesh.InitUniform2f("offset", glm::value_ptr(offset));
+    // Calculate anchor offset based on element's anchor within its drawable area
+    glm::vec2 anchorOffset = localBounds.getAnchorOffset(containerSize);
+
+    // Total offset = parent offset + anchor offset
+    glm::vec2 totalOffset = offset + anchorOffset;
+
+    mesh.InitUniform2f("offset", glm::value_ptr(totalOffset));
     mesh.InitUniform2f("scale", glm::value_ptr(this->localBounds.scale));
     mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
     mesh.InitUniform4f("color", glm::value_ptr(this->color));

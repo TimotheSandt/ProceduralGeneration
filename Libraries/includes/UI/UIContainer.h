@@ -4,6 +4,13 @@
 
 namespace UI {
 
+// Horizontal alignment for VBox children
+enum class HAlign { LEFT, CENTER, RIGHT };
+
+// Vertical alignment for HBox children
+enum class VAlign { TOP, CENTER, BOTTOM };
+
+
 class UIContainer : public UIComponent, public std::enable_shared_from_this<UIContainer> {
 protected:
     std::vector<std::shared_ptr<UIComponent>> children;
@@ -20,21 +27,22 @@ protected:
 
 public:
 
+    // Basic constructor
     UIContainer(
             Bounds bounds,
             std::weak_ptr<UITheme> theme = UITheme::GetTheme("default"),
             IdentifierKind kind = IdentifierKind::PRIMARY
         );
 
-    // Variadic template constructor for declarative UI (Option A style)
-    template<typename... Args>
+    // SwiftUI-style constructor: Bounds + children
+    template<typename... Children>
     UIContainer(
             Bounds bounds,
-            std::weak_ptr<UITheme> theme,
-            IdentifierKind kind,
-            Args&&... args
-        ) : UIContainer(bounds, theme, kind) {
-            (AddChild(std::forward<Args>(args)), ...);
+            std::weak_ptr<UITheme> theme = UITheme::GetTheme("default"),
+            IdentifierKind kind = IdentifierKind::PRIMARY,
+            std::shared_ptr<Children>... children)
+        : UIContainer(bounds, theme, kind) {
+            (AddChild(children), ...);
         }
 
     // Add a single child
@@ -74,13 +82,25 @@ protected:
 
     // Clear a specific zone in the FBO
     void ClearZone(glm::vec4 bounds);
+
+    // Get child offset from cached bounds
+    glm::vec2 GetChildOffset(const std::shared_ptr<UIComponent>& child) const {
+        glm::vec4 bounds = child->GetCachedBoundsInParent();
+        return {bounds.x, bounds.y};
+    }
 };
 
 
 
 class UIHBox : public UIContainer {
+protected:
+    VAlign childAlignment = VAlign::TOP;
+
 public:
     using UIContainer::UIContainer;
+
+    void SetChildAlignment(VAlign align) { childAlignment = align; RecalculateChildBounds(); MarkDirty(); }
+    VAlign GetChildAlignment() const { return childAlignment; }
 
     void RecalculateChildBounds() override;
     void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0}) override;
@@ -88,12 +108,70 @@ public:
 
 
 class UIVBox : public UIContainer {
+protected:
+    HAlign childAlignment = HAlign::LEFT;
+
 public:
     using UIContainer::UIContainer;
+
+    void SetChildAlignment(HAlign align) { childAlignment = align; RecalculateChildBounds(); MarkDirty(); }
+    HAlign GetChildAlignment() const { return childAlignment; }
 
     void RecalculateChildBounds() override;
     void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0}) override;
 };
+
+
+// ============ SwiftUI-style Factory Functions ============
+
+// Factory for Container
+template<typename... Children>
+std::shared_ptr<UIContainer> Container(Bounds bounds, std::shared_ptr<Children>... children) {
+    auto container = std::make_shared<UIContainer>(bounds);
+    (container->AddChild(children), ...);
+    return container;
+}
+
+// Factory for VBox
+template<typename... Children>
+std::shared_ptr<UIVBox> VBox(Bounds bounds, std::shared_ptr<Children>... children) {
+    auto vbox = std::make_shared<UIVBox>(bounds);
+    (vbox->AddChild(children), ...);
+    return vbox;
+}
+
+// Factory for VBox with alignment
+template<typename... Children>
+std::shared_ptr<UIVBox> VBox(Bounds bounds, HAlign align, std::shared_ptr<Children>... children) {
+    auto vbox = std::make_shared<UIVBox>(bounds);
+    vbox->SetChildAlignment(align);
+    (vbox->AddChild(children), ...);
+    return vbox;
+}
+
+// Factory for HBox
+template<typename... Children>
+std::shared_ptr<UIHBox> HBox(Bounds bounds, std::shared_ptr<Children>... children) {
+    auto hbox = std::make_shared<UIHBox>(bounds);
+    (hbox->AddChild(children), ...);
+    return hbox;
+}
+
+// Factory for HBox with alignment
+template<typename... Children>
+std::shared_ptr<UIHBox> HBox(Bounds bounds, VAlign align, std::shared_ptr<Children>... children) {
+    auto hbox = std::make_shared<UIHBox>(bounds);
+    hbox->SetChildAlignment(align);
+    (hbox->AddChild(children), ...);
+    return hbox;
+}
+
+// Factory for colored box (simple colored rectangle)
+inline std::shared_ptr<UIComponent> Box(Bounds bounds, glm::vec4 color) {
+    auto box = std::make_shared<UIComponent>(bounds);
+    box->SetColor(color);
+    return box;
+}
 
 
 }

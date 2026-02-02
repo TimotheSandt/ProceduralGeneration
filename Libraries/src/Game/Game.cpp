@@ -23,6 +23,9 @@ void Game::init() {
     this->textRenderer = std::make_unique<UI::TextRenderer>();
     textRenderer->init(*window.GetWidthptr(), *window.GetHeightptr());
     textRenderer->loadFont(GET_RESOURCE_PATH("fonts/Roboto-Regular.ttf"), "default", 48);
+
+    // Initialize UI system
+    UI::UIManager::Instance().Init();
 }
 
 void Game::stop() {
@@ -81,4 +84,7 @@ void Game::render() {
         glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
     textRenderer->renderText(std::format("Swap Buffers: {:.3f}ms", Profiler::GetAverageTime("SwapBuffers").count() * 1e-6), 10, 110, 0.3f,
         glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+
+    // Render UI
+    UI::UIManager::Instance().Render(*window.GetWidthptr(), *window.GetHeightptr());
 }

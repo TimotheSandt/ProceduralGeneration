@@ -6,5 +6,12 @@ uniform vec2 scale;
 uniform vec2 containerSize;
 
 void main() {
-    gl_Position = vec4((aPos.x * scale.x + offset.x)/containerSize.x, (aPos.y * scale.y + offset.y)/containerSize.y, 0.0, 1.0);
+    // aPos is unit quad (0-1), scale to actual size, add offset, normalize to [-1,1]
+    vec2 pixelPos = aPos * scale + offset;
+    vec2 normalizedPos = pixelPos / containerSize * 2.0 - 1.0;
+
+    // Flip Y axis (OpenGL has Y up, UI has Y down)
+    normalizedPos.y = -normalizedPos.y;
+
+    gl_Position = vec4(normalizedPos, 0.0, 1.0);
 }
