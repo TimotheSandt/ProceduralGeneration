@@ -5,6 +5,9 @@ class UIManager {
     UINavigator navigator;
     bool active = true;
 
+    int lastWidth = 0;
+    int lastHeight = 0;
+
 public:
     static UIManager& Instance();
 

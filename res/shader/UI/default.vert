@@ -1,9 +1,10 @@
 #version 430 core
 layout (location = 0) in vec2 aPos;
-layout (location = 1) in vec2 aTexCoord;
 
-uniform vec2 windowsSize;
+uniform vec2 offset;
+uniform vec2 scale;
+uniform vec2 containerSize;
 
 void main() {
-    gl_Position = vec4(aPos.x/windowsSize.x, aPos.y/windowsSize.y, 0.0, 1.0);
+    gl_Position = vec4((aPos.x * scale.x + offset.x)/containerSize.x, (aPos.y * scale.y + offset.y)/containerSize.y, 0.0, 1.0);
 }

@@ -7,6 +7,7 @@
 #include "InputManager.h"
 #include "Mesh.h"
 #include "UITheme.h"
+#include "UIContainer.h"
 
 
 namespace UI {
@@ -20,39 +21,51 @@ enum class Anchor {
     BOTTOM_LEFT, BOTTOM_CENTER, BOTTOM_RIGHT
 };
 
+enum class DirtyType {
+    NONE,
+    ALL,
+    TRANSFORM,
+    ANIMATION,
+    CONTENT,
+    THEME,
+    VISIBILITY
+};
 
-class Bounds {
+
+struct Bounds {
     Value width, height;
     Anchor anchor = Anchor::TOP_LEFT;
     std::array<glm::vec2, 4> pixelBounds;
+
+    glm::vec2 scale = {0, 0};
 
     Bounds() {}
     Bounds(Value width, Value height) : width(width), height(height) {}
     Bounds(Value width, Value height, Anchor anchor) : width(width), height(height), anchor(anchor) {}
 
-    glm::vec2 getPixelSize(const glm::vec2& parentSize) const;
+    glm::vec2 getPixelSize() const;
+    glm::vec2 getPixelSize(const glm::vec2& parentSize);
 
     std::array<glm::vec2, 4> getPixelBounds() const { return pixelBounds; }
     std::array<glm::vec2, 4> getPixelBounds(const glm::vec2& parentSize);
     bool isHover(const glm::vec2& mousePos) const;
 };
 
-class UIComponent : public std::enable_shared_from_this<UIComponent> {
+class UIComponent {
 protected:
     Bounds localBounds;
     Mesh mesh;
 
-    std::weak_ptr<UIComponent> parent;
-    Anchor anchor = Anchor::TOP_LEFT;
+    std::weak_ptr<UIContainer> parent;
 
     bool visible = true;
-    bool dirty = true;
+    DirtyType dirty = DirtyType::ALL;
     bool focused = false;
 
     std::weak_ptr<UITheme> theme;
     IdentifierKind kind;
 
-    std::optional<glm::vec4> color;
+    glm::vec4 color;
 
     // Animation state
     glm::vec2 offset = {0, 0};
@@ -60,31 +73,33 @@ protected:
     float rotation = 0.0f;
 
 public:
-    UIComponent(Bounds bounds);
     UIComponent(
-            Bounds bounds, Anchor anchor,
-            std::weak_ptr<UITheme> theme = UITheme::GetTheme("default"), IdentifierKind kind = IdentifierKind::PRIMARY,
-            std::weak_ptr<UIComponent> parent = std::weak_ptr<UIComponent>()
+            Bounds bounds,
+            std::weak_ptr<UITheme> theme = UITheme::GetTheme("default"),
+            IdentifierKind kind = IdentifierKind::PRIMARY
         );
     virtual ~UIComponent() = default;
 
 
     virtual void Update() {}
-    virtual void Draw(int maxW, int maxH) = 0;
-    virtual void HandleInput(InputManager* input, int screenW, int screenH) {};
+    virtual void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0}) = 0;
 
     // Bounds
-    glm::vec2 GetPixelSize() const;
-    Bounds GetAbsoluteBounds(int screenW, int screenH) const;
-    bool IsMouseOver(InputManager* input, int screenW, int screenH) const;
+    void SetPixelSize(glm::vec2 size) { this->localBounds.scale = size; MarkDirty(); }
+    glm::vec2 GetPixelSize();
+    bool IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const;
 
     // Hierarchy
-    void SetParent(std::weak_ptr<UIComponent> p) { parent = p; MarkDirty(); };
-    void MarkDirty() { dirty = true; };
+    void SetParent(std::weak_ptr<UIContainer> p) { parent = p; MarkDirty(); };
 
     // Style
-    glm::vec4 GetColor() const;
+    glm::vec4 GetColor() const { return color;}
     void SetColor(glm::vec4 c) { color = c; }
+
+    virtual void MarkDirty(DirtyType d = DirtyType::ALL) { dirty = d; };
+
+private:
+    std::vector<GLfloat> GetVertices() const;
 };
 
 }

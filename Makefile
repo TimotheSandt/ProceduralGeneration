@@ -228,6 +228,16 @@ install_deps:
 	@echo "Checking and installing dependencies with vcpkg..."
 	vcpkg install --triplet=$(VCPKG_TRIPLET) --x-install-root=./vcpkg_installed
 
+remove_deps:
+	@echo "Removing dependencies with vcpkg..."
+	@if exist "./vcpkg_installed" rm -rf ./vcpkg_installed
+
+reset_deps:
+	@echo "Resetting dependencies with vcpkg..."
+	@if exist "./vcpkg_installed" rm -rf ./vcpkg_installed
+	vcpkg install --triplet=$(VCPKG_TRIPLET) --x-install-root=./vcpkg_installed
+
+
 # Icon Resource
 $(OBJ_DIR_TYPE)/src/icon.o: $(BIN_DIR_TYPE)/$(ICON_RC)
 	$(RC) -i $< -o $@
@@ -274,9 +284,9 @@ $(TARGET): all_copy $(ALL_OBJECTS) | $(BIN_DIR_TYPE)
 	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS) $(LDFLAGS) -o $@
 	@echo "Compilation successful for: $(TARGET)"
 
-$(ALL_OBJECTS): | install_deps
+$(ALL_OBJECTS):
 
-$(COPY_LIBS): | install_deps
+$(COPY_LIBS):
 
 # Compilation Rules
 $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.cpp | $(OBJ_DIR)/${BUILD_TYPE}
@@ -417,7 +427,8 @@ endif
 .PHONY: clean fclean fclean-build re re-debug re-dev re-release
 .PHONY: info info-debug info-dev info-release debug-info dev-info release-info
 .PHONY: check copy_libs copy_res all_copy
-.PHONY: create_windows_installer create_linux_installer installer install_deps
+.PHONY: create_windows_installer create_linux_installer installer
+.PHONY: install_deps remove_deps
 
 # Dependencies
 -include $(wildcard $(ALL_OBJECTS:.o=.d))

@@ -20,12 +20,12 @@ class Mesh
 public:
     Mesh() = default;
     Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib);
-    Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib, 
+    Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib,
         std::vector<GLfloat> instances, std::vector<GLuint> SizeAttribInstance);
 
     Mesh(const Mesh&) noexcept;
     Mesh operator=(const Mesh&) noexcept;
-    
+
     Mesh(Mesh&&) noexcept;
     Mesh operator=(Mesh&&) noexcept;
 
@@ -46,7 +46,7 @@ public:
     void SetRotation(glm::vec3 rotation) { this->rotation = rotation; }
 
     void UpdateUBO();
-    
+
     void InitUniform4f(const char* uniform, const GLfloat* data);
     void InitUniform3f(const char* uniform, const GLfloat* data);
     void InitUniform2f(const char* uniform, const GLfloat* data);
@@ -70,15 +70,15 @@ private:
     std::vector<GLuint> sizeAttrib;
     std::vector<Texture> textures;
     Shader shader;
-    
+
     glm::vec3 position = glm::vec3(0.0f);
     glm::vec3 scale = glm::vec3(1.0f);
     glm::vec3 rotation = glm::vec3(0.0f);
-    
+
     GLuint instancing;
     std::vector<GLfloat> instances;
     std::vector<GLuint> SizeAttribInstance;
-    
+
     VAO bVAO;
     UBO bUBO;
 

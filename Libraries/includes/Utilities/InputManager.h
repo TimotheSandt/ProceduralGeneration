@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <glm/glm.hpp>
 #include <unordered_map>
 
 
@@ -28,9 +29,9 @@ enum class MouseButton {
 };
 
 struct MouseMoveData {
-    double x, y;
-    double deltaX, deltaY;
-    double scrollX, scrollY;
+    glm::vec2 position;
+    glm::vec2 delta;
+    glm::vec2 scroll;
 };
 
 enum class KeyLayout {
@@ -125,10 +126,9 @@ public:
     bool IsMouseButtonJustPressed(MouseButton button) const { return GetMouseButtonState(button) == InputState::PressBegin; }
     bool IsMouseButtonJustReleased(MouseButton button) const { return GetMouseButtonState(button) == InputState::PressEnd; }
 
-    double GetMouseX() const { return mouseX; }
-    double GetMouseY() const { return mouseY; }
-    double GetMouseDeltaX() const { return mouseDeltaX; }
-    double GetMouseDeltaY() const { return mouseDeltaY; }
+    glm::vec2 GetMousePosition() const { return mouseMoveData.position; }
+    glm::vec2 GetMouseDelta() const { return mouseMoveData.delta; }
+    glm::vec2 GetMouseScroll() const { return mouseMoveData.scroll; }
 
     InputEvent GetCurrentInputEvent() const { return inputEvent; };
     bool IsCurrentInputEventEmpty();
@@ -177,8 +177,7 @@ private:
     InputEvent inputEvent;
     std::unordered_map<KeyButton, InputState> keyStateMap;
     std::unordered_map<MouseButton, InputState> mouseButtonStateMap;
-    double mouseDeltaX = 0.0f, mouseDeltaY = 0.0f;
-    double mouseX = 0.0f, mouseY = 0.0f;
+    MouseMoveData mouseMoveData;
     // TODO: Scroll
 
 private:

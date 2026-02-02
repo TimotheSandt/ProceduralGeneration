@@ -40,8 +40,9 @@ struct UIColors {
 
 class UITheme {
 public:
-    std::string GetName() const { return name; }
     UIColors GetColors() const { return colors; }
+    glm::vec4 GetColor(IdentifierKind kind) const;
+    std::string GetName() const { return name; }
     float GetCornerRadius() const { return cornerRadius; }
     float GetPadding() const { return padding; }
     float GetSpacing() const { return spacing; }

@@ -17,30 +17,30 @@ public:
 
     FBO(const FBO&) = delete;
     FBO& operator=(const FBO&) = delete;
-    
+
     FBO(FBO&&) noexcept;
     FBO& operator=(FBO&&) noexcept;
-    
+
     ~FBO();
-    
+
     void Init(int width, int height);
     void Resize(int newWidth, int newHeight);
     void Destroy();
     void Bind() const;
     void Unbind() const;
-    
+
     void BlitFBO(FBO& oFBO) const;
     void BlitToScreen(int sWidth, int sHeight) const;
     void RenderScreenQuad() const;
     void RenderScreenQuad(int fWidth, int fHeight) const;
-    
-    
+
+
     GLuint GetID() const { return ID; }
     Texture& GetTexture() { return TextureColor; }
     GLuint GetTextureID() const { return TextureColor.GetID(); }
     int GetWidth() const { return width; }
     int GetHeight() const { return height; }
-    
+
 private:
     void Swap(FBO& other) noexcept;
     void Setup();

@@ -43,11 +43,10 @@ void InputManager::Init() {
     }
 
     // Mouse position
-    glfwGetCursorPos(window, &this->mouseX, &this->mouseY);
+    glfwGetCursorPos(window, reinterpret_cast<double*>(&this->mouseMoveData.position.x), reinterpret_cast<double*>(&this->mouseMoveData.position.y));
 
     // Mouse delta
-    mouseDeltaX = 0.0;
-    mouseDeltaY = 0.0;
+    this->mouseMoveData.delta = glm::vec2(0.0f, 0.0f);
 }
 
 // Update method implementation
@@ -75,11 +74,14 @@ void InputManager::Update() {
     }
 
     // Mouse Position
-    double lastX = this->mouseX, lastY = this->mouseY;
-    glfwGetCursorPos(window, &this->mouseX, &this->mouseY);
+    glm::vec2 lastMousePos = this->mouseMoveData.position;
+    glfwGetCursorPos(window, reinterpret_cast<double*>(&this->mouseMoveData.position.x), reinterpret_cast<double*>(&this->mouseMoveData.position.y));
 
-    this->mouseDeltaX = this->mouseX - lastX;
-    this->mouseDeltaY = this->mouseY - lastY;
+    // Mouse delta
+    this->mouseMoveData.delta = this->mouseMoveData.position - lastMousePos;
+
+    // Mouse scroll
+    this->mouseMoveData.scroll = glm::vec2(0.0f, 0.0f); // TODO
     UpdateInputEvent();
 }
 
@@ -435,10 +437,7 @@ void InputManager::UpdateInputEvent() {
             event.mouseButtons.push_back(mouseButtonEvent);
         }
     }
-    event.mouseMoveData = {
-        this->mouseX, this->mouseY,
-        this->mouseDeltaX, this->mouseDeltaY, 0, 0
-    };
+    event.mouseMoveData = this->mouseMoveData;
     this->inputEvent = event;
 }
 
@@ -451,9 +450,7 @@ void InputManager::BindActionToInput(std::string action, InputAction inputAction
 
 bool InputManager::IsCurrentInputEventEmpty() {
     return inputEvent.keys.empty() &&
-        inputEvent.mouseButtons.empty() &&
-        inputEvent.mouseMoveData.deltaX == 0 &&
-        inputEvent.mouseMoveData.deltaY == 0;
+        inputEvent.mouseButtons.empty();
 }
 
 bool InputManager::IsActionActive(std::string action) {

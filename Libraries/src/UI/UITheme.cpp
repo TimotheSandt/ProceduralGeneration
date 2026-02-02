@@ -38,4 +38,22 @@ std::weak_ptr<UITheme> UITheme::GetTheme(std::string themeName) {
     return std::weak_ptr<UITheme>();
 }
 
+glm::vec4 UITheme::GetColor(IdentifierKind kind) const {
+    switch (kind)
+    {
+    case IdentifierKind::BACKGROUND:    return colors.background;
+    case IdentifierKind::PRIMARY:       return colors.primary;
+    case IdentifierKind::SECONDARY:     return colors.secondary;
+    case IdentifierKind::TEXT:          return colors.text;
+    case IdentifierKind::TEXT_MUTED:    return colors.textMuted;
+    case IdentifierKind::HOVER:         return colors.hover;
+    case IdentifierKind::PRESSED:       return colors.pressed;
+    case IdentifierKind::DISABLED:      return colors.disabled;
+    case IdentifierKind::ERROR:         return colors.error;
+    case IdentifierKind::SUCCESS:       return colors.success;
+    default:                            return colors.primary;
+    }
+
+}
+
 }
