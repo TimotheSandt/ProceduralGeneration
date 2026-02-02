@@ -128,6 +128,7 @@ public:
 template<typename... Children>
 std::shared_ptr<UIContainer> Container(Bounds bounds, std::shared_ptr<Children>... children) {
     auto container = std::make_shared<UIContainer>(bounds);
+    container->SetColor({0.0f, 0.0f, 0.0f, 0.0f}); // Transparent by default
     (container->AddChild(children), ...);
     return container;
 }
@@ -136,6 +137,7 @@ std::shared_ptr<UIContainer> Container(Bounds bounds, std::shared_ptr<Children>.
 template<typename... Children>
 std::shared_ptr<UIVBox> VBox(Bounds bounds, std::shared_ptr<Children>... children) {
     auto vbox = std::make_shared<UIVBox>(bounds);
+    vbox->SetColor({0.0f, 0.0f, 0.0f, 0.0f}); // Transparent by default
     (vbox->AddChild(children), ...);
     return vbox;
 }
@@ -144,6 +146,7 @@ std::shared_ptr<UIVBox> VBox(Bounds bounds, std::shared_ptr<Children>... childre
 template<typename... Children>
 std::shared_ptr<UIVBox> VBox(Bounds bounds, HAlign align, std::shared_ptr<Children>... children) {
     auto vbox = std::make_shared<UIVBox>(bounds);
+    vbox->SetColor({0.0f, 0.0f, 0.0f, 0.0f}); // Transparent by default
     vbox->SetChildAlignment(align);
     (vbox->AddChild(children), ...);
     return vbox;
@@ -153,6 +156,7 @@ std::shared_ptr<UIVBox> VBox(Bounds bounds, HAlign align, std::shared_ptr<Childr
 template<typename... Children>
 std::shared_ptr<UIHBox> HBox(Bounds bounds, std::shared_ptr<Children>... children) {
     auto hbox = std::make_shared<UIHBox>(bounds);
+    hbox->SetColor({0.0f, 0.0f, 0.0f, 0.0f}); // Transparent by default
     (hbox->AddChild(children), ...);
     return hbox;
 }
@@ -161,6 +165,7 @@ std::shared_ptr<UIHBox> HBox(Bounds bounds, std::shared_ptr<Children>... childre
 template<typename... Children>
 std::shared_ptr<UIHBox> HBox(Bounds bounds, VAlign align, std::shared_ptr<Children>... children) {
     auto hbox = std::make_shared<UIHBox>(bounds);
+    hbox->SetColor({0.0f, 0.0f, 0.0f, 0.0f}); // Transparent by default
     hbox->SetChildAlignment(align);
     (hbox->AddChild(children), ...);
     return hbox;

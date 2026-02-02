@@ -56,6 +56,17 @@ void UIContainer::EnsureFBOInitialized() {
             fbo.Init(static_cast<int>(contentSize.x), static_cast<int>(contentSize.y));
             fboInitialized = true;
             GL_CHECK_ERROR_M("UIContainer FBO Init");
+
+            // Clear FBO to transparent immediately after init
+            GLint currentFBO;
+            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFBO);
+            fbo.Bind();
+            glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            glBindFramebuffer(GL_FRAMEBUFFER, currentFBO);
+
+            // Force re-render on next frame
+            dirty = DirtyType::ALL;
         }
     }
 }
@@ -86,7 +97,8 @@ void UIContainer::RenderToFBO() {
     // Set viewport to FBO size
     glViewport(0, 0, static_cast<GLsizei>(contentSize.x), static_cast<GLsizei>(contentSize.y));
 
-    // Clear entire FBO
+    // Clear entire FBO with transparent color
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     // Render all children with their calculated offsets
@@ -150,12 +162,53 @@ void UIContainer::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     glm::vec2 anchorOffset = localBounds.getAnchorOffset(containerSize);
     glm::vec2 myOffset = offset + anchorOffset;
 
-    // Render children directly (no FBO for now)
     RecalculateChildBounds();
 
-    for (auto& child : children) {
-        glm::vec2 childOffset = GetChildOffset(child);
-        child->Draw(containerSize, myOffset + childOffset);
+    // Root container (no parent) renders children directly
+    // Nested containers use FBO for optimization
+    bool isRoot = parent.expired();
+
+    if (isRoot) {
+        // Direct rendering for root container
+        for (auto& child : children) {
+            glm::vec2 childOffset = GetChildOffset(child);
+            child->Draw(containerSize, myOffset + childOffset);
+        }
+    } else {
+        // FBO rendering for nested containers
+        if (contentSize.x < localBounds.scale.x) contentSize.x = localBounds.scale.x;
+        if (contentSize.y < localBounds.scale.y) contentSize.y = localBounds.scale.y;
+
+        EnsureFBOInitialized();
+
+        if (dirty != DirtyType::NONE) {
+            if (dirty == DirtyType::ALL || dirty == DirtyType::TRANSFORM) {
+                RenderToFBO();
+            } else {
+                RenderDirtyChildren();
+            }
+        }
+
+        // Draw the FBO texture
+        mesh.BindShader();
+        mesh.BindVAO();
+
+        mesh.InitUniform2f("offset", glm::value_ptr(myOffset));
+        mesh.InitUniform2f("scale", glm::value_ptr(localBounds.scale));
+        mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
+        mesh.InitUniform2f("scrollOffset", glm::value_ptr(scrollOffset));
+        mesh.InitUniform2f("contentSize", glm::value_ptr(contentSize));
+        mesh.InitUniform4f("color", glm::value_ptr(this->color));
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fbo.GetTextureID());
+        GLint texSamplerLoc = 0;
+        mesh.InitUniform1i("textureSampler", &texSamplerLoc);
+
+        mesh.Draw();
+
+        mesh.UnbindVAO();
+        mesh.UnbindShader();
     }
 
     dirty = DirtyType::NONE;
@@ -240,10 +293,48 @@ void UIHBox::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     glm::vec2 anchorOffset = localBounds.getAnchorOffset(containerSize);
     glm::vec2 myOffset = offset + anchorOffset;
 
-    // Render children directly (no FBO)
-    for (auto& child : children) {
-        glm::vec2 childOffset = GetChildOffset(child);
-        child->Draw(containerSize, myOffset + childOffset);
+    // Root container renders directly, nested use FBO
+    bool isRoot = parent.expired();
+
+    if (isRoot) {
+        for (auto& child : children) {
+            glm::vec2 childOffset = GetChildOffset(child);
+            child->Draw(containerSize, myOffset + childOffset);
+        }
+    } else {
+        // FBO rendering
+        if (contentSize.x < localBounds.scale.x) contentSize.x = localBounds.scale.x;
+        if (contentSize.y < localBounds.scale.y) contentSize.y = localBounds.scale.y;
+
+        EnsureFBOInitialized();
+
+        if (dirty != DirtyType::NONE) {
+            if (dirty == DirtyType::ALL || dirty == DirtyType::TRANSFORM) {
+                RenderToFBO();
+            } else {
+                RenderDirtyChildren();
+            }
+        }
+
+        mesh.BindShader();
+        mesh.BindVAO();
+
+        mesh.InitUniform2f("offset", glm::value_ptr(myOffset));
+        mesh.InitUniform2f("scale", glm::value_ptr(localBounds.scale));
+        mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
+        mesh.InitUniform2f("scrollOffset", glm::value_ptr(scrollOffset));
+        mesh.InitUniform2f("contentSize", glm::value_ptr(contentSize));
+        mesh.InitUniform4f("color", glm::value_ptr(this->color));
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fbo.GetTextureID());
+        GLint texSamplerLoc = 0;
+        mesh.InitUniform1i("textureSampler", &texSamplerLoc);
+
+        mesh.Draw();
+
+        mesh.UnbindVAO();
+        mesh.UnbindShader();
     }
 
     dirty = DirtyType::NONE;
@@ -306,10 +397,48 @@ void UIVBox::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     glm::vec2 anchorOffset = localBounds.getAnchorOffset(containerSize);
     glm::vec2 myOffset = offset + anchorOffset;
 
-    // Render children directly (no FBO)
-    for (auto& child : children) {
-        glm::vec2 childOffset = GetChildOffset(child);
-        child->Draw(containerSize, myOffset + childOffset);
+    // Root container renders directly, nested use FBO
+    bool isRoot = parent.expired();
+
+    if (isRoot) {
+        for (auto& child : children) {
+            glm::vec2 childOffset = GetChildOffset(child);
+            child->Draw(containerSize, myOffset + childOffset);
+        }
+    } else {
+        // FBO rendering
+        if (contentSize.x < localBounds.scale.x) contentSize.x = localBounds.scale.x;
+        if (contentSize.y < localBounds.scale.y) contentSize.y = localBounds.scale.y;
+
+        EnsureFBOInitialized();
+
+        if (dirty != DirtyType::NONE) {
+            if (dirty == DirtyType::ALL || dirty == DirtyType::TRANSFORM) {
+                RenderToFBO();
+            } else {
+                RenderDirtyChildren();
+            }
+        }
+
+        mesh.BindShader();
+        mesh.BindVAO();
+
+        mesh.InitUniform2f("offset", glm::value_ptr(myOffset));
+        mesh.InitUniform2f("scale", glm::value_ptr(localBounds.scale));
+        mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
+        mesh.InitUniform2f("scrollOffset", glm::value_ptr(scrollOffset));
+        mesh.InitUniform2f("contentSize", glm::value_ptr(contentSize));
+        mesh.InitUniform4f("color", glm::value_ptr(this->color));
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, fbo.GetTextureID());
+        GLint texSamplerLoc = 0;
+        mesh.InitUniform1i("textureSampler", &texSamplerLoc);
+
+        mesh.Draw();
+
+        mesh.UnbindVAO();
+        mesh.UnbindShader();
     }
 
     dirty = DirtyType::NONE;

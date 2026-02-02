@@ -19,6 +19,7 @@ void UIManager::CreateUI(int w, int h) {
         Bounds({static_cast<float>(w), ValueType::PIXEL}, {static_cast<float>(h), ValueType::PIXEL}),
         VBox(
             Bounds({200, ValueType::PIXEL}, {150, ValueType::PIXEL}, Anchor::CENTER),
+            UI::IdentifierKind::TRANSPARENT,
             HAlign::CENTER,
             Box(Bounds({150, ValueType::PIXEL}, {50, ValueType::PIXEL}), {1.0f, 0.2f, 0.2f, 1.0f}),
             Box(Bounds({100, ValueType::PIXEL}, {50, ValueType::PIXEL}), {0.2f, 1.0f, 0.2f, 1.0f})
@@ -27,7 +28,6 @@ void UIManager::CreateUI(int w, int h) {
 
     // Set root's size
     rootContainer->SetPixelSize({static_cast<float>(w), static_cast<float>(h)});
-    rootContainer->SetColor(glm::vec4(0.0f,0.0f,0.0f,0.0f));
     rootContainer->MarkDirty(DirtyType::ALL);
 }
 

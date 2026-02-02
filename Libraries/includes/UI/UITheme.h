@@ -8,6 +8,7 @@
 namespace UI {
 
 enum class IdentifierKind {
+    TRANSPARENT,
     BACKGROUND,
     PRIMARY,
     SECONDARY,
@@ -26,6 +27,7 @@ enum class PresetTheme {
 };
 
 struct UIColors {
+    glm::vec4 transparent = {0.0f, 0.0f, 0.0f, 0.0f};
     glm::vec4 background = {0.15f, 0.15f, 0.2f, 1.0f};
     glm::vec4 primary = {0.3f, 0.6f, 1.0f, 1.0f};
     glm::vec4 secondary = {0.5f, 0.5f, 0.6f, 1.0f};

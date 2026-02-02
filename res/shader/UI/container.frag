@@ -11,7 +11,6 @@ uniform vec4 color;    // Background/tint color
 
 void main() {
     // Calculate UV with scroll offset
-    // scrollOffset is in pixels, convert to UV space
     vec2 scrollUV = scrollOffset / contentSize;
 
     // Scale UV to show visible portion of content
@@ -21,18 +20,25 @@ void main() {
     // Clamp to avoid showing content outside FBO
     if (scrolledUV.x < 0.0 || scrolledUV.x > 1.0 ||
         scrolledUV.y < 0.0 || scrolledUV.y > 1.0) {
-        // Outside content area - use background color or discard
-        FragColor = vec4(0.0, 0.0, 0.0, 0.0);
-        return;
+        discard;
     }
 
     // Sample the FBO texture
     vec4 texColor = texture(textureSampler, scrolledUV);
 
-    // Blend with container color if needed
-    if (texColor.a < 0.01) {
-        FragColor = color; // Show container background where FBO is transparent
+    // Determine final color
+    vec4 finalColor;
+    if (color.a > 0.01 && texColor.a < 0.99) {
+        // Blend texture over background color
+        finalColor = mix(color, texColor, texColor.a);
     } else {
-        FragColor = texColor;
+        finalColor = texColor;
     }
+
+    // Discard fully transparent pixels
+    if (finalColor.a < 0.01) {
+        discard;
+    }
+
+    FragColor = finalColor;
 }

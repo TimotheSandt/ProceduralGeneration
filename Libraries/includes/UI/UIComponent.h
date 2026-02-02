@@ -70,7 +70,7 @@ protected:
     std::weak_ptr<UITheme> theme;
     IdentifierKind kind;
 
-    glm::vec4 color;
+    glm::vec4 color = {0.0f, 0.0f, 0.0f, 0.0f}; // Transparent by default
 
     // Animation state
     glm::vec2 offset = {0, 0};
