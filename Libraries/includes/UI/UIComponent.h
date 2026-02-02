@@ -7,7 +7,9 @@
 #include "InputManager.h"
 #include "Mesh.h"
 #include "UITheme.h"
-#include "UIContainer.h"
+
+// Forward declaration to avoid circular dependency
+namespace UI { class UIContainer; }
 
 
 namespace UI {
@@ -72,6 +74,12 @@ protected:
     float scaleAnim = 1.0f;
     float rotation = 0.0f;
 
+    // Position in parent's FBO for partial clear/render
+    glm::vec4 cachedBoundsInParent = {0, 0, 0, 0}; // x, y, width, height
+
+    // First-time initialization flag
+    bool needsInitialize = true;
+
 public:
     UIComponent(
             Bounds bounds,
@@ -82,7 +90,10 @@ public:
 
 
     virtual void Update() {}
-    virtual void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0}) = 0;
+    virtual void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0});
+
+    // First-time initialization (called once before first render)
+    virtual void Initialize() {}
 
     // Bounds
     void SetPixelSize(glm::vec2 size) { this->localBounds.scale = size; MarkDirty(); }
@@ -91,12 +102,25 @@ public:
 
     // Hierarchy
     void SetParent(std::weak_ptr<UIContainer> p) { parent = p; MarkDirty(); };
+    std::weak_ptr<UIContainer> GetParent() const { return parent; }
 
     // Style
     glm::vec4 GetColor() const { return color;}
-    void SetColor(glm::vec4 c) { color = c; }
+    void SetColor(glm::vec4 c) { color = c; MarkDirty(DirtyType::CONTENT); }
 
-    virtual void MarkDirty(DirtyType d = DirtyType::ALL) { dirty = d; };
+    // Dirty state management
+    virtual void MarkDirty(DirtyType d = DirtyType::ALL);
+    bool IsDirty() const { return dirty != DirtyType::NONE; }
+    DirtyType GetDirtyType() const { return dirty; }
+    void ClearDirty() { dirty = DirtyType::NONE; }
+
+    // Cached bounds in parent's FBO (for partial rendering)
+    glm::vec4 GetCachedBoundsInParent() const { return cachedBoundsInParent; }
+    void SetCachedBoundsInParent(glm::vec4 bounds) { cachedBoundsInParent = bounds; }
+
+protected:
+    // Notify parent that this component changed (propagate dirty upward)
+    void NotifyParentDirty();
 
 private:
     std::vector<GLfloat> GetVertices() const;

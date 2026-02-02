@@ -1,4 +1,5 @@
 #include "UIComponent.h"
+#include "UIContainer.h"
 
 #include "utilities.h"
 
@@ -28,8 +29,8 @@ UIComponent::UIComponent(
 
 
 glm::vec2 UIComponent::GetPixelSize() {
-    if (parent.lock() != nullptr) {
-        this->localBounds.scale = localBounds.getPixelSize(parent.lock()->GetPixelSize());
+    if (auto p = parent.lock()) {
+        this->localBounds.scale = localBounds.getPixelSize(p->GetPixelSize());
         mesh.InitUniform2f("scale", glm::value_ptr(this->localBounds.scale));
         return this->localBounds.scale;
     }
@@ -37,6 +38,14 @@ glm::vec2 UIComponent::GetPixelSize() {
 }
 
 void UIComponent::Draw(glm::vec2 containerSize, glm::vec2 offset) {
+    if (!visible) return;
+
+    // First-time initialization
+    if (needsInitialize) {
+        Initialize();
+        needsInitialize = false;
+    }
+
     mesh.InitUniform2f("offset", glm::value_ptr(offset));
     mesh.InitUniform2f("scale", glm::value_ptr(this->localBounds.scale));
     mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
@@ -46,6 +55,22 @@ void UIComponent::Draw(glm::vec2 containerSize, glm::vec2 offset) {
 
 bool UIComponent::IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const {
     return localBounds.isHover(mousePos - offset);
+}
+
+void UIComponent::MarkDirty(DirtyType d) {
+    dirty = d;
+    // Propagate dirty state upward to parent
+    NotifyParentDirty();
+}
+
+void UIComponent::NotifyParentDirty() {
+    if (auto p = parent.lock()) {
+        // Only notify parent with CONTENT dirty, not ALL
+        // This way the parent knows a child changed but doesn't need to recalculate everything
+        if (p->GetDirtyType() == DirtyType::NONE) {
+            p->MarkDirty(DirtyType::CONTENT);
+        }
+    }
 }
 
 } // namespace UI
