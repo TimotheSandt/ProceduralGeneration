@@ -15,26 +15,27 @@ void UIManager::Init() {
 
 void UIManager::CreateUI(int w, int h) {
     // Create root with actual window size (not percentage)
-    rootContainer = Container(
-        Bounds({static_cast<float>(w), ValueType::PIXEL}, {static_cast<float>(h), ValueType::PIXEL}),
-        VBox(
-            Bounds(200_px, 200_px, Anchor::CENTER),
+    rootContainer = Container( Bounds({static_cast<float>(w), ValueType::PIXEL}, {static_cast<float>(h), ValueType::PIXEL}),
+    {
+        VBox(Bounds(200_px, 200_px, Anchor::CENTER),
+        {
             Box(Bounds(150_px, 50_px), {1.0f, 0.2f, 0.2f, 1.0f}),
             HBox(Bounds(150_px, 75_px),
+            {
                 Box(Bounds(50_pct, 50_px), {0.2f, 0.2f, 1.0f, 1.0f}),
                 Box(Bounds(50_pct, 50_px), {1.0f, 0.2f, 0.2f, 1.0f})
-            )   ->SetPadding(0.0f)
+            })  ->SetPadding(0.0f)
                 ->SetSpacing(15.0f)
                 ->SetColor({0.3f, 0.9f, 0.4f, 1.0f})
                 ->SetJustifyContent(UI::JustifyContent::CENTER)
                 ->SetChildAlignment(UI::VAlign::CENTER),
             Box(Bounds(100_px, 50_px), {0.2f, 1.0f, 0.2f, 1.0f})
-        )->SetPadding(10.0f)
-        ->SetSpacing(5.0f)
-        ->SetColor({0.3f, 0.6f, 1.0f, 0.5f})
-        ->SetJustifyContent(UI::JustifyContent::CENTER)
-        ->SetChildAlignment(UI::HAlign::CENTER)
-    );
+        })  ->SetPadding(10.0f)
+            ->SetSpacing(5.0f)
+            ->SetColor({0.3f, 0.6f, 1.0f, 0.5f})
+            ->SetJustifyContent(UI::JustifyContent::CENTER)
+            ->SetChildAlignment(UI::HAlign::CENTER)
+    });
 
     // Set root's size
     // rootContainer->SetPixelSize({static_cast<float>(w), static_cast<float>(h)});

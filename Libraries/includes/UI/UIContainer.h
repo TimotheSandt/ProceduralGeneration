@@ -140,27 +140,30 @@ protected:
 // ============ SwiftUI-style Factory Functions ============
 
 // Factory for Container
-template<typename... Children>
-std::shared_ptr<UIContainer> Container(Bounds bounds, std::shared_ptr<Children>... children) {
+std::shared_ptr<UIContainer> Container(Bounds bounds, std::vector<std::shared_ptr<UIComponent>> children) {
     auto container = std::make_shared<UIContainer>(bounds);
     container->SetColor({0.0f, 0.0f, 0.0f, 0.0f}); // Transparent by default
-    (container->AddChild(children), ...);
+    for (auto& child : children) {
+        container->AddChild(child);
+    }
     return container;
 }
 
 // Factory for VBox
-template<typename... Children>
-std::shared_ptr<UIVBox> VBox(Bounds bounds, std::shared_ptr<Children>... children) {
+std::shared_ptr<UIVBox> VBox(Bounds bounds, std::vector<std::shared_ptr<UIComponent>> children) {
     auto vbox = std::make_shared<UIVBox>(bounds);
-    (vbox->AddChild(children), ...);
+    for (auto& child : children) {
+        vbox->AddChild(child);
+    }
     return vbox;
 }
 
 // Factory for HBox
-template<typename... Children>
-std::shared_ptr<UIHBox> HBox(Bounds bounds, std::shared_ptr<Children>... children) {
+std::shared_ptr<UIHBox> HBox(Bounds bounds, std::vector<std::shared_ptr<UIComponent>> children) {
     auto hbox = std::make_shared<UIHBox>(bounds);
-    (hbox->AddChild(children), ...);
+    for (auto& child : children) {
+        hbox->AddChild(child);
+    }
     return hbox;
 }
 
