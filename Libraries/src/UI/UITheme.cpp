@@ -4,7 +4,7 @@ namespace UI {
 
 std::unordered_map<std::string, std::shared_ptr<UITheme>> UITheme::themes = {
     std::make_pair("default", std::shared_ptr<UITheme>(
-        new UITheme("default", UIColors(), 1.0f, 1.0f, 1.0f))
+        new UITheme("default", UIColors(), 5.0f, 15.0f, 15.0f))
     ),
     std::make_pair("dark", std::shared_ptr<UITheme>(
         new UITheme("dark", UIColors(
@@ -18,7 +18,7 @@ std::unordered_map<std::string, std::shared_ptr<UITheme>> UITheme::themes = {
             glm::vec4(0.3f, 0.3f, 0.3f, 1.0f),
             glm::vec4(1.0f, 0.3f, 0.3f, 1.0f),
             glm::vec4(0.3f, 1.0f, 0.5f, 1.0f)
-        ), 1.0f, 1.0f, 1.0f))
+        ), 5.0f, 15.0f, 15.0f))
     )
 };
 
@@ -41,6 +41,7 @@ std::weak_ptr<UITheme> UITheme::GetTheme(std::string themeName) {
 glm::vec4 UITheme::GetColor(IdentifierKind kind) const {
     switch (kind)
     {
+    case IdentifierKind::TRANSPARENT:   return colors.transparent;
     case IdentifierKind::BACKGROUND:    return colors.background;
     case IdentifierKind::PRIMARY:       return colors.primary;
     case IdentifierKind::SECONDARY:     return colors.secondary;

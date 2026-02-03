@@ -18,18 +18,28 @@ void UIManager::CreateUI(int w, int h) {
     rootContainer = Container(
         Bounds({static_cast<float>(w), ValueType::PIXEL}, {static_cast<float>(h), ValueType::PIXEL}),
         VBox(
-            Bounds(200, 200, Anchor::CENTER),
-            UI::IdentifierKind::TRANSPARENT,
-            HAlign::CENTER,
-            Box(Bounds(150, 50), {1.0f, 0.2f, 0.2f, 1.0f}),
-            Box(Bounds(100, 50), {0.2f, 1.0f, 0.2f, 1.0f})
-        )->SetPadding(10.0f)->SetSpacing(5.0f)->SetColor({0.3f, 0.6f, 1.0f, 0.5f})
-         ->SetJustifyContent(UI::JustifyContent::CENTER) // Center content vertically
+            Bounds(200_px, 200_px, Anchor::CENTER),
+            Box(Bounds(150_px, 50_px), {1.0f, 0.2f, 0.2f, 1.0f}),
+            HBox(Bounds(150_px, 75_px),
+                Box(Bounds(50_pct, 50_px), {0.2f, 0.2f, 1.0f, 1.0f}),
+                Box(Bounds(50_pct, 50_px), {1.0f, 0.2f, 0.2f, 1.0f})
+            )   ->SetPadding(0.0f)
+                ->SetSpacing(15.0f)
+                ->SetColor({0.3f, 0.9f, 0.4f, 1.0f})
+                ->SetJustifyContent(UI::JustifyContent::CENTER)
+                ->SetChildAlignment(UI::VAlign::CENTER),
+            Box(Bounds(100_px, 50_px), {0.2f, 1.0f, 0.2f, 1.0f})
+        )->SetPadding(10.0f)
+        ->SetSpacing(5.0f)
+        ->SetColor({0.3f, 0.6f, 1.0f, 0.5f})
+        ->SetJustifyContent(UI::JustifyContent::CENTER)
+        ->SetChildAlignment(UI::HAlign::CENTER)
     );
 
     // Set root's size
-    rootContainer->SetPixelSize({static_cast<float>(w), static_cast<float>(h)});
-    rootContainer->MarkDirty(DirtyType::ALL);
+    // rootContainer->SetPixelSize({static_cast<float>(w), static_cast<float>(h)});
+    rootContainer->SetIdentifierKind(UI::IdentifierKind::TRANSPARENT);
+    rootContainer->Initialize();
 }
 
 void UIManager::Shutdown() {
@@ -46,7 +56,7 @@ void UIManager::Update(float dt, int w, int h) {
         } else {
             // Just update size
             rootContainer->SetPixelSize({static_cast<float>(w), static_cast<float>(h)});
-            rootContainer->MarkDirty(DirtyType::ALL);
+            rootContainer->MarkFullDirty();
         }
         lastWidth = w;
         lastHeight = h;
