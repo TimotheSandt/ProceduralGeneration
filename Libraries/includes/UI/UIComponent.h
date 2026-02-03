@@ -81,11 +81,7 @@ protected:
     void NotifyParentFullDirty();
     void RecalculateChildBounds();
 
-    virtual void UpdateTheme() {
-        if (theme.lock()) {
-            color = theme.lock()->GetColor(kind);
-        }
-    }
+    virtual void UpdateTheme();
 
 private:
     std::vector<GLfloat> GetVertices() const;

@@ -22,10 +22,9 @@ void UIManager::CreateUI(int w, int h) {
             Box(Bounds(150_px, 50_px), {1.0f, 0.2f, 0.2f, 1.0f}),
             HBox(Bounds(150_px, 75_px),
             {
-                Box(Bounds(50_pct, 50_px), {0.2f, 0.2f, 1.0f, 1.0f}),
-                Box(Bounds(50_pct, 50_px), {1.0f, 0.2f, 0.2f, 1.0f})
-            })  ->SetPadding(0.0f)
-                ->SetSpacing(15.0f)
+                Box(Bounds(50_pct, 100_pct), {0.2f, 0.2f, 1.0f, 1.0f}),
+                Box(Bounds(50_pct, 100_pct), {1.0f, 0.2f, 0.2f, 1.0f})
+            })
                 ->SetColor({0.3f, 0.9f, 0.4f, 1.0f})
                 ->SetJustifyContent(UI::JustifyContent::CENTER)
                 ->SetChildAlignment(UI::VAlign::CENTER),

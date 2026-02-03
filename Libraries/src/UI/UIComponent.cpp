@@ -94,4 +94,10 @@ void UIComponent::NotifyParentFullDirty() {
     }
 }
 
+void UIComponent::UpdateTheme() {
+    if (theme.lock()) {
+        color = theme.lock()->GetColor(kind);
+    }
+}
+
 } // namespace UI

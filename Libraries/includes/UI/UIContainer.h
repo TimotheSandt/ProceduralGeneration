@@ -69,11 +69,7 @@ protected:
     void RenderChildren();
 
 
-    void UpdateTheme() override {
-        UIComponent::UpdateTheme();
-        padding = theme.lock()->GetPadding();
-        spacing = theme.lock()->GetSpacing();
-    }
+    void UpdateTheme() override;
 
     // Clear a specific zone in the FBO
     void ClearZone(glm::vec4 bounds);
@@ -140,7 +136,7 @@ protected:
 // ============ SwiftUI-style Factory Functions ============
 
 // Factory for Container
-std::shared_ptr<UIContainer> Container(Bounds bounds, std::vector<std::shared_ptr<UIComponent>> children) {
+inline std::shared_ptr<UIContainer> Container(Bounds bounds, std::vector<std::shared_ptr<UIComponent>> children) {
     auto container = std::make_shared<UIContainer>(bounds);
     container->SetColor({0.0f, 0.0f, 0.0f, 0.0f}); // Transparent by default
     for (auto& child : children) {
@@ -150,7 +146,7 @@ std::shared_ptr<UIContainer> Container(Bounds bounds, std::vector<std::shared_pt
 }
 
 // Factory for VBox
-std::shared_ptr<UIVBox> VBox(Bounds bounds, std::vector<std::shared_ptr<UIComponent>> children) {
+inline std::shared_ptr<UIVBox> VBox(Bounds bounds, std::vector<std::shared_ptr<UIComponent>> children) {
     auto vbox = std::make_shared<UIVBox>(bounds);
     for (auto& child : children) {
         vbox->AddChild(child);
@@ -159,7 +155,7 @@ std::shared_ptr<UIVBox> VBox(Bounds bounds, std::vector<std::shared_ptr<UICompon
 }
 
 // Factory for HBox
-std::shared_ptr<UIHBox> HBox(Bounds bounds, std::vector<std::shared_ptr<UIComponent>> children) {
+inline std::shared_ptr<UIHBox> HBox(Bounds bounds, std::vector<std::shared_ptr<UIComponent>> children) {
     auto hbox = std::make_shared<UIHBox>(bounds);
     for (auto& child : children) {
         hbox->AddChild(child);

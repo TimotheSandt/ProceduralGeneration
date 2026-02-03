@@ -13,6 +13,7 @@ UIContainer::UIContainer(Bounds bounds)
         GET_RESOURCE_PATH("shader/UI/container.vert"),
         GET_RESOURCE_PATH("shader/UI/container.frag")
     );
+    UpdateTheme();
 }
 
 void UIContainer::AddChild(std::shared_ptr<UIComponent> child) {
@@ -145,6 +146,8 @@ void UIContainer::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     glm::vec2 anchorOffset = localBounds.getAnchorOffset(containerSize);
     glm::vec2 myOffset = offset + anchorOffset;
 
+
+
     RenderChildren();
 
     // Draw the FBO texture
@@ -194,6 +197,13 @@ void UIContainer::RecalculateChildBounds() {
 void UIContainer::CalculateContentSize() {
     contentSize.x = localBounds.scale.x;
     contentSize.y = localBounds.scale.y;
+}
+
+
+void UIContainer::UpdateTheme() {
+    UIComponent::UpdateTheme();
+    padding = theme.lock()->GetPadding();
+    spacing = theme.lock()->GetSpacing();
 }
 
 }
