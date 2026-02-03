@@ -40,7 +40,7 @@ void UIComponent::Initialize() {
 
 glm::vec2 UIComponent::GetPixelSize() {
     if (auto p = parent.lock()) {
-        this->localBounds.scale = localBounds.getPixelSize(p->GetPixelSize());
+        this->localBounds.scale = localBounds.getPixelSize(p->GetPixelSize(), p->GetPadding(), p->GetSpacing());
     } else {
         this->localBounds.scale = localBounds.getPixelSize();
     }

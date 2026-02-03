@@ -20,14 +20,14 @@ glm::vec2 Bounds::getPixelSize() const {
     return {width.value, height.value};
 }
 
-glm::vec2 Bounds::getPixelSize(const glm::vec2& parentSize) {
-    if ((parentSize.x == 0 || parentSize.y == 0) && (width.type == ValueType::PERCENT || height.type == ValueType::PERCENT)) {
+glm::vec2 Bounds::getPixelSize(const glm::vec2& parentSize, int padding, int spacing) {
+    if ((parentSize.x <= 0 || parentSize.y <= 0) && (width.type == ValueType::PERCENT || height.type == ValueType::PERCENT)) {
         throw std::runtime_error("Cannot get pixel size of a component with percentage width or height and no parent size");
     }
 
     scale = {
-        getValueInPixel(width, static_cast<int>(parentSize.x)),
-        getValueInPixel(height, static_cast<int>(parentSize.y))
+        getValueInPixel(width, static_cast<int>(parentSize.x - padding)) - spacing,
+        getValueInPixel(height, static_cast<int>(parentSize.y - padding)) - spacing
     };
 
     return scale;
@@ -79,11 +79,7 @@ glm::vec2 Bounds::getAnchorOffset(const glm::vec2& containerSize) const {
     return {xOffset, yOffset};
 }
 
-std::array<glm::vec2, 4> Bounds::getPixelBounds(const glm::vec2& parentSize) {
-    getPixelSize(parentSize);
-
-    // Unit quad (0-1 range) - actual positioning is done via offset in shader
-    // The shader multiplies by scale to get actual pixel size
+std::array<glm::vec2, 4> Bounds::getPixelBounds() {
     pixelBounds[0] = {0, 0};
     pixelBounds[1] = {1, 0};
     pixelBounds[2] = {1, 1};

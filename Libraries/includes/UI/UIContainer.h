@@ -46,6 +46,7 @@ public:
     // Getters for layout (resolve with theme)
     float GetPadding() const { return padding; }
     float GetSpacing() const { return spacing; }
+    size_t GetChildCount() const { return children.size(); }
 
 
 
