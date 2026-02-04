@@ -41,7 +41,7 @@ void UIManager::CreateUI(int w, int h) {
     });
 
     // Set root's size
-    // rootContainer->SetPixelSize({static_cast<float>(w), static_cast<float>(h)});
+
     rootContainer->SetIdentifierKind(UI::IdentifierKind::TRANSPARENT);
     rootContainer->Initialize();
 }

@@ -35,8 +35,6 @@ void UIHBoxBase::RecalculateChildBounds() {
     // Only apply justification if we have extra space and not START alignment
     if (justifyContent != JustifyContent::START && containerWidth > totalChildrenWidth + 2 * padding) {
         float freeSpace = containerWidth - 2 * padding - (totalChildrenWidth - (visibleChildrenCount > 1 ? (visibleChildrenCount - 1) * spacing : 0));
-        // Note: totalChildrenWidth included spacing, so we remove it to get raw children width for freeSpace calc if we reconstruct it,
-        // OR simply: freeSpace = containerWidth - (2*padding + totalChildrenWidth).
         freeSpace = containerWidth - (2 * padding + totalChildrenWidth);
 
         switch (justifyContent) {
@@ -45,8 +43,6 @@ void UIHBoxBase::RecalculateChildBounds() {
                 break;
             case JustifyContent::END:
                 xOffset = containerWidth - padding - totalChildrenWidth + (visibleChildrenCount > 1 ? (visibleChildrenCount - 1) * spacing : 0);
-                // Actually simpler: containerWidth - padding - (width of children sans spacing) - (spacing between them)
-                // Let's use standard logic: xOffset start.
                 xOffset = containerWidth - padding - totalChildrenWidth;
                 break;
             case JustifyContent::SPACE_BETWEEN:
@@ -57,7 +53,7 @@ void UIHBoxBase::RecalculateChildBounds() {
                 break;
             case JustifyContent::SPACE_AROUND:
                 if (visibleChildrenCount > 0) {
-                    float extraPerItem = freeSpace / visibleChildrenCount; // Distribution logic simplified
+                    float extraPerItem = freeSpace / visibleChildrenCount;
                     currentSpacing = spacing + freeSpace / visibleChildrenCount;
                     xOffset = padding + (freeSpace / visibleChildrenCount) / 2.0f;
                      if (visibleChildrenCount > 1) currentSpacing = freeSpace / (visibleChildrenCount - 1);
@@ -66,11 +62,7 @@ void UIHBoxBase::RecalculateChildBounds() {
              default: break;
         }
 
-        // Refined Space Around/Between logic for fixed spacing + justify?
-        // Usually JustifyContent interacts with gap.
-        // Let's stick to: Justify distributes FREE space.
-        // If Justify::CENTER, we just move start.
-        // If Justify::SPACE_BETWEEN, we increase spacing.
+
 
         if (justifyContent == JustifyContent::SPACE_BETWEEN && visibleChildrenCount > 1) {
              currentSpacing = spacing + freeSpace / (visibleChildrenCount - 1);
@@ -104,7 +96,6 @@ void UIHBoxBase::RecalculateChildBounds() {
     }
 
     // Use calculated container size (assuming we expand to fill if justify is used, or just bounding box)
-    // Actually we keep calculated size.
     contentSize = {containerWidth, containerHeight};
 }
 

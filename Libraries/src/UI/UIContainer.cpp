@@ -128,7 +128,7 @@ void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     if (!visible) return;
 
     // Update our pixel size based on parent
-    // GetPixelSize();
+
     RecalculateChildBounds();
 
     // Calculate container's position with anchor

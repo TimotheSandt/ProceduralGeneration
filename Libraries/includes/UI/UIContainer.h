@@ -65,7 +65,7 @@ protected:
     void RenderChildren();
 
 
-    void UpdateTheme() override;
+    void UpdateTheme() override; 
 
     // Clear a specific zone in the FBO
     void ClearZone(glm::vec4 bounds);
