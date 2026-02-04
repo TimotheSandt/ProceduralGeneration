@@ -12,17 +12,17 @@
 #include "UITheme.h"
 
 // Forward declaration to avoid circular dependency
-namespace UI { class UIContainer; }
+namespace UI { class UIContainerBase; }
 
 
 namespace UI {
 
-class UIComponent : public std::enable_shared_from_this<UIComponent> {
+class UIComponentBase : public std::enable_shared_from_this<UIComponentBase> {
 protected:
     Bounds localBounds;
     Mesh mesh;
 
-    std::weak_ptr<UIContainer> parent;
+    std::weak_ptr<UIContainerBase> parent;
 
     bool visible = true;
     bool dirty = true;
@@ -40,7 +40,7 @@ protected:
     glm::vec4 cachedBoundsInParent = {0, 0, 0, 0};
 
 public:
-    UIComponent(Bounds bounds);
+    UIComponentBase(Bounds bounds);
 
     virtual void Initialize();
     virtual void Update() {}
@@ -53,7 +53,7 @@ public:
     bool IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const;
 
     // Hierarchy
-    void SetParent(std::weak_ptr<UIContainer> p) {
+    void SetParent(std::weak_ptr<UIContainerBase> p) {
         parent = p;
         GetPixelSize();
         MarkDirty();
@@ -62,9 +62,10 @@ public:
     // Style
     glm::vec4 GetColor() const { return color; }
 
-    std::shared_ptr<UIComponent> SetColor(glm::vec4 c) { color = c; MarkDirty(); return shared_from_this(); }
-    std::shared_ptr<UIComponent> SetTheme(std::weak_ptr<UITheme> t) { theme = t; UpdateTheme(); MarkDirty(); return shared_from_this(); }
-    std::shared_ptr<UIComponent> SetIdentifierKind(IdentifierKind k) { kind = k; UpdateTheme(); MarkDirty(); return shared_from_this(); }
+    // DoSet... methods (impl in .cpp)
+    void DoSetColor(glm::vec4 c);
+    void DoSetTheme(std::weak_ptr<UITheme> t);
+    void DoSetIdentifierKind(IdentifierKind k);
 
     // Dirty state management
     void MarkDirty();
@@ -86,5 +87,38 @@ protected:
 private:
     std::vector<GLfloat> GetVertices() const;
 };
+
+// Helper template for chaining
+template<typename Base, typename Derived>
+class Chainable : public Base {
+public:
+    using Base::Base;
+
+    std::shared_ptr<Derived> SetColor(glm::vec4 c) {
+        this->DoSetColor(c);
+        return std::static_pointer_cast<Derived>(this->shared_from_this());
+    }
+
+    std::shared_ptr<Derived> SetTheme(std::weak_ptr<UITheme> t) {
+        this->DoSetTheme(t);
+        return std::static_pointer_cast<Derived>(this->shared_from_this());
+    }
+
+    std::shared_ptr<Derived> SetIdentifierKind(IdentifierKind k) {
+        this->DoSetIdentifierKind(k);
+        return std::static_pointer_cast<Derived>(this->shared_from_this());
+    }
+};
+
+// Concrete UIComponent
+class UIComponent : public Chainable<UIComponentBase, UIComponent> {
+public:
+    using Chainable<UIComponentBase, UIComponent>::Chainable;
+};
+
+// Factory
+inline std::shared_ptr<UIComponent> Component(Bounds bounds = Bounds()) {
+    return std::make_shared<UIComponent>(bounds);
+}
 
 }

@@ -1,9 +1,9 @@
-#include "UIContainer.h"
+#include "UIHBox.h"
 
 namespace UI {
 
 
-void UIHBox::RecalculateChildBounds() {
+void UIHBoxBase::RecalculateChildBounds() {
     float padding = GetPadding();
     float spacing = GetSpacing();
 
@@ -57,19 +57,9 @@ void UIHBox::RecalculateChildBounds() {
                 break;
             case JustifyContent::SPACE_AROUND:
                 if (visibleChildrenCount > 0) {
-                    float extraPerItem = freeSpace / visibleChildrenCount;
-                    currentSpacing = spacing + extraPerItem; // Not quite, Space Around puts half space at ends
-                    // Space Around: | 0.5 | Item | 1 | Item | 0.5 |
-                    // Simpler impl: distribute free space
+                    float extraPerItem = freeSpace / visibleChildrenCount; // Distribution logic simplified
                     currentSpacing = spacing + freeSpace / visibleChildrenCount;
                     xOffset = padding + (freeSpace / visibleChildrenCount) / 2.0f;
-                    // Wait, standard Space Around distributes specific way.
-                    // Let's stick to standard flexbox:
-                    // spread = freeSpace / count.
-                    // gap = spacing + spread? No, spacing is fixed usually.
-                    // If we emulate explicit spacing:
-                    // Space Between ignores fixed spacing? No, usually adds to it or overrides it.
-                    // Let's assume Justify overrides fixed spacing for Between/Around.
                      if (visibleChildrenCount > 1) currentSpacing = freeSpace / (visibleChildrenCount - 1);
                 }
                 break;
@@ -121,7 +111,7 @@ void UIHBox::RecalculateChildBounds() {
 
 
 
-void UIHBox::CalculateContentSize() {
+void UIHBoxBase::CalculateContentSize() {
     glm::vec2 size = {0, 0};
     float maxHeight = 0.0f;
     for (auto& child : children) {
@@ -135,6 +125,16 @@ void UIHBox::CalculateContentSize() {
     size.y = std::max(maxHeight + 2 * padding, GetPixelSize().y);
 
     contentSize = size;
+}
+
+void UIHBoxBase::DoSetChildAlignment(VAlign align) {
+    childAlignment = align;
+    MarkDirty();
+}
+
+void UIHBoxBase::DoSetJustifyContent(JustifyContent j) {
+    justifyContent = j;
+    MarkDirty();
 }
 
 }

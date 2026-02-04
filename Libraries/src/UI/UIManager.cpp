@@ -1,4 +1,6 @@
 #include "UIManager.h"
+#include "UIHBox.h"
+#include "UIVBox.h"
 #include <iostream>
 #include <glad/glad.h>
 
@@ -26,14 +28,14 @@ void UIManager::CreateUI(int w, int h) {
                 Box(Bounds(40_pct, 100_pct), {1.0f, 0.2f, 0.2f, 1.0f}),
                 Box(Bounds(40_pct, 100_pct), {0.2f, 1.0f, 0.2f, 1.0f})
             })
-                ->SetColor({0.3f, 0.9f, 0.4f, 1.0f})
+                ->SetColor(glm::vec4{0.3f, 0.9f, 0.4f, 1.0f})
                 ->SetPadding(0.0f)
                 ->SetJustifyContent(UI::JustifyContent::CENTER)
                 ->SetChildAlignment(UI::VAlign::CENTER),
             Box(Bounds(100_px, 50_px), {0.2f, 1.0f, 0.2f, 1.0f})
         })  ->SetPadding(10.0f)
             ->SetSpacing(5.0f)
-            ->SetColor({0.3f, 0.6f, 1.0f, 0.5f})
+            ->SetColor(glm::vec4{0.3f, 0.6f, 1.0f, 0.5f})
             ->SetJustifyContent(UI::JustifyContent::CENTER)
             ->SetChildAlignment(UI::HAlign::CENTER)
     });

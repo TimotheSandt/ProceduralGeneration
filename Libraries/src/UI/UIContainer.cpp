@@ -5,8 +5,8 @@
 
 namespace UI {
 
-UIContainer::UIContainer(Bounds bounds)
-    : UIComponent(bounds) {
+UIContainerBase::UIContainerBase(Bounds bounds)
+    : UIComponentBase(bounds) {
     contentSize = localBounds.scale;
     // Use container-specific shader with texture and scroll support
     this->mesh.SetShader(
@@ -16,21 +16,21 @@ UIContainer::UIContainer(Bounds bounds)
     UpdateTheme();
 }
 
-void UIContainer::AddChild(std::shared_ptr<UIComponent> child) {
+void UIContainerBase::AddChild(std::shared_ptr<UIComponentBase> child) {
     children.push_back(child);
-    child->SetParent(std::static_pointer_cast<UIContainer>(shared_from_this()));
+    child->SetParent(std::static_pointer_cast<UIContainerBase>(shared_from_this()));
 }
 
 
-void UIContainer::Initialize() {
-    UIComponent::Initialize();
+void UIContainerBase::Initialize() {
+    UIComponentBase::Initialize();
     CalculateContentSize();
     InitializedFBO();
     for (auto& child : children) child->Initialize();
 }
 
-void UIContainer::Update() {
-    UIComponent::Update();
+void UIContainerBase::Update() {
+    UIComponentBase::Update();
     for (auto& child : children) child->Update();
     CalculateContentSize();
     InitializedFBO();
@@ -38,7 +38,7 @@ void UIContainer::Update() {
 
 
 // FBO helper functions
-void UIContainer::InitializedFBO() {
+void UIContainerBase::InitializedFBO() {
     if (fbo.GetWidth() != static_cast<int>(contentSize.x) ||
         fbo.GetHeight() != static_cast<int>(contentSize.y)) {
 
@@ -76,7 +76,7 @@ void RestoreFBOState(GLint oldFBO, GLint viewport[4]) {
 }
 
 
-void UIContainer::ClearZone(glm::vec4 bounds) {
+void UIContainerBase::ClearZone(glm::vec4 bounds) {
     glEnable(GL_SCISSOR_TEST);
     // Flip Y for OpenGL (Bottom-Left origin)
     // Bounds are (x, y, w, h) in Top-Left origin
@@ -88,24 +88,13 @@ void UIContainer::ClearZone(glm::vec4 bounds) {
         static_cast<GLsizei>(bounds.z),
         static_cast<GLsizei>(bounds.w)
     );
-    // Clear to transparent (or background color?)
-    // Usually we want to clear to 0,0,0,0 so we can re-draw
-    // But if we have background, we might need to clear to background?
-    // Since we composite later, clearing to 0 is likely correct for "dirty" region update
-    // assuming we redraw everything in that region.
-    // However, if we only redraw the child, we lose the container background behind it?
-    // Wait. If container has background, clearing child zone clears the background too.
-    // We strictly should only clear if we re-render everything in that rect.
-    // But RenderChildren only calls child->Draw().
-    // If Child Draw doesn't fill the rect (e.g. rounded corners), we get holes.
-    // For now, let's assume correcting the rect is step 1.
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
 }
 
 
-void UIContainer::RenderChildren() {
+void UIContainerBase::RenderChildren() {
     GLint oldFBO;
     GLint viewport[4];
     SaveFBOState(oldFBO, viewport);
@@ -135,7 +124,7 @@ void UIContainer::RenderChildren() {
 }
 
 
-void UIContainer::Draw(glm::vec2 containerSize, glm::vec2 offset) {
+void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     if (!visible) return;
 
     // Update our pixel size based on parent
@@ -176,16 +165,16 @@ void UIContainer::Draw(glm::vec2 containerSize, glm::vec2 offset) {
 }
 
 
-void UIContainer::MarkFullDirty() {
+void UIContainerBase::MarkFullDirty() {
     MarkDirty();
     for (auto& child : children) {
-        child->MarkDirty();
+        child->MarkFullDirty();
     }
     CalculateContentSize();
     NotifyParentDirty();
 }
 
-void UIContainer::RecalculateChildBounds() {
+void UIContainerBase::RecalculateChildBounds() {
     float p = GetPadding();
     // Default implementation: stack children at origin + padding
     for (auto& child : children) {
@@ -194,16 +183,26 @@ void UIContainer::RecalculateChildBounds() {
     }
 }
 
-void UIContainer::CalculateContentSize() {
+void UIContainerBase::CalculateContentSize() {
     contentSize.x = localBounds.scale.x;
     contentSize.y = localBounds.scale.y;
 }
 
 
-void UIContainer::UpdateTheme() {
-    UIComponent::UpdateTheme();
+void UIContainerBase::UpdateTheme() {
+    UIComponentBase::UpdateTheme();
     padding = theme.lock()->GetPadding();
     spacing = theme.lock()->GetSpacing();
+}
+
+void UIContainerBase::DoSetPadding(float p) {
+    padding = p;
+    MarkDirty();
+}
+
+void UIContainerBase::DoSetSpacing(float s) {
+    spacing = s;
+    MarkDirty();
 }
 
 }

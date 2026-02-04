@@ -1,13 +1,13 @@
-#include "UIContainer.h"
+#include "UIVBox.h"
 
 
 namespace UI {
 
 
 
-// ============ UIVBox Implementation ============
+// ============ UIVBoxBase Implementation ============
 
-void UIVBox::RecalculateChildBounds() {
+void UIVBoxBase::RecalculateChildBounds() {
     float padding = GetPadding();
     float spacing = GetSpacing();
 
@@ -77,7 +77,7 @@ void UIVBox::RecalculateChildBounds() {
 
 
 
-void UIVBox::CalculateContentSize() {
+void UIVBoxBase::CalculateContentSize() {
     glm::vec2 size = {0, 0};
     float maxWidth = 0.0f;
     for (auto& child : children) {
@@ -91,6 +91,16 @@ void UIVBox::CalculateContentSize() {
     size.y = std::max(size.y + 2 * padding, GetPixelSize().y);
 
     contentSize = size;
+}
+
+void UIVBoxBase::DoSetChildAlignment(HAlign align) {
+    childAlignment = align;
+    MarkDirty();
+}
+
+void UIVBoxBase::DoSetJustifyContent(JustifyContent j) {
+    justifyContent = j;
+    MarkDirty();
 }
 
 }

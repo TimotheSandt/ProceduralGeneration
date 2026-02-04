@@ -12,9 +12,9 @@ enum class VAlign { TOP, CENTER, BOTTOM };
 enum class JustifyContent { START, CENTER, END, SPACE_BETWEEN, SPACE_AROUND };
 
 
-class UIContainer : public UIComponent {
+class UIContainerBase : public UIComponentBase {
 protected:
-    std::vector<std::shared_ptr<UIComponent>> children;
+    std::vector<std::shared_ptr<UIComponentBase>> children;
 
     FBO fbo;
     bool fboInitialized = false;
@@ -25,7 +25,7 @@ protected:
 public:
 
     // Basic constructor
-    UIContainer( Bounds bounds );
+    UIContainerBase( Bounds bounds );
 
     void Initialize() override;
     void Update() override;
@@ -48,15 +48,10 @@ public:
     float GetSpacing() const { return spacing; }
     size_t GetChildCount() const { return children.size(); }
 
+    void DoSetPadding(float p);
+    void DoSetSpacing(float s);
 
-
-    // Chaining methods
-    std::shared_ptr<UIContainer> SetIdentifierKind(IdentifierKind k) { UIComponent::SetIdentifierKind(k); return std::static_pointer_cast<UIContainer>(shared_from_this()); }
-    std::shared_ptr<UIContainer> SetPadding(float p) { padding = p; MarkDirty(); return std::static_pointer_cast<UIContainer>(shared_from_this()); }
-    std::shared_ptr<UIContainer> SetSpacing(float s) { spacing = s; MarkDirty(); return std::static_pointer_cast<UIContainer>(shared_from_this()); }
-    std::shared_ptr<UIContainer> SetColor(glm::vec4 c) { UIComponent::SetColor(c); return std::static_pointer_cast<UIContainer>(shared_from_this()); }
-
-    void AddChild(std::shared_ptr<UIComponent> child);
+    void AddChild(std::shared_ptr<UIComponentBase> child);
 
 protected:
     float padding = 0.0f;
@@ -76,92 +71,40 @@ protected:
     void ClearZone(glm::vec4 bounds);
 };
 
-
-
-class UIHBox : public UIContainer {
-protected:
-    VAlign childAlignment = VAlign::TOP;
-    JustifyContent justifyContent = JustifyContent::START;
-
+// Chainable Container Wrapper
+template<typename Base, typename Derived>
+class ChainableContainer : public Chainable<Base, Derived> {
 public:
-    using UIContainer::UIContainer;
+    using Chainable<Base, Derived>::Chainable;
 
-    // Chaining methods specialized for UIHBox
-    std::shared_ptr<UIHBox> SetChildAlignment(VAlign align) { childAlignment = align; MarkDirty(); return std::static_pointer_cast<UIHBox>(shared_from_this()); }
-    std::shared_ptr<UIHBox> SetJustifyContent(JustifyContent align) { justifyContent = align; MarkDirty(); return std::static_pointer_cast<UIHBox>(shared_from_this()); }
-    std::shared_ptr<UIHBox> SetIdentifierKind(IdentifierKind k) { UIContainer::SetIdentifierKind(k); return std::static_pointer_cast<UIHBox>(shared_from_this()); }
-    std::shared_ptr<UIHBox> SetPadding(float p) { UIContainer::SetPadding(p); return std::static_pointer_cast<UIHBox>(shared_from_this()); }
-    std::shared_ptr<UIHBox> SetSpacing(float s) { UIContainer::SetSpacing(s); return std::static_pointer_cast<UIHBox>(shared_from_this()); }
-    std::shared_ptr<UIHBox> SetColor(glm::vec4 c) { UIContainer::SetColor(c); return std::static_pointer_cast<UIHBox>(shared_from_this()); }
+    std::shared_ptr<Derived> SetPadding(float p) {
+        this->DoSetPadding(p);
+        return std::static_pointer_cast<Derived>(this->shared_from_this());
+    }
 
-    VAlign GetChildAlignment() const { return childAlignment; }
-    JustifyContent GetJustifyContent() const { return justifyContent; }
-
-
-
-protected:
-    void RecalculateChildBounds() override;
-    void CalculateContentSize();
-
+    std::shared_ptr<Derived> SetSpacing(float s) {
+        this->DoSetSpacing(s);
+        return std::static_pointer_cast<Derived>(this->shared_from_this());
+    }
 };
 
-
-class UIVBox : public UIContainer {
-protected:
-    HAlign childAlignment = HAlign::LEFT;
-    JustifyContent justifyContent = JustifyContent::START;
-
+// Concrete UIContainer
+class UIContainer : public ChainableContainer<UIContainerBase, UIContainer> {
 public:
-    using UIContainer::UIContainer;
-
-    // Chaining methods specialized for UIVBox
-    std::shared_ptr<UIVBox> SetChildAlignment(HAlign align) { childAlignment = align; MarkDirty(); return std::static_pointer_cast<UIVBox>(shared_from_this()); }
-    std::shared_ptr<UIVBox> SetJustifyContent(JustifyContent align) { justifyContent = align; MarkDirty(); return std::static_pointer_cast<UIVBox>(shared_from_this()); }
-    std::shared_ptr<UIVBox> SetIdentifierKind(IdentifierKind k) { UIContainer::SetIdentifierKind(k); return std::static_pointer_cast<UIVBox>(shared_from_this()); }
-    std::shared_ptr<UIVBox> SetPadding(float p) { UIContainer::SetPadding(p); return std::static_pointer_cast<UIVBox>(shared_from_this()); }
-    std::shared_ptr<UIVBox> SetSpacing(float s) { UIContainer::SetSpacing(s); return std::static_pointer_cast<UIVBox>(shared_from_this()); }
-    std::shared_ptr<UIVBox> SetColor(glm::vec4 c) { UIContainer::SetColor(c); return std::static_pointer_cast<UIVBox>(shared_from_this()); }
-
-    HAlign GetChildAlignment() const { return childAlignment; }
-    JustifyContent GetJustifyContent() const { return justifyContent; }
-
-
-
-protected:
-    void RecalculateChildBounds() override;
-    void CalculateContentSize();
-
+    using ChainableContainer<UIContainerBase, UIContainer>::ChainableContainer;
 };
 
 
 // ============ SwiftUI-style Factory Functions ============
 
 // Factory for Container
-inline std::shared_ptr<UIContainer> Container(Bounds bounds, std::vector<std::shared_ptr<UIComponent>> children) {
+inline std::shared_ptr<UIContainer> Container(Bounds bounds = Bounds(), std::vector<std::shared_ptr<UIComponentBase>> children = {}) {
     auto container = std::make_shared<UIContainer>(bounds);
-    container->SetColor({0.0f, 0.0f, 0.0f, 0.0f}); // Transparent by default
+    container->SetColor(glm::vec4{0.0f, 0.0f, 0.0f, 0.0f}); // Transparent by default
     for (auto& child : children) {
         container->AddChild(child);
     }
     return container;
-}
-
-// Factory for VBox
-inline std::shared_ptr<UIVBox> VBox(Bounds bounds, std::vector<std::shared_ptr<UIComponent>> children) {
-    auto vbox = std::make_shared<UIVBox>(bounds);
-    for (auto& child : children) {
-        vbox->AddChild(child);
-    }
-    return vbox;
-}
-
-// Factory for HBox
-inline std::shared_ptr<UIHBox> HBox(Bounds bounds, std::vector<std::shared_ptr<UIComponent>> children) {
-    auto hbox = std::make_shared<UIHBox>(bounds);
-    for (auto& child : children) {
-        hbox->AddChild(child);
-    }
-    return hbox;
 }
 
 
