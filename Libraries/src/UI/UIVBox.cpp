@@ -3,11 +3,9 @@
 
 namespace UI {
 
-void UIVBoxBase::Initialize() {
-    childAlignment.Apply();
-    justifyContent.Apply();
-    UIContainerBase::Initialize();
-}
+
+
+// ============ UIVBoxBase Implementation ============
 
 void UIVBoxBase::RecalculateChildBounds() {
     float padding = GetPadding();
@@ -29,19 +27,15 @@ void UIVBoxBase::RecalculateChildBounds() {
     if (visibleChildrenCount > 1) totalChildrenHeight += (visibleChildrenCount - 1) * spacing;
 
     // Content dimensions
-    float containerWidth = std::max(maxWidth + 2 * padding, GetPixelSize().x);
-    float containerHeight = std::max(totalChildrenHeight + 2 * padding, GetPixelSize().y);
-
-    // if (containerWidth > 0 && containerHeight > 0)
-    //     LOG_INFO("VBox Layout: w=", containerWidth, " h=", containerHeight, " children=", visibleChildrenCount);
-
+    float containerWidth = std::max(maxWidth + 2 * padding, localBounds.scale.x);
+    float containerHeight = std::max(totalChildrenHeight + 2 * padding, localBounds.scale.y);
 
     // Calculate starting offset and extra spacing based on JustifyContent
     float currentSpacing = spacing;
 
-    if (justifyContent.Get() != JustifyContent::START && containerHeight > totalChildrenHeight + 2 * padding) {
+    if (justifyContent != JustifyContent::START && containerHeight > totalChildrenHeight + 2 * padding) {
         float freeSpace = containerHeight - (2 * padding + totalChildrenHeight);
-        switch (justifyContent.Get()) {
+        switch (justifyContent) {
             case JustifyContent::CENTER: yOffset = padding + freeSpace / 2.0f; break;
             case JustifyContent::END: yOffset = containerHeight - padding - totalChildrenHeight; break;
             case JustifyContent::SPACE_BETWEEN:
@@ -58,7 +52,7 @@ void UIVBoxBase::RecalculateChildBounds() {
         glm::vec2 childSize = child->GetPixelSize();
 
         float xPos = padding;
-        switch (childAlignment.Get()) {
+        switch (childAlignment) {
             case HAlign::LEFT:
                 xPos = padding;
                 break;
@@ -77,24 +71,36 @@ void UIVBoxBase::RecalculateChildBounds() {
     if (!children.empty()) yOffset -= spacing; // Remove last spacing
     yOffset += padding;
 
-    if (contentSize.ForceSet({containerWidth, containerHeight})) {
-        InitializedFBO();
+    contentSize = {containerWidth, containerHeight};
+}
+
+
+
+
+void UIVBoxBase::CalculateContentSize() {
+    glm::vec2 size = {0, 0};
+    float maxWidth = 0.0f;
+    for (auto& child : children) {
+        glm::vec2 childSize = child->GetPixelSize();
+        size.y += childSize.y;
+        maxWidth = std::max(maxWidth, childSize.x);
     }
+    if (!children.empty()) size.y += (children.size() - 1) * spacing;
+
+    size.x = std::max(maxWidth + 2 * padding, GetPixelSize().x);
+    size.y = std::max(size.y + 2 * padding, GetPixelSize().y);
+
+    contentSize = size;
 }
 
 void UIVBoxBase::DoSetChildAlignment(HAlign align) {
-    childAlignment.Set(align);
+    childAlignment = align;
+    MarkDirty();
 }
 
 void UIVBoxBase::DoSetJustifyContent(JustifyContent j) {
-    justifyContent.Set(j);
-}
-
-void UIVBoxBase::Update() {
-    dirtyLayout = dirtyLayout || childAlignment.Apply();
-    dirtyLayout = dirtyLayout || justifyContent.Apply();
-
-    UIContainerBase::Update();
+    justifyContent = j;
+    MarkDirty();
 }
 
 }

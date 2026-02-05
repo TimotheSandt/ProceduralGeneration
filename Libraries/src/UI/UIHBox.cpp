@@ -2,11 +2,6 @@
 
 namespace UI {
 
-void UIHBoxBase::Initialize() {
-    childAlignment.Apply();
-    justifyContent.Apply();
-    UIContainerBase::Initialize();
-}
 
 void UIHBoxBase::RecalculateChildBounds() {
     float padding = GetPadding();
@@ -30,19 +25,19 @@ void UIHBoxBase::RecalculateChildBounds() {
     }
 
     // Content size
-    float containerHeight = std::max(maxHeight + 2 * padding, GetPixelSize().y);
-    float containerWidth = std::max(totalChildrenWidth + 2 * padding, GetPixelSize().x);
+    float containerHeight = std::max(maxHeight + 2 * padding, localBounds.scale.y);
+    float containerWidth = std::max(totalChildrenWidth + 2 * padding, localBounds.scale.x);
 
     // Calculate starting offset and extra spacing based on JustifyContent
     float xOffset = padding;
     float currentSpacing = spacing;
 
     // Only apply justification if we have extra space and not START alignment
-    if (justifyContent.Get() != JustifyContent::START && containerWidth > totalChildrenWidth + 2 * padding) {
+    if (justifyContent != JustifyContent::START && containerWidth > totalChildrenWidth + 2 * padding) {
         float freeSpace = containerWidth - 2 * padding - (totalChildrenWidth - (visibleChildrenCount > 1 ? (visibleChildrenCount - 1) * spacing : 0));
         freeSpace = containerWidth - (2 * padding + totalChildrenWidth);
 
-        switch (justifyContent.Get()) {
+        switch (justifyContent) {
             case JustifyContent::CENTER:
                 xOffset = padding + freeSpace / 2.0f;
                 break;
@@ -58,7 +53,7 @@ void UIHBoxBase::RecalculateChildBounds() {
                 break;
             case JustifyContent::SPACE_AROUND:
                 if (visibleChildrenCount > 0) {
-
+                    float extraPerItem = freeSpace / visibleChildrenCount;
                     currentSpacing = spacing + freeSpace / visibleChildrenCount;
                     xOffset = padding + (freeSpace / visibleChildrenCount) / 2.0f;
                      if (visibleChildrenCount > 1) currentSpacing = freeSpace / (visibleChildrenCount - 1);
@@ -69,10 +64,10 @@ void UIHBoxBase::RecalculateChildBounds() {
 
 
 
-        if (justifyContent.Get() == JustifyContent::SPACE_BETWEEN && visibleChildrenCount > 1) {
+        if (justifyContent == JustifyContent::SPACE_BETWEEN && visibleChildrenCount > 1) {
              currentSpacing = spacing + freeSpace / (visibleChildrenCount - 1);
              xOffset = padding;
-        } else if (justifyContent.Get() == JustifyContent::SPACE_AROUND && visibleChildrenCount > 0) {
+        } else if (justifyContent == JustifyContent::SPACE_AROUND && visibleChildrenCount > 0) {
              float extra = freeSpace / visibleChildrenCount;
              currentSpacing = spacing + extra; // This expands spacing
              xOffset = padding + extra / 2.0f;
@@ -84,7 +79,7 @@ void UIHBoxBase::RecalculateChildBounds() {
         glm::vec2 childSize = child->GetPixelSize();
 
         float yPos = padding;
-        switch (childAlignment.Get()) {
+        switch (childAlignment) {
             case VAlign::TOP:
                 yPos = padding;
                 break;
@@ -101,24 +96,36 @@ void UIHBoxBase::RecalculateChildBounds() {
     }
 
     // Use calculated container size (assuming we expand to fill if justify is used, or just bounding box)
-    if (contentSize.ForceSet({containerWidth, containerHeight})) {
-        InitializedFBO();
-    };
+    contentSize = {containerWidth, containerHeight};
+}
+
+
+
+
+void UIHBoxBase::CalculateContentSize() {
+    glm::vec2 size = {0, 0};
+    float maxHeight = 0.0f;
+    for (auto& child : children) {
+        glm::vec2 childSize = child->GetPixelSize();
+        size.x += childSize.x;
+        maxHeight = std::max(maxHeight, childSize.y);
+    }
+    if (!children.empty()) size.x += (children.size() - 1) * spacing;
+
+    size.x = std::max(size.x + 2 * padding, GetPixelSize().x);
+    size.y = std::max(maxHeight + 2 * padding, GetPixelSize().y);
+
+    contentSize = size;
 }
 
 void UIHBoxBase::DoSetChildAlignment(VAlign align) {
-    childAlignment.Set(align);
+    childAlignment = align;
+    MarkDirty();
 }
 
 void UIHBoxBase::DoSetJustifyContent(JustifyContent j) {
-    justifyContent.Set(j);
-}
-
-void UIHBoxBase::Update() {
-    dirtyLayout = dirtyLayout || childAlignment.Apply();
-    dirtyLayout = dirtyLayout || justifyContent.Apply();
-
-    UIContainerBase::Update();
+    justifyContent = j;
+    MarkDirty();
 }
 
 }

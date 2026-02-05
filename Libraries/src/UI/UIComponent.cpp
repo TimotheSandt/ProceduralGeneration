@@ -6,6 +6,7 @@
 namespace UI {
 
 std::vector<GLfloat> UIComponentBase::GetVertices() const {
+    // Unit quad (0-1 range) - shader will multiply by scale and add offset
     return {
         0.0f, 0.0f,  // bottom-left
         1.0f, 0.0f,  // bottom-right
@@ -23,102 +24,42 @@ UIComponentBase::UIComponentBase(Bounds bounds) : localBounds(bounds) {
         GET_RESOURCE_PATH("shader/UI/default.frag")
     );
 
-    this->theme.ForceSet(UITheme::GetTheme("default"));
-    this->kind.ForceSet(IdentifierKind::PRIMARY);
-
+    // Direct initialization to avoid calling shared_from_this() in constructor
+    this->theme = UITheme::GetTheme("default");
+    this->kind = IdentifierKind::PRIMARY;
     UpdateTheme();
 }
 
 void UIComponentBase::Initialize() {
-    parent.Apply();
-    localBounds.Apply();
+    MarkDirty();
     GetPixelSize();
-
-    MarkFullDirty(false);
-}
-
-void UIComponentBase::Update() {
-    bool themeChanged = theme.Apply();
-    bool kindChanged = kind.Apply();
-    if (themeChanged || kindChanged) {
-        MarkDirty();
-        UpdateTheme();
-    }
-
-    if (color.Apply()) {
-        MarkDirty();
-    }
-
-    dirtyLayout = dirtyLayout || parent.Apply();
-    dirtyLayout = dirtyLayout || localBounds.Apply();
-    dirtyLayout = dirtyLayout || cachedBoundsInParent.Apply();
-    dirtyLayout = dirtyLayout || visible.Apply();
-
-    if (dirtyLayout) UpdateLayout();
-
-}
-
-void UIComponentBase::UpdateLayout() {
-    MarkFullDirty();
-    GetPixelSize();
-    dirtyLayout = false;
-}
-
-void UIComponentBase::UpdateTheme() {
-    if (auto t = theme.Get().lock()) {
-        color.ForceSet(t->GetColor(kind.Get()));
-    }
 }
 
 
 glm::vec2 UIComponentBase::GetPixelSize() {
-    glm::vec2 size;
-    if (auto p = parent.Get().lock()) {
-        this->localBounds.ModifyForce([&](Bounds& b) {
-            size = b.getPixelSize(p->GetPixelSize(), p->GetPadding(), p->GetSpacing());
-            // LOG_INFO("Calc Size Parent: ", size.x, "x", size.y, " ParentSize: ", p->GetPixelSize().x);
-            b.scale = size;
-        });
+    if (auto p = parent.lock()) {
+        this->localBounds.scale = localBounds.getPixelSize(p->GetPixelSize(), p->GetPadding(), p->GetSpacing());
     } else {
-        this->localBounds.ModifyForce([&](Bounds& b) {
-            size = b.getPixelSize();
-            // LOG_INFO("Calc Size NoParent: ", size.x, "x", size.y);
-            b.scale = size;
-        });
+        this->localBounds.scale = localBounds.getPixelSize();
     }
 
-    mesh.InitUniform2f("scale", glm::value_ptr(size));
-    return size;
+    mesh.InitUniform2f("scale", glm::value_ptr(this->localBounds.scale));
+    return this->localBounds.scale;
 }
 
-void UIComponentBase::Draw(glm::vec2 offset) {
-    if (!visible.Get()) return;
+void UIComponentBase::Draw(glm::vec2 containerSize, glm::vec2 offset) {
+    if (!visible) return;
 
-    // FIX 5: Vérifier que le parent existe avant de l'utiliser
-    glm::vec2 containerSize;
-    if (auto p = parent.Get().lock()) {
-        // Use ContentSize because we are rendering into the Parent's FBO,
-        // which is sized to ContentSize, not the Visible Size (localBounds).
-        containerSize = p->GetContentSize();
-        // Fallback to localBounds if contentSize is not yet initialized (0,0)
-        if (containerSize.x <= 0 || containerSize.y <= 0) {
-            containerSize = p->localBounds.Get().scale;
-        }
-    } else {
-        // Si pas de parent, utiliser notre propre taille comme container
-        containerSize = this->localBounds.Get().scale;
-    }
-
-    glm::vec2 anchorOffset = localBounds.Get().getAnchorOffset(containerSize);
+    glm::vec2 anchorOffset = localBounds.getAnchorOffset(containerSize);
     glm::vec2 totalOffset = offset + anchorOffset;
 
     mesh.BindShader();
     mesh.BindVAO();
 
     mesh.InitUniform2f("offset", glm::value_ptr(totalOffset));
-    mesh.InitUniform2f("scale", glm::value_ptr(this->localBounds.Get().scale));
+    mesh.InitUniform2f("scale", glm::value_ptr(this->localBounds.scale));
     mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
-    mesh.InitUniform4f("color", glm::value_ptr(this->color.Get()));
+    mesh.InitUniform4f("color", glm::value_ptr(this->color));
 
     mesh.Draw();
 
@@ -127,40 +68,50 @@ void UIComponentBase::Draw(glm::vec2 offset) {
 }
 
 bool UIComponentBase::IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const {
-    return localBounds.Get().isHover(mousePos - offset);
+    return localBounds.isHover(mousePos - offset);
 }
 
 void UIComponentBase::DoSetColor(glm::vec4 c) {
-    color.Set(c);
+    color = c;
+    MarkDirty();
 }
 
 void UIComponentBase::DoSetTheme(std::weak_ptr<UITheme> t) {
-    theme.Set(t);
+    theme = t;
+    UpdateTheme();
+    MarkDirty();
 }
 
 void UIComponentBase::DoSetIdentifierKind(IdentifierKind k) {
-    kind.Set(k);
+    kind = k;
+    UpdateTheme();
+    MarkDirty();
 }
 
-void UIComponentBase::MarkDirty(bool propagate) {
+void UIComponentBase::MarkDirty() {
     dirty = true;
-    if (propagate) NotifyParentDirty();
+    NotifyParentDirty();
 }
 
-void UIComponentBase::MarkFullDirty(bool propagate) {
-    MarkDirty(propagate);
-    dirtyLayout = true;
+void UIComponentBase::MarkFullDirty() {
+    MarkDirty();
 }
 
 void UIComponentBase::NotifyParentDirty() {
-    if (auto p = parent.Get().lock()) {
+    if (auto p = parent.lock()) {
         p->MarkDirty();
     }
 }
 
 void UIComponentBase::NotifyParentFullDirty() {
-    if (auto p = parent.Get().lock()) {
+    if (auto p = parent.lock()) {
         p->MarkFullDirty();
+    }
+}
+
+void UIComponentBase::UpdateTheme() {
+    if (auto t = theme.lock()) {
+        color = t->GetColor(kind);
     }
 }
 

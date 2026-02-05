@@ -5,24 +5,21 @@ namespace UI {
 
 class UIVBoxBase : public UIContainerBase {
 protected:
-    DeferredValue<HAlign> childAlignment = HAlign::LEFT;
-    DeferredValue<JustifyContent> justifyContent = JustifyContent::START;
+    HAlign childAlignment = HAlign::LEFT;
+    JustifyContent justifyContent = JustifyContent::START;
 
 public:
     using UIContainerBase::UIContainerBase;
 
-    void Initialize() override;
-
-    HAlign GetChildAlignment() const { return childAlignment.Get(); }
-    JustifyContent GetJustifyContent() const { return justifyContent.Get(); }
+    HAlign GetChildAlignment() const { return childAlignment; }
+    JustifyContent GetJustifyContent() const { return justifyContent; }
 
     void DoSetChildAlignment(HAlign align);
     void DoSetJustifyContent(JustifyContent j);
 
-    void Update() override;
-
 protected:
     void RecalculateChildBounds() override;
+    void CalculateContentSize();
 };
 
 template<typename Base, typename Derived>
