@@ -31,7 +31,7 @@ UIComponentBase::UIComponentBase(Bounds bounds) : localBounds(bounds) {
 }
 
 void UIComponentBase::Initialize() {
-    MarkDirty();
+    MarkSelfLayoutDirty();
     GetPixelSize();
 }
 
@@ -39,13 +39,13 @@ void UIComponentBase::Update() {
     // Apply deferred values and mark dirty if they changed
     if (kind.Apply()) {
         UpdateTheme();
-        MarkDirty();
+        MarkAppearanceDirty();
     }
     if (color.Apply()) {
-        MarkDirty();
+        MarkAppearanceDirty();
     }
     if (visible.Apply()) {
-        MarkDirty();
+        MarkAppearanceDirty();
     }
 }
 glm::vec2 UIComponentBase::GetPixelSize() {
@@ -62,13 +62,12 @@ glm::vec2 UIComponentBase::GetPixelSize() {
 void UIComponentBase::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     if (!visible.Get()) return;
 
-    glm::vec2 anchorOffset = localBounds.getAnchorOffset(containerSize);
-    glm::vec2 totalOffset = offset + anchorOffset;
+    // offset already includes anchor offset from cachedBoundsInParent
 
     mesh.BindShader();
     mesh.BindVAO();
 
-    mesh.InitUniform2f("offset", glm::value_ptr(totalOffset));
+    mesh.InitUniform2f("offset", glm::value_ptr(offset));
     mesh.InitUniform2f("scale", glm::value_ptr(this->localBounds.scale));
     mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
     mesh.InitUniform4f("color", glm::value_ptr(this->color.Get()));
@@ -85,33 +84,47 @@ bool UIComponentBase::IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const {
 
 void UIComponentBase::DoSetColor(glm::vec4 c) {
     color.ForceSet(c);
-    MarkDirty();
+    MarkAppearanceDirty();
 }
 
 void UIComponentBase::DoSetTheme(std::weak_ptr<UITheme> t) {
     theme = t;
     UpdateTheme();
-    MarkDirty();
+    MarkAppearanceDirty();
 }
 
 void UIComponentBase::DoSetIdentifierKind(IdentifierKind k) {
     kind.ForceSet(k);
     UpdateTheme();
-    MarkDirty();
+    MarkAppearanceDirty();
 }
 
-void UIComponentBase::MarkDirty() {
-    dirty = true;
-    NotifyParentDirty();
+// Three-tier dirty system implementation
+void UIComponentBase::MarkAppearanceDirty() {
+    dirtyAppearance = true;
+    NotifyParentChildLayoutDirty();
+}
+
+void UIComponentBase::MarkChildLayoutDirty() {
+    dirtyChildLayout = true;
+    dirtyAppearance = true;  // Layout implies appearance
+    NotifyParentChildLayoutDirty();
+}
+
+void UIComponentBase::MarkSelfLayoutDirty() {
+    dirtySelfLayout = true;
+    dirtyChildLayout = true;
+    dirtyAppearance = true;  // Self layout implies all dirty
+    NotifyParentChildLayoutDirty();
 }
 
 void UIComponentBase::MarkFullDirty() {
-    MarkDirty();
+    MarkSelfLayoutDirty();
 }
 
-void UIComponentBase::NotifyParentDirty() {
+void UIComponentBase::NotifyParentChildLayoutDirty() {
     if (auto p = parent.lock()) {
-        p->MarkDirty();
+        p->MarkChildLayoutDirty();
     }
 }
 

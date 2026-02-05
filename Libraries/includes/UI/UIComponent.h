@@ -26,8 +26,11 @@ protected:
     std::weak_ptr<UIContainerBase> parent;
 
     DeferredValue<bool> visible = true;
-    bool dirty = true;
-    bool dirtyLayout = true;
+
+    // Three-tier dirty system
+    bool dirtyAppearance = true;    // Color/visibility - zone clear only
+    bool dirtyChildLayout = false;  // Child size/position - cascade/full clear
+    bool dirtySelfLayout = true;    // Own size - full FBO reset
 
     std::weak_ptr<UITheme> theme;
     DeferredValue<IdentifierKind> kind;
@@ -50,15 +53,16 @@ public:
 
 
     // Bounds
-    void SetPixelSize(glm::vec2 size) { this->localBounds.scale = size; MarkDirty(); }
+    void SetPixelSize(glm::vec2 size) { this->localBounds.scale = size; MarkSelfLayoutDirty(); }
     glm::vec2 GetPixelSize();
+    glm::vec2 GetAnchorOffset(glm::vec2 containerSize) const { return localBounds.getAnchorOffset(containerSize); }
     bool IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const;
 
     // Hierarchy
     void SetParent(std::weak_ptr<UIContainerBase> p) {
         parent = p;
         GetPixelSize();
-        MarkDirty();
+        MarkSelfLayoutDirty();
     };
 
     // Style
@@ -69,18 +73,24 @@ public:
     void DoSetTheme(std::weak_ptr<UITheme> t);
     void DoSetIdentifierKind(IdentifierKind k);
 
-    // Dirty state management
-    void MarkDirty();
-    virtual void MarkFullDirty();
-    bool IsDirty() const { return dirty; }
-    void ClearDirty() { dirty = false; }
+    // Dirty state management - three-tier system
+    void MarkAppearanceDirty();                     // Color/visibility change
+    void MarkChildLayoutDirty();                    // Child repositioned
+    void MarkSelfLayoutDirty();                     // Own size changed
+    virtual void MarkFullDirty();                   // Everything dirty
+
+    bool IsAppearanceDirty() const { return dirtyAppearance; }
+    bool IsChildLayoutDirty() const { return dirtyChildLayout; }
+    bool IsSelfLayoutDirty() const { return dirtySelfLayout; }
+    bool IsDirty() const { return dirtyAppearance || dirtyChildLayout || dirtySelfLayout; }
+    void ClearDirty() { dirtyAppearance = false; dirtyChildLayout = false; dirtySelfLayout = false; }
 
 
     glm::vec4 GetCachedBoundsInParent() const { return cachedBoundsInParent; }
     void SetCachedBoundsInParent(glm::vec4 bounds) { cachedBoundsInParent = bounds; }
 
 protected:
-    void NotifyParentDirty();
+    void NotifyParentChildLayoutDirty();
     void NotifyParentFullDirty();
     void RecalculateChildBounds();
 

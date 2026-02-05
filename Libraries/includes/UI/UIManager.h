@@ -13,7 +13,7 @@ class UIManager {
 public:
     static UIManager& Instance();
 
-    void Init();
+    void Init(int w, int h);
     void Shutdown();
     void CreateUI(int w, int h);
 

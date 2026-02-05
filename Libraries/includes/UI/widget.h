@@ -10,7 +10,7 @@ class UILabel : public UIComponent {
 public:
     UILabel(const std::string& text, float x, float y);
 
-    void SetText(const std::string& t) { text = t; MarkDirty(); }
+    void SetText(const std::string& t) { text = t; MarkAppearanceDirty(); }
     void Draw(int screenW, int screenH) override;
 };
 

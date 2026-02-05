@@ -103,7 +103,6 @@ void UIContainerBase::ClearZone(glm::vec4 bounds) {
     glDisable(GL_SCISSOR_TEST);
 }
 
-
 void UIContainerBase::RenderChildren() {
     GLint oldFBO;
     GLint viewport[4];
@@ -115,17 +114,38 @@ void UIContainerBase::RenderChildren() {
     // Set viewport to FBO size
     glViewport(0, 0, static_cast<GLsizei>(contentSize.x), static_cast<GLsizei>(contentSize.y));
 
-    // Only render dirty children
+    // Determine dirty level: layout vs appearance only
+    bool hasLayoutDirty = IsSelfLayoutDirty(); // If we resized, we must re-render all (anchors changed)
+    bool hasAppearanceDirty = false;
     for (auto& child : children) {
-        if (child->IsDirty()) {
-            glm::vec4 childBounds = child->GetCachedBoundsInParent();
-            ClearZone(childBounds);
+        if (child->IsSelfLayoutDirty() || child->IsChildLayoutDirty()) {
+            hasLayoutDirty = true;
+            break;
+        }
+        if (child->IsAppearanceDirty()) {
+            hasAppearanceDirty = true;
+        }
+    }
 
-            // Render the child with its offset (x, y) from cached bounds
-            // Note: cached bounds are (x, y, w, h)
+    if (hasLayoutDirty) {
+        // Layout changed: clear entire FBO and re-render all
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        for (auto& child : children) {
+            glm::vec4 childBounds = child->GetCachedBoundsInParent();
             child->Draw(contentSize, {childBounds.x, childBounds.y});
             child->ClearDirty();
-            GL_CHECK_ERROR_M("RenderDirtyChildren Child Draw");
+        }
+    } else if (hasAppearanceDirty) {
+        // Appearance only: zone clear and re-render dirty children
+        for (auto& child : children) {
+            if (child->IsAppearanceDirty()) {
+                glm::vec4 childBounds = child->GetCachedBoundsInParent();
+                ClearZone(childBounds);
+                child->Draw(contentSize, {childBounds.x, childBounds.y});
+                child->ClearDirty();
+            }
         }
     }
 
@@ -137,23 +157,17 @@ void UIContainerBase::RenderChildren() {
 void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     if (!visible.Get()) return;
 
-    // Update our pixel size based on parent
-
+    // Update child positions
     RecalculateChildBounds();
 
-    // Calculate container's position with anchor
-    glm::vec2 anchorOffset = localBounds.getAnchorOffset(containerSize);
-    glm::vec2 myOffset = offset + anchorOffset;
-
-
-
+    // offset already includes anchor offset from cachedBoundsInParent
     RenderChildren();
 
     // Draw the FBO texture
     mesh.BindShader();
     mesh.BindVAO();
 
-    mesh.InitUniform2f("offset", glm::value_ptr(myOffset));
+    mesh.InitUniform2f("offset", glm::value_ptr(offset));
     mesh.InitUniform2f("scale", glm::value_ptr(localBounds.scale));
     mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
     mesh.InitUniform2f("scrollOffset", glm::value_ptr(scrollOffset));
@@ -176,20 +190,24 @@ void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset) {
 
 
 void UIContainerBase::MarkFullDirty() {
-    MarkDirty();
+    MarkSelfLayoutDirty();
     for (auto& child : children) {
         child->MarkFullDirty();
     }
     CalculateContentSize();
-    NotifyParentDirty();
+    NotifyParentChildLayoutDirty();
 }
 
 void UIContainerBase::RecalculateChildBounds() {
     float p = GetPadding();
-    // Default implementation: stack children at origin + padding
+    // Default implementation: stack children at origin + padding, with anchor offset
     for (auto& child : children) {
         glm::vec2 childSize = child->GetPixelSize();
-        child->SetCachedBoundsInParent({p, p, childSize.x, childSize.y});
+        // Calculate anchor offset based on contentSize
+        glm::vec2 anchorOffset = child->GetAnchorOffset(contentSize);
+        float x = p + anchorOffset.x;
+        float y = p + anchorOffset.y;
+        child->SetCachedBoundsInParent({x, y, childSize.x, childSize.y});
     }
 }
 

@@ -97,12 +97,12 @@ void UIVBoxBase::CalculateContentSize() {
 
 void UIVBoxBase::DoSetChildAlignment(HAlign align) {
     childAlignment = align;
-    MarkDirty();
+    MarkChildLayoutDirty();
 }
 
 void UIVBoxBase::DoSetJustifyContent(JustifyContent j) {
     justifyContent = j;
-    MarkDirty();
+    MarkChildLayoutDirty();
 }
 
 }

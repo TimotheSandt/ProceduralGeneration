@@ -11,8 +11,10 @@ UIManager& UIManager::Instance() {
     return instance;
 }
 
-void UIManager::Init() {
-    // UI will be created on first Render when we have window size
+void UIManager::Init(int w, int h) {
+    CreateUI(w, h);
+    lastWidth = w;
+    lastHeight = h;
 }
 
 void UIManager::CreateUI(int w, int h) {
@@ -53,18 +55,21 @@ void UIManager::Shutdown() {
 void UIManager::Update(float dt, int w, int h) {
     (void)dt;
 
-    // Recreate UI if size changed significantly
-    if (!rootContainer || lastWidth != w || lastHeight != h) {
-        if (!rootContainer) {
-            CreateUI(w, h);
-        } else {
-            // Just update size
-            rootContainer->SetPixelSize({static_cast<float>(w), static_cast<float>(h)});
-            rootContainer->MarkFullDirty();
-        }
+    // Ensure UI is initialized
+    if (!rootContainer) {
+        // Fallback if Init wasn't called or failed
+        Init(w, h);
+    }
+
+    // Only update layout if size changed
+    if (lastWidth != w || lastHeight != h) {
+        rootContainer->SetPixelSize({static_cast<float>(w), static_cast<float>(h)});
         lastWidth = w;
         lastHeight = h;
     }
+
+    // Update UI state (applies deferred values, recalculates layout)
+    rootContainer->Update();
 }
 
 void UIManager::Render(int w, int h) {
@@ -72,9 +77,7 @@ void UIManager::Render(int w, int h) {
 
     // Ensure UI exists
     if (!rootContainer) {
-        CreateUI(w, h);
-        lastWidth = w;
-        lastHeight = h;
+        Init(w, h);
     }
 
     // Save GL state

@@ -25,7 +25,7 @@ void Game::init() {
     textRenderer->loadFont(GET_RESOURCE_PATH("fonts/Roboto-Regular.ttf"), "default", 48);
 
     // Initialize UI system
-    UI::UIManager::Instance().Init();
+    UI::UIManager::Instance().Init(*window.GetWidthptr(), *window.GetHeightptr());
 }
 
 void Game::stop() {

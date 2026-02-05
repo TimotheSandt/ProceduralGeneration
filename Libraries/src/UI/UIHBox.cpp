@@ -122,12 +122,12 @@ void UIHBoxBase::CalculateContentSize() {
 
 void UIHBoxBase::DoSetChildAlignment(VAlign align) {
     childAlignment = align;
-    MarkDirty();
+    MarkChildLayoutDirty();
 }
 
 void UIHBoxBase::DoSetJustifyContent(JustifyContent j) {
     justifyContent = j;
-    MarkDirty();
+    MarkChildLayoutDirty();
 }
 
 }
