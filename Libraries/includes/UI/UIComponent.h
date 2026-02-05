@@ -53,7 +53,12 @@ public:
 
 
     // Bounds
-    void SetPixelSize(glm::vec2 size) { this->localBounds.scale = size; MarkSelfLayoutDirty(); }
+    void SetPixelSize(glm::vec2 size) {
+        this->localBounds.scale = size;
+        this->localBounds.width = Value{static_cast<double>(size.x), ValueType::PIXEL};
+        this->localBounds.height = Value{static_cast<double>(size.y), ValueType::PIXEL};
+        MarkSelfLayoutDirty();
+    }
     glm::vec2 GetPixelSize();
     glm::vec2 GetAnchorOffset(glm::vec2 containerSize) const { return localBounds.getAnchorOffset(containerSize); }
     bool IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const;
