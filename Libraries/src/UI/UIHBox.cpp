@@ -105,15 +105,17 @@ void UIHBoxBase::RecalculateChildBounds() {
 void UIHBoxBase::CalculateContentSize() {
     glm::vec2 size = {0, 0};
     float maxHeight = 0.0f;
+    float p = GetPadding();
+    float s = GetSpacing();
     for (auto& child : children) {
         glm::vec2 childSize = child->GetPixelSize();
         size.x += childSize.x;
         maxHeight = std::max(maxHeight, childSize.y);
     }
-    if (!children.empty()) size.x += (children.size() - 1) * spacing;
+    if (!children.empty()) size.x += (children.size() - 1) * s;
 
-    size.x = std::max(size.x + 2 * padding, GetPixelSize().x);
-    size.y = std::max(maxHeight + 2 * padding, GetPixelSize().y);
+    size.x = std::max(size.x + 2 * p, GetPixelSize().x);
+    size.y = std::max(maxHeight + 2 * p, GetPixelSize().y);
 
     contentSize = size;
 }

@@ -44,8 +44,8 @@ public:
     glm::vec2 GetContentSize() const { return contentSize; }
 
     // Getters for layout (resolve with theme)
-    float GetPadding() const { return padding; }
-    float GetSpacing() const { return spacing; }
+    float GetPadding() const { return padding.Get(); }
+    float GetSpacing() const { return spacing.Get(); }
     size_t GetChildCount() const { return children.size(); }
 
     void DoSetPadding(float p);
@@ -54,8 +54,8 @@ public:
     void AddChild(std::shared_ptr<UIComponentBase> child);
 
 protected:
-    float padding = 0.0f;
-    float spacing = 0.0f;
+    DeferredValue<float> padding = 0.0f;
+    DeferredValue<float> spacing = 0.0f;
 
 protected:
     void InitializedFBO();
@@ -65,7 +65,7 @@ protected:
     void RenderChildren();
 
 
-    void UpdateTheme() override; 
+    void UpdateTheme() override;
 
     // Clear a specific zone in the FBO
     void ClearZone(glm::vec4 bounds);

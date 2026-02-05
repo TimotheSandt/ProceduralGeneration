@@ -24,9 +24,9 @@ UIComponentBase::UIComponentBase(Bounds bounds) : localBounds(bounds) {
         GET_RESOURCE_PATH("shader/UI/default.frag")
     );
 
-    // Direct initialization to avoid calling shared_from_this() in constructor
+    // Direct initialization with ForceSet to avoid deferred behavior
     this->theme = UITheme::GetTheme("default");
-    this->kind = IdentifierKind::PRIMARY;
+    this->kind.ForceSet(IdentifierKind::PRIMARY);
     UpdateTheme();
 }
 
@@ -35,7 +35,19 @@ void UIComponentBase::Initialize() {
     GetPixelSize();
 }
 
-
+void UIComponentBase::Update() {
+    // Apply deferred values and mark dirty if they changed
+    if (kind.Apply()) {
+        UpdateTheme();
+        MarkDirty();
+    }
+    if (color.Apply()) {
+        MarkDirty();
+    }
+    if (visible.Apply()) {
+        MarkDirty();
+    }
+}
 glm::vec2 UIComponentBase::GetPixelSize() {
     if (auto p = parent.lock()) {
         this->localBounds.scale = localBounds.getPixelSize(p->GetPixelSize(), p->GetPadding(), p->GetSpacing());
@@ -48,7 +60,7 @@ glm::vec2 UIComponentBase::GetPixelSize() {
 }
 
 void UIComponentBase::Draw(glm::vec2 containerSize, glm::vec2 offset) {
-    if (!visible) return;
+    if (!visible.Get()) return;
 
     glm::vec2 anchorOffset = localBounds.getAnchorOffset(containerSize);
     glm::vec2 totalOffset = offset + anchorOffset;
@@ -59,7 +71,7 @@ void UIComponentBase::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     mesh.InitUniform2f("offset", glm::value_ptr(totalOffset));
     mesh.InitUniform2f("scale", glm::value_ptr(this->localBounds.scale));
     mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
-    mesh.InitUniform4f("color", glm::value_ptr(this->color));
+    mesh.InitUniform4f("color", glm::value_ptr(this->color.Get()));
 
     mesh.Draw();
 
@@ -72,7 +84,7 @@ bool UIComponentBase::IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const {
 }
 
 void UIComponentBase::DoSetColor(glm::vec4 c) {
-    color = c;
+    color.ForceSet(c);
     MarkDirty();
 }
 
@@ -83,7 +95,7 @@ void UIComponentBase::DoSetTheme(std::weak_ptr<UITheme> t) {
 }
 
 void UIComponentBase::DoSetIdentifierKind(IdentifierKind k) {
-    kind = k;
+    kind.ForceSet(k);
     UpdateTheme();
     MarkDirty();
 }
@@ -111,7 +123,7 @@ void UIComponentBase::NotifyParentFullDirty() {
 
 void UIComponentBase::UpdateTheme() {
     if (auto t = theme.lock()) {
-        color = t->GetColor(kind);
+        color.ForceSet(t->GetColor(kind.Get()));
     }
 }
 

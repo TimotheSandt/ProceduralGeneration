@@ -10,6 +10,7 @@
 
 #include "Bounds.h"
 #include "UITheme.h"
+#include "DeferredValue.h"
 
 // Forward declaration to avoid circular dependency
 namespace UI { class UIContainerBase; }
@@ -24,13 +25,14 @@ protected:
 
     std::weak_ptr<UIContainerBase> parent;
 
-    bool visible = true;
+    DeferredValue<bool> visible = true;
     bool dirty = true;
+    bool dirtyLayout = true;
 
     std::weak_ptr<UITheme> theme;
-    IdentifierKind kind;
+    DeferredValue<IdentifierKind> kind;
 
-    glm::vec4 color ;
+    DeferredValue<glm::vec4> color;
 
     // Animation state
     glm::vec2 offset = {0, 0};
@@ -43,7 +45,7 @@ public:
     UIComponentBase(Bounds bounds);
 
     virtual void Initialize();
-    virtual void Update() {}
+    virtual void Update();
     virtual void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0});
 
 
@@ -60,7 +62,7 @@ public:
     };
 
     // Style
-    glm::vec4 GetColor() const { return color; }
+    glm::vec4 GetColor() const { return color.Get(); }
 
     // DoSet... methods (impl in .cpp)
     void DoSetColor(glm::vec4 c);

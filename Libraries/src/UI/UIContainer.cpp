@@ -31,6 +31,16 @@ void UIContainerBase::Initialize() {
 
 void UIContainerBase::Update() {
     UIComponentBase::Update();
+
+    // Apply deferred layout properties
+    bool layoutChanged = false;
+    if (padding.Apply()) layoutChanged = true;
+    if (spacing.Apply()) layoutChanged = true;
+
+    if (layoutChanged) {
+        MarkFullDirty();
+    }
+
     for (auto& child : children) child->Update();
     CalculateContentSize();
     InitializedFBO();
@@ -125,7 +135,7 @@ void UIContainerBase::RenderChildren() {
 
 
 void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset) {
-    if (!visible) return;
+    if (!visible.Get()) return;
 
     // Update our pixel size based on parent
 
@@ -148,7 +158,7 @@ void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
     mesh.InitUniform2f("scrollOffset", glm::value_ptr(scrollOffset));
     mesh.InitUniform2f("contentSize", glm::value_ptr(contentSize));
-    mesh.InitUniform4f("color", glm::value_ptr(this->color));
+    mesh.InitUniform4f("color", glm::value_ptr(this->color.Get()));
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, fbo.GetTextureID());
@@ -191,18 +201,18 @@ void UIContainerBase::CalculateContentSize() {
 
 void UIContainerBase::UpdateTheme() {
     UIComponentBase::UpdateTheme();
-    padding = theme.lock()->GetPadding();
-    spacing = theme.lock()->GetSpacing();
+    if (auto t = theme.lock()) {
+        padding.ForceSet(t->GetPadding());
+        spacing.ForceSet(t->GetSpacing());
+    }
 }
 
 void UIContainerBase::DoSetPadding(float p) {
-    padding = p;
-    MarkDirty();
+    padding.Set(p);
 }
 
 void UIContainerBase::DoSetSpacing(float s) {
-    spacing = s;
-    MarkDirty();
+    spacing.Set(s);
 }
 
 }

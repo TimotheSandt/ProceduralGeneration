@@ -80,15 +80,17 @@ void UIVBoxBase::RecalculateChildBounds() {
 void UIVBoxBase::CalculateContentSize() {
     glm::vec2 size = {0, 0};
     float maxWidth = 0.0f;
+    float p = GetPadding();
+    float s = GetSpacing();
     for (auto& child : children) {
         glm::vec2 childSize = child->GetPixelSize();
         size.y += childSize.y;
         maxWidth = std::max(maxWidth, childSize.x);
     }
-    if (!children.empty()) size.y += (children.size() - 1) * spacing;
+    if (!children.empty()) size.y += (children.size() - 1) * s;
 
-    size.x = std::max(maxWidth + 2 * padding, GetPixelSize().x);
-    size.y = std::max(size.y + 2 * padding, GetPixelSize().y);
+    size.x = std::max(maxWidth + 2 * p, GetPixelSize().x);
+    size.y = std::max(size.y + 2 * p, GetPixelSize().y);
 
     contentSize = size;
 }
