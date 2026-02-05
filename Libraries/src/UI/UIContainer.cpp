@@ -27,6 +27,9 @@ void UIContainerBase::AddChild(std::shared_ptr<UIComponentBase> child) {
 void UIContainerBase::Initialize() {
     UIComponentBase::Initialize();
 
+    padding.Apply();
+    spacing.Apply();
+
     for (auto& child : children) {
         child->Initialize();
     }

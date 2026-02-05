@@ -71,9 +71,16 @@ void Game::update() {
 }
 
 void Game::render() {
+    // 1. Force Viewport for World Rendering (Reset state for new frame)
+    glViewport(0, 0, *window.GetWidthptr(), *window.GetHeightptr());
+
+    // 2. Render World
     Profiler::ProfileGPU("Clear", &Window::Clear, window);
     this->camera.BindUBO();
     Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), this->camera);
+
+    // 3. Restore viewport before Text (just in case World changed it, though unlikely)
+    glViewport(0, 0, *window.GetWidthptr(), *window.GetHeightptr());
 
     textRenderer->updateScreenSize(*window.GetWidthptr(), *window.GetHeightptr());
     textRenderer->renderText("fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f,
@@ -86,6 +93,9 @@ void Game::render() {
         glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
     textRenderer->renderText(std::format("Swap Buffers: {:.3f}ms", Profiler::GetAverageTime("SwapBuffers").count() * 1e-6), 10, 110, 0.3f,
         glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+
+    // 4. Transform viewport for UI if needed (UI::Render usually expects window size)
+    glViewport(0, 0, *window.GetWidthptr(), *window.GetHeightptr());
 
     // Render UI
     UI::UIManager::Instance().Render(*window.GetWidthptr(), *window.GetHeightptr());

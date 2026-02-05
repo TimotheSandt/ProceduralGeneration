@@ -25,7 +25,7 @@ namespace DeferredValueDetail {
 template<typename T>
 class DeferredValue {
 public:
-    DeferredValue() = default;
+    DeferredValue() : value(T()), newValue(std::nullopt) {}
     DeferredValue(T initialValue) : value(initialValue), newValue(std::nullopt) {}
 
     const T& Get() const { return value; }

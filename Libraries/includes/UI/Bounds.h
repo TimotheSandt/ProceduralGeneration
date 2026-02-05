@@ -7,7 +7,7 @@
 namespace UI {
 
 enum class ValueType { PIXEL, PERCENT };
-struct Value { double value; ValueType type = ValueType::PIXEL; };
+struct Value { double value = 0.0; ValueType type = ValueType::PIXEL; };
 
 constexpr Value operator""_pct(unsigned long long value) {
     return Value(value / 100.0, ValueType::PERCENT);

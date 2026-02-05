@@ -23,19 +23,16 @@ UIComponentBase::UIComponentBase(Bounds bounds) : localBounds(bounds) {
         GET_RESOURCE_PATH("shader/UI/default.frag")
     );
 
-    this->theme.Set(UITheme::GetTheme("default"));
-    this->kind.Set(IdentifierKind::PRIMARY);
+    this->theme.ForceSet(UITheme::GetTheme("default"));
+    this->kind.ForceSet(IdentifierKind::PRIMARY);
 
-    if (auto t = theme.Get().lock()) {
-         color.Set(t->GetColor(kind.Get()));
-    }
+    UpdateTheme();
 }
 
 void UIComponentBase::Initialize() {
     parent.Apply();
-    GetPixelSize();
     localBounds.Apply();
-    UpdateTheme();
+    GetPixelSize();
 
     MarkFullDirty(false);
 }
@@ -58,7 +55,7 @@ void UIComponentBase::Update() {
     dirtyLayout = dirtyLayout || visible.Apply();
 
     if (dirtyLayout) UpdateLayout();
-    dirty = false;
+
 }
 
 void UIComponentBase::UpdateLayout() {
@@ -79,11 +76,13 @@ glm::vec2 UIComponentBase::GetPixelSize() {
     if (auto p = parent.Get().lock()) {
         this->localBounds.ModifyForce([&](Bounds& b) {
             size = b.getPixelSize(p->GetPixelSize(), p->GetPadding(), p->GetSpacing());
+            // LOG_INFO("Calc Size Parent: ", size.x, "x", size.y, " ParentSize: ", p->GetPixelSize().x);
             b.scale = size;
         });
     } else {
         this->localBounds.ModifyForce([&](Bounds& b) {
             size = b.getPixelSize();
+            // LOG_INFO("Calc Size NoParent: ", size.x, "x", size.y);
             b.scale = size;
         });
     }
@@ -98,7 +97,13 @@ void UIComponentBase::Draw(glm::vec2 offset) {
     // FIX 5: Vérifier que le parent existe avant de l'utiliser
     glm::vec2 containerSize;
     if (auto p = parent.Get().lock()) {
-        containerSize = p->localBounds.Get().scale;
+        // Use ContentSize because we are rendering into the Parent's FBO,
+        // which is sized to ContentSize, not the Visible Size (localBounds).
+        containerSize = p->GetContentSize();
+        // Fallback to localBounds if contentSize is not yet initialized (0,0)
+        if (containerSize.x <= 0 || containerSize.y <= 0) {
+            containerSize = p->localBounds.Get().scale;
+        }
     } else {
         // Si pas de parent, utiliser notre propre taille comme container
         containerSize = this->localBounds.Get().scale;

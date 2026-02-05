@@ -32,6 +32,10 @@ void UIVBoxBase::RecalculateChildBounds() {
     float containerWidth = std::max(maxWidth + 2 * padding, GetPixelSize().x);
     float containerHeight = std::max(totalChildrenHeight + 2 * padding, GetPixelSize().y);
 
+    // if (containerWidth > 0 && containerHeight > 0)
+    //     LOG_INFO("VBox Layout: w=", containerWidth, " h=", containerHeight, " children=", visibleChildrenCount);
+
+
     // Calculate starting offset and extra spacing based on JustifyContent
     float currentSpacing = spacing;
 
