@@ -39,7 +39,6 @@ protected:
     // Dirty state
     bool dirty = true;
     bool dirtyLayout = true;
-    bool initialized = false;
 
 
 public:

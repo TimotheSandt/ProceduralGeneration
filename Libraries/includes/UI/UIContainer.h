@@ -62,7 +62,6 @@ protected:
     virtual void ClearFBOFrom(int indexChildToClear = 0);
     void UpdateLayout();
     virtual void RecalculateChildBounds();
-    virtual void CalculateContentSize();
 
     void RenderChildren();
 

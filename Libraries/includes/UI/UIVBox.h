@@ -11,6 +11,8 @@ protected:
 public:
     using UIContainerBase::UIContainerBase;
 
+    void Initialize() override;
+
     HAlign GetChildAlignment() const { return childAlignment.Get(); }
     JustifyContent GetJustifyContent() const { return justifyContent.Get(); }
 
@@ -21,7 +23,6 @@ public:
 
 protected:
     void RecalculateChildBounds() override;
-    void CalculateContentSize();
 };
 
 template<typename Base, typename Derived>

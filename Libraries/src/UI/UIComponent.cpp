@@ -23,23 +23,21 @@ UIComponentBase::UIComponentBase(Bounds bounds) : localBounds(bounds) {
         GET_RESOURCE_PATH("shader/UI/default.frag")
     );
 
-    this->theme = DeferredValue<std::weak_ptr<UITheme>>(UITheme::GetTheme("default"));
-    this->kind = DeferredValue<IdentifierKind>(IdentifierKind::PRIMARY);
+    this->theme.Set(UITheme::GetTheme("default"));
+    this->kind.Set(IdentifierKind::PRIMARY);
 
     if (auto t = theme.Get().lock()) {
-         color = DeferredValue<glm::vec4>(t->GetColor(kind.Get()));
+         color.Set(t->GetColor(kind.Get()));
     }
 }
 
 void UIComponentBase::Initialize() {
-    // FIX 1: Calculer la taille AVANT Update()
+    parent.Apply();
     GetPixelSize();
+    localBounds.Apply();
+    UpdateTheme();
 
-    // FIX 2: Maintenant Update() peut appliquer les changements
-    Update();
-
-    MarkDirty(false);
-    initialized = true;
+    MarkFullDirty(false);
 }
 
 void UIComponentBase::Update() {
@@ -47,20 +45,19 @@ void UIComponentBase::Update() {
     bool kindChanged = kind.Apply();
     if (themeChanged || kindChanged) {
         MarkDirty();
-        UIComponentBase::UpdateTheme();
+        UpdateTheme();
     }
 
     if (color.Apply()) {
         MarkDirty();
     }
 
-    // FIX 3: Utiliser |= pour accumuler les changements
     dirtyLayout = dirtyLayout || parent.Apply();
     dirtyLayout = dirtyLayout || localBounds.Apply();
     dirtyLayout = dirtyLayout || cachedBoundsInParent.Apply();
     dirtyLayout = dirtyLayout || visible.Apply();
 
-    if (dirtyLayout && initialized) UpdateLayout();
+    if (dirtyLayout) UpdateLayout();
     dirty = false;
 }
 
@@ -70,11 +67,16 @@ void UIComponentBase::UpdateLayout() {
     dirtyLayout = false;
 }
 
+void UIComponentBase::UpdateTheme() {
+    if (auto t = theme.Get().lock()) {
+        color.ForceSet(t->GetColor(kind.Get()));
+    }
+}
+
 
 glm::vec2 UIComponentBase::GetPixelSize() {
     glm::vec2 size;
     if (auto p = parent.Get().lock()) {
-        // FIX 4: Utiliser ModifyForce pour appliquer immédiatement
         this->localBounds.ModifyForce([&](Bounds& b) {
             size = b.getPixelSize(p->GetPixelSize(), p->GetPadding(), p->GetSpacing());
             b.scale = size;
@@ -142,6 +144,7 @@ void UIComponentBase::MarkDirty(bool propagate) {
 
 void UIComponentBase::MarkFullDirty(bool propagate) {
     MarkDirty(propagate);
+    dirtyLayout = true;
 }
 
 void UIComponentBase::NotifyParentDirty() {
@@ -153,12 +156,6 @@ void UIComponentBase::NotifyParentDirty() {
 void UIComponentBase::NotifyParentFullDirty() {
     if (auto p = parent.Get().lock()) {
         p->MarkFullDirty();
-    }
-}
-
-void UIComponentBase::UpdateTheme() {
-    if (auto t = theme.Get().lock()) {
-        color.ForceSet(t->GetColor(kind.Get()));
     }
 }
 

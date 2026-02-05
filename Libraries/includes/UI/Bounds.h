@@ -37,7 +37,7 @@ struct Bounds {
     Bounds(Value width, Value height) : Bounds(width, height, Anchor::TOP_LEFT) {}
     Bounds(Value width, Value height, Anchor anchor) : width(width), height(height), anchor(anchor) {}
 
-    glm::vec2 getPixelSize() const;
+    glm::vec2 getPixelSize();
     glm::vec2 getPixelSize(const glm::vec2& parentSize, int padding = 0, int spacing = 0);
 
     // Get offset based on anchor relative to container size

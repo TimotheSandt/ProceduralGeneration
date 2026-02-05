@@ -2,6 +2,11 @@
 
 namespace UI {
 
+void UIHBoxBase::Initialize() {
+    childAlignment.Apply();
+    justifyContent.Apply();
+    UIContainerBase::Initialize();
+}
 
 void UIHBoxBase::RecalculateChildBounds() {
     float padding = GetPadding();
@@ -96,27 +101,9 @@ void UIHBoxBase::RecalculateChildBounds() {
     }
 
     // Use calculated container size (assuming we expand to fill if justify is used, or just bounding box)
-    contentSize.Set({containerWidth, containerHeight});
-}
-
-
-
-
-void UIHBoxBase::CalculateContentSize() {
-    glm::vec2 size = {0, 0};
-    float maxHeight = 0.0f;
-    for (auto& child : children) {
-        glm::vec2 childSize = child->GetPixelSize();
-        size.x += childSize.x;
-        maxHeight = std::max(maxHeight, childSize.y);
-    }
-    if (!children.empty()) size.x += (children.size() - 1) * spacing.Get();
-
-    size.x = std::max(size.x + 2 * padding.Get(), GetPixelSize().x);
-    size.y = std::max(maxHeight + 2 * padding.Get(), GetPixelSize().y);
-
-    localBounds.ModifyForce([&](Bounds& b) { b.scale = size; });
-    contentSize.Set(size);
+    if (contentSize.ForceSet({containerWidth, containerHeight})) {
+        InitializedFBO();
+    };
 }
 
 void UIHBoxBase::DoSetChildAlignment(VAlign align) {
@@ -128,14 +115,8 @@ void UIHBoxBase::DoSetJustifyContent(JustifyContent j) {
 }
 
 void UIHBoxBase::Update() {
-    // FIX: Accumuler les changements au lieu de les écraser
-    bool needsLayoutUpdate = false;
-    needsLayoutUpdate = needsLayoutUpdate || childAlignment.Apply();
-    needsLayoutUpdate = needsLayoutUpdate || justifyContent.Apply();
-
-    if (needsLayoutUpdate) {
-        dirtyLayout = true;
-    }
+    dirtyLayout = dirtyLayout || childAlignment.Apply();
+    dirtyLayout = dirtyLayout || justifyContent.Apply();
 
     UIContainerBase::Update();
 }

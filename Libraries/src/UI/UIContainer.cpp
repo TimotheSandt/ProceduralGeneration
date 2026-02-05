@@ -7,8 +7,6 @@ namespace UI {
 
 UIContainerBase::UIContainerBase(Bounds bounds)
     : UIComponentBase(bounds) {
-    // Ne PAS initialiser contentSize ici car scale n'est pas encore calculé
-    // Use container-specific shader with texture and scroll support
     this->mesh.SetShader(
         GET_RESOURCE_PATH("shader/UI/container.vert"),
         GET_RESOURCE_PATH("shader/UI/container.frag")
@@ -27,25 +25,15 @@ void UIContainerBase::AddChild(std::shared_ptr<UIComponentBase> child) {
 
 
 void UIContainerBase::Initialize() {
-    // FIX CRITIQUE: Ordre d'initialisation correct
-    // 1. Initialiser le composant de base (calcule localBounds.scale)
     UIComponentBase::Initialize();
 
-    // 2. Calculer notre contentSize (utilise localBounds.scale qui est maintenant valide)
-    CalculateContentSize();
-
-    // 3. Initialiser le FBO avec la bonne taille
-    InitializedFBO();
-
-    // 4. MAINTENANT initialiser les enfants (ils peuvent calculer en % de notre taille)
     for (auto& child : children) {
         child->Initialize();
     }
 
-    // 5. Recalculer les positions des enfants après leur initialisation
     RecalculateChildBounds();
+    InitializedFBO();
 
-    // 6. Forcer un rendu complet initial
     MarkFullDirty(false);
 }
 
@@ -54,18 +42,11 @@ void UIContainerBase::Update() {
         UpdateTheme();
     }
 
-    // FIX: Utiliser |= pour accumuler les changements
-    bool needsLayoutUpdate = false;
-    needsLayoutUpdate = needsLayoutUpdate || padding.Apply();
-    needsLayoutUpdate = needsLayoutUpdate || spacing.Apply();
-
-    if (needsLayoutUpdate) {
-        dirtyLayout = true;
-    }
+    dirtyLayout = dirtyLayout || padding.Apply();
+    dirtyLayout = dirtyLayout || spacing.Apply();
 
     if (scrollOffset.Apply()) MarkDirty();
 
-    // FIX: Si contentSize change, réinitialiser le FBO
     if (contentSize.Apply()) {
         InitializedFBO();
         dirtyLayout = true;
@@ -73,7 +54,6 @@ void UIContainerBase::Update() {
 
     UIComponentBase::Update();
 
-    // Update children AFTER parent update
     for (auto& child : children) {
         child->Update();
     }
@@ -227,7 +207,8 @@ void UIContainerBase::Draw(glm::vec2 offset) {
 
 
 void UIContainerBase::MarkFullDirty(bool propagate) {
-    MarkDirty();
+    UIComponentBase::MarkFullDirty();
+
     for (auto& child : children) {
         child->MarkFullDirty(false);
     }
@@ -237,7 +218,6 @@ void UIContainerBase::MarkFullDirty(bool propagate) {
 
 void UIContainerBase::UpdateLayout() {
     UIComponentBase::UpdateLayout();
-    CalculateContentSize();
     RecalculateChildBounds();
 }
 
@@ -248,24 +228,17 @@ void UIContainerBase::RecalculateChildBounds() {
         glm::vec2 childSize = child->GetPixelSize();
         child->SetCachedBoundsInParent({p, p, childSize.x, childSize.y});
     }
-}
-
-void UIContainerBase::CalculateContentSize() {
-    contentSize.ModifyForce([&](glm::vec2& c) {
-        c = {
-            localBounds.Get().scale.x,
-            localBounds.Get().scale.y
-        };
-    });
+    if (contentSize.ForceSet(localBounds.Get().scale)) {
+        InitializedFBO();
+    };
 }
 
 
 void UIContainerBase::UpdateTheme() {
     UIComponentBase::UpdateTheme();
     if (auto t = theme.Get().lock()) {
-        // FIX: Ne pas toucher dirtyLayout ici
-        padding.ForceSet(t->GetPadding());
-        spacing.ForceSet(t->GetSpacing());
+        dirtyLayout = dirtyLayout || padding.ForceSet(t->GetPadding());
+        dirtyLayout = dirtyLayout || spacing.ForceSet(t->GetSpacing());
     }
 }
 

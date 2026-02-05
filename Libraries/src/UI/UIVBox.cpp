@@ -3,9 +3,11 @@
 
 namespace UI {
 
-
-
-// ============ UIVBoxBase Implementation ============
+void UIVBoxBase::Initialize() {
+    childAlignment.Apply();
+    justifyContent.Apply();
+    UIContainerBase::Initialize();
+}
 
 void UIVBoxBase::RecalculateChildBounds() {
     float padding = GetPadding();
@@ -71,27 +73,9 @@ void UIVBoxBase::RecalculateChildBounds() {
     if (!children.empty()) yOffset -= spacing; // Remove last spacing
     yOffset += padding;
 
-    contentSize.Set({containerWidth, containerHeight});
-}
-
-
-
-
-void UIVBoxBase::CalculateContentSize() {
-    glm::vec2 size = {0, 0};
-    float maxWidth = 0.0f;
-    for (auto& child : children) {
-        glm::vec2 childSize = child->GetPixelSize();
-        size.y += childSize.y;
-        maxWidth = std::max(maxWidth, childSize.x);
+    if (contentSize.ForceSet({containerWidth, containerHeight})) {
+        InitializedFBO();
     }
-    if (!children.empty()) size.y += (children.size() - 1) * spacing.Get();
-
-    size.x = std::max(maxWidth + 2 * padding.Get(), GetPixelSize().x);
-    size.y = std::max(size.y + 2 * padding.Get(), GetPixelSize().y);
-
-    localBounds.ModifyForce([&](Bounds& b) { b.scale = size; });
-    contentSize.Set(size);
 }
 
 void UIVBoxBase::DoSetChildAlignment(HAlign align) {
@@ -103,14 +87,8 @@ void UIVBoxBase::DoSetJustifyContent(JustifyContent j) {
 }
 
 void UIVBoxBase::Update() {
-    // FIX: Accumuler les changements au lieu de les écraser
-    bool needsLayoutUpdate = false;
-    needsLayoutUpdate = needsLayoutUpdate || childAlignment.Apply();
-    needsLayoutUpdate = needsLayoutUpdate || justifyContent.Apply();
-
-    if (needsLayoutUpdate) {
-        dirtyLayout = true;
-    }
+    dirtyLayout = dirtyLayout || childAlignment.Apply();
+    dirtyLayout = dirtyLayout || justifyContent.Apply();
 
     UIContainerBase::Update();
 }

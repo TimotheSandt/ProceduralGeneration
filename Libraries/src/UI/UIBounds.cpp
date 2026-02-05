@@ -13,13 +13,13 @@ int getValueInPixel(Value v, int max) {
     return std::min(static_cast<int>(v.value), max);
 }
 
-glm::vec2 Bounds::getPixelSize() const {
+glm::vec2 Bounds::getPixelSize() {
     if (width.type == ValueType::PERCENT || height.type == ValueType::PERCENT) {
         LOG_ERROR(1, "Cannot get pixel size of a component with percentage width or height and no parent size");
         throw std::runtime_error("Cannot get pixel size of a component with percentage width or height and no parent size");
     }
-
-    return {width.value, height.value};
+    scale = {width.value, height.value};
+    return scale;
 }
 
 glm::vec2 Bounds::getPixelSize(const glm::vec2& parentSize, int padding, int spacing) {
