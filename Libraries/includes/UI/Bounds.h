@@ -30,7 +30,6 @@ enum class Anchor {
 struct Bounds {
     Value width, height;
     Anchor anchor = Anchor::TOP_LEFT;
-    std::array<glm::vec2, 4> pixelBounds;
 
     glm::vec2 scale = {0, 0};
 
@@ -44,7 +43,6 @@ struct Bounds {
     // Get offset based on anchor relative to container size
     glm::vec2 getAnchorOffset(const glm::vec2& containerSize) const;
 
-    std::array<glm::vec2, 4> getPixelBounds();
     bool isHover(const glm::vec2& mousePos) const;
 };
 

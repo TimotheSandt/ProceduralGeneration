@@ -5,17 +5,19 @@ namespace UI {
 
 class UIHBoxBase : public UIContainerBase {
 protected:
-    VAlign childAlignment = VAlign::TOP;
-    JustifyContent justifyContent = JustifyContent::START;
+    DeferredValue<VAlign> childAlignment = VAlign::TOP;
+    DeferredValue<JustifyContent> justifyContent = JustifyContent::START;
 
 public:
     using UIContainerBase::UIContainerBase;
 
-    VAlign GetChildAlignment() const { return childAlignment; }
-    JustifyContent GetJustifyContent() const { return justifyContent; }
+    VAlign GetChildAlignment() const { return childAlignment.Get(); }
+    JustifyContent GetJustifyContent() const { return justifyContent.Get(); }
 
     void DoSetChildAlignment(VAlign align);
     void DoSetJustifyContent(JustifyContent j);
+
+    void Update() override;
 
 protected:
     void RecalculateChildBounds() override;

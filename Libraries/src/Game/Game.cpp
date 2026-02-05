@@ -50,8 +50,8 @@ void Game::run() {
             // glfwSetWindowTitle(window.GetWindow(), title.c_str());
         }
 
-        Profiler::ProfileGPU("Render", &Game::render, this);
         this->update();
+        Profiler::ProfileGPU("Render", &Game::render, this);
 
         Profiler::ProfileGPU("SwapBuffers", &Window::SwapBuffers, window);
     }
@@ -66,6 +66,8 @@ void Game::update() {
     this->camera.UpdateMatrix();
 
     this->world->Update();
+
+    UI::UIManager::Instance().Update(1.0f / this->window.GetFPS(), *window.GetWidthptr(), *window.GetHeightptr());
 }
 
 void Game::render() {

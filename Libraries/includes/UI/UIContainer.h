@@ -19,8 +19,12 @@ protected:
     FBO fbo;
     bool fboInitialized = false;
 
-    glm::vec2 scrollOffset = {0, 0};
-    glm::vec2 contentSize = {0, 0};
+    DeferredValue<glm::vec2> scrollOffset = glm::vec2(0, 0);
+    DeferredValue<glm::vec2> contentSize = glm::vec2(0, 0);
+
+    DeferredValue<float> padding = 0.0f;
+    DeferredValue<float> spacing = 0.0f;
+
 
 public:
 
@@ -30,22 +34,22 @@ public:
     void Initialize() override;
     void Update() override;
 
-    void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0}) override;
+    void Draw(glm::vec2 offset = {0, 0}) override;
 
     // Override MarkDirty - propagates upward, not downward
-    void MarkFullDirty() override;
+    void MarkFullDirty(bool propagate = true) override;
 
     // Scroll
-    void SetScrollOffset(glm::vec2 offset) { scrollOffset = offset; }
-    void IncrementScrollOffset(glm::vec2 offset) { scrollOffset += offset; }
-    glm::vec2 GetScrollOffset() const { return scrollOffset; }
+    void SetScrollOffset(glm::vec2 offset) { scrollOffset.Set(offset); }
+    void IncrementScrollOffset(glm::vec2 offset) { scrollOffset.Set(scrollOffset.Get() + offset); }
+    glm::vec2 GetScrollOffset() const { return scrollOffset.Get(); }
 
     // Content size
-    glm::vec2 GetContentSize() const { return contentSize; }
+    glm::vec2 GetContentSize() const { return contentSize.Get(); }
 
     // Getters for layout (resolve with theme)
-    float GetPadding() const { return padding; }
-    float GetSpacing() const { return spacing; }
+    float GetPadding() const { return padding.Get(); }
+    float GetSpacing() const { return spacing.Get(); }
     size_t GetChildCount() const { return children.size(); }
 
     void DoSetPadding(float p);
@@ -54,18 +58,17 @@ public:
     void AddChild(std::shared_ptr<UIComponentBase> child);
 
 protected:
-    float padding = 0.0f;
-    float spacing = 0.0f;
-
-protected:
     void InitializedFBO();
+    virtual void ClearFBOFrom(int indexChildToClear = 0);
+    void UpdateLayout();
     virtual void RecalculateChildBounds();
     virtual void CalculateContentSize();
 
     void RenderChildren();
 
 
-    void UpdateTheme() override; 
+    void DoSetTheme(std::weak_ptr<UITheme> t) override;
+    void UpdateTheme() override;
 
     // Clear a specific zone in the FBO
     void ClearZone(glm::vec4 bounds);

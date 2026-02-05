@@ -10,6 +10,7 @@
 
 #include "Bounds.h"
 #include "UITheme.h"
+#include "DeferredValue.h"
 
 // Forward declaration to avoid circular dependency
 namespace UI { class UIContainerBase; }
@@ -19,68 +20,70 @@ namespace UI {
 
 class UIComponentBase : public std::enable_shared_from_this<UIComponentBase> {
 protected:
-    Bounds localBounds;
+    DeferredValue<Bounds> localBounds;
     Mesh mesh;
 
-    std::weak_ptr<UIContainerBase> parent;
-
-    bool visible = true;
-    bool dirty = true;
-
-    std::weak_ptr<UITheme> theme;
-    IdentifierKind kind;
-
-    glm::vec4 color ;
+    // Properties
+    DeferredValue<std::weak_ptr<UIContainerBase>> parent;
+    DeferredValue<bool> visible = true;
+    DeferredValue<std::weak_ptr<UITheme>> theme;
+    DeferredValue<IdentifierKind> kind;
+    DeferredValue<glm::vec4> color;
+    DeferredValue<glm::vec4> cachedBoundsInParent = glm::vec4({0, 0, 0, 0});
 
     // Animation state
     glm::vec2 offset = {0, 0};
     float scaleAnim = 1.0f;
     float rotation = 0.0f;
 
-    glm::vec4 cachedBoundsInParent = {0, 0, 0, 0};
+    // Dirty state
+    bool dirty = true;
+    bool dirtyLayout = true;
+    bool initialized = false;
+
 
 public:
     UIComponentBase(Bounds bounds);
 
     virtual void Initialize();
-    virtual void Update() {}
-    virtual void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0});
+    virtual void Update();
+    virtual void Draw(glm::vec2 offset = {0, 0});
 
 
     // Bounds
-    void SetPixelSize(glm::vec2 size) { this->localBounds.scale = size; MarkDirty(); }
+    void SetPixelSize(glm::vec2 size) {
+        this->localBounds.Modify([&](Bounds& b) { b.scale = size; });
+        MarkDirty(); }
     glm::vec2 GetPixelSize();
     bool IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const;
 
     // Hierarchy
     void SetParent(std::weak_ptr<UIContainerBase> p) {
-        parent = p;
-        GetPixelSize();
-        MarkDirty();
+        parent.Set(p);
     };
 
     // Style
-    glm::vec4 GetColor() const { return color; }
+    glm::vec4 GetColor() const { return color.Get(); }
 
     // DoSet... methods (impl in .cpp)
     void DoSetColor(glm::vec4 c);
-    void DoSetTheme(std::weak_ptr<UITheme> t);
+    virtual void DoSetTheme(std::weak_ptr<UITheme> t);
     void DoSetIdentifierKind(IdentifierKind k);
 
     // Dirty state management
-    void MarkDirty();
-    virtual void MarkFullDirty();
+    void MarkDirty(bool propagate = true);
+    virtual void MarkFullDirty(bool propagate = true);
     bool IsDirty() const { return dirty; }
     void ClearDirty() { dirty = false; }
 
 
-    glm::vec4 GetCachedBoundsInParent() const { return cachedBoundsInParent; }
-    void SetCachedBoundsInParent(glm::vec4 bounds) { cachedBoundsInParent = bounds; }
+    glm::vec4 GetCachedBoundsInParent() const { return cachedBoundsInParent.Get(); }
+    void SetCachedBoundsInParent(glm::vec4 bounds) { cachedBoundsInParent.Set(bounds); }
 
 protected:
     void NotifyParentDirty();
     void NotifyParentFullDirty();
-    void RecalculateChildBounds();
+    virtual void UpdateLayout();
 
     virtual void UpdateTheme();
 

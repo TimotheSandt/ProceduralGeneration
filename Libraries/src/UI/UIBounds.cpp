@@ -1,6 +1,7 @@
 #include "UIComponent.h"
 
 #include <algorithm>
+#include "Logger.h"
 
 namespace UI {
 
@@ -14,6 +15,7 @@ int getValueInPixel(Value v, int max) {
 
 glm::vec2 Bounds::getPixelSize() const {
     if (width.type == ValueType::PERCENT || height.type == ValueType::PERCENT) {
+        LOG_ERROR(1, "Cannot get pixel size of a component with percentage width or height and no parent size");
         throw std::runtime_error("Cannot get pixel size of a component with percentage width or height and no parent size");
     }
 
@@ -22,7 +24,8 @@ glm::vec2 Bounds::getPixelSize() const {
 
 glm::vec2 Bounds::getPixelSize(const glm::vec2& parentSize, int padding, int spacing) {
     if ((parentSize.x <= 0 || parentSize.y <= 0) && (width.type == ValueType::PERCENT || height.type == ValueType::PERCENT)) {
-        throw std::runtime_error("Cannot get pixel size of a component with percentage width or height and no parent size");
+        LOG_WARNING("Parent size is invalid: (", parentSize.x, ", ", parentSize.y, ")");
+        return {0, 0};
     }
 
     scale = {
@@ -77,15 +80,6 @@ glm::vec2 Bounds::getAnchorOffset(const glm::vec2& containerSize) const {
     }
 
     return {xOffset, yOffset};
-}
-
-std::array<glm::vec2, 4> Bounds::getPixelBounds() {
-    pixelBounds[0] = {0, 0};
-    pixelBounds[1] = {1, 0};
-    pixelBounds[2] = {1, 1};
-    pixelBounds[3] = {0, 1};
-
-    return pixelBounds;
 }
 
 bool Bounds::isHover(const glm::vec2& mousePos) const {
