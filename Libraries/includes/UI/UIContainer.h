@@ -8,6 +8,7 @@ namespace UI {
 
 enum class HAlign { LEFT, CENTER, RIGHT };
 enum class VAlign { TOP, CENTER, BOTTOM };
+enum class OverflowMode { WRAP, HIDDEN, SCROLL };
 
 enum class JustifyContent { START, CENTER, END, SPACE_BETWEEN, SPACE_AROUND };
 
@@ -21,6 +22,7 @@ protected:
 
     glm::vec2 scrollOffset = {0, 0};
     glm::vec2 contentSize = {0, 0};
+    DeferredValue<OverflowMode> overflowMode = OverflowMode::HIDDEN;
 
 public:
 
@@ -42,6 +44,19 @@ public:
 
     // Content size
     glm::vec2 GetContentSize() const { return contentSize; }
+    virtual glm::vec2 GetAvailableSize() const {
+        float p = GetPadding();
+        // Use the definitive scale - if zero, fall back to computing from raw bounds
+        glm::vec2 size = localBounds.scale;
+        if (size.x <= 0.0f || size.y <= 0.0f) {
+            // Try to get size from pixel-defined bounds (won't work for percentage bounds)
+            if (localBounds.width.type == ValueType::PIXEL && localBounds.height.type == ValueType::PIXEL) {
+                size = glm::vec2(static_cast<float>(localBounds.width.value), static_cast<float>(localBounds.height.value));
+            }
+        }
+        glm::vec2 available = size - glm::vec2(2.0f * p);
+        return glm::max(available, glm::vec2(0.0f));
+    }
 
     // Getters for layout (resolve with theme)
     float GetPadding() const { return padding.Get(); }
@@ -50,6 +65,7 @@ public:
 
     void DoSetPadding(float p);
     void DoSetSpacing(float s);
+    void DoSetOverflowMode(OverflowMode mode);
 
     void AddChild(std::shared_ptr<UIComponentBase> child);
 
@@ -60,7 +76,6 @@ protected:
 protected:
     void InitializedFBO();
     virtual void RecalculateChildBounds();
-    virtual void CalculateContentSize();
 
     void RenderChildren();
 
@@ -84,6 +99,11 @@ public:
 
     std::shared_ptr<Derived> SetSpacing(float s) {
         this->DoSetSpacing(s);
+        return std::static_pointer_cast<Derived>(this->shared_from_this());
+    }
+
+    std::shared_ptr<Derived> SetOverflowMode(OverflowMode mode) {
+        this->DoSetOverflowMode(mode);
         return std::static_pointer_cast<Derived>(this->shared_from_this());
     }
 };

@@ -17,9 +17,10 @@ public:
     void DoSetChildAlignment(VAlign align);
     void DoSetJustifyContent(JustifyContent j);
 
+    glm::vec2 GetAvailableSize() const override;
+
 protected:
     void RecalculateChildBounds() override;
-    void CalculateContentSize();
 };
 
 template<typename Base, typename Derived>

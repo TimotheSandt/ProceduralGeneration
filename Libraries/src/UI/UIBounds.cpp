@@ -20,14 +20,14 @@ glm::vec2 Bounds::getPixelSize() const {
     return {width.value, height.value};
 }
 
-glm::vec2 Bounds::getPixelSize(const glm::vec2& parentSize, int padding, int spacing) {
-    if ((parentSize.x <= 0 || parentSize.y <= 0) && (width.type == ValueType::PERCENT || height.type == ValueType::PERCENT)) {
-        throw std::runtime_error("Cannot get pixel size of a component with percentage width or height and no parent size");
+glm::vec2 Bounds::getPixelSize(const glm::vec2& parentAvailableSize) {
+    if ((parentAvailableSize.x <= 0 || parentAvailableSize.y <= 0) && (width.type == ValueType::PERCENT || height.type == ValueType::PERCENT)) {
+        throw std::runtime_error("Cannot get pixel size of a component with percentage width or height and no parent available size");
     }
 
     scale = {
-        getValueInPixel(width, static_cast<int>(parentSize.x - padding)) - spacing,
-        getValueInPixel(height, static_cast<int>(parentSize.y - padding)) - spacing
+        getValueInPixel(width, static_cast<int>(parentAvailableSize.x)),
+        getValueInPixel(height, static_cast<int>(parentAvailableSize.y))
     };
 
     return scale;

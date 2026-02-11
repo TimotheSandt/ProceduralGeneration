@@ -33,6 +33,7 @@ void UIManager::CreateUI(int w, int h) {
                 ->SetColor(glm::vec4{0.3f, 0.9f, 0.4f, 1.0f})
                 ->SetPadding(0.0f)
                 ->SetJustifyContent(UI::JustifyContent::CENTER)
+                ->SetOverflowMode(UI::OverflowMode::WRAP)
                 ->SetChildAlignment(UI::VAlign::CENTER),
             Box(Bounds(100_px, 50_px), {0.2f, 1.0f, 0.2f, 1.0f})
         })  ->SetPadding(10.0f)

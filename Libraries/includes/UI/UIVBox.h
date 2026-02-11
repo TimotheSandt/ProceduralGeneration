@@ -8,6 +8,7 @@ protected:
     HAlign childAlignment = HAlign::LEFT;
     JustifyContent justifyContent = JustifyContent::START;
 
+
 public:
     using UIContainerBase::UIContainerBase;
 
@@ -17,9 +18,10 @@ public:
     void DoSetChildAlignment(HAlign align);
     void DoSetJustifyContent(JustifyContent j);
 
+    glm::vec2 GetAvailableSize() const override;
+
 protected:
     void RecalculateChildBounds() override;
-    void CalculateContentSize();
 };
 
 template<typename Base, typename Derived>

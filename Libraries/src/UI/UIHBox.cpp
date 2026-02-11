@@ -97,27 +97,55 @@ void UIHBoxBase::RecalculateChildBounds() {
 
     // Use calculated container size (assuming we expand to fill if justify is used, or just bounding box)
     contentSize = {containerWidth, containerHeight};
+
+    if (this->overflowMode.Get() == OverflowMode::WRAP) {
+        if (contentSize.x > localBounds.scale.x || contentSize.y > localBounds.scale.y) {
+            glm::vec2 reducer = {
+                localBounds.scale.x / contentSize.x,
+                localBounds.scale.y / contentSize.y
+            };
+            for (auto& child : children) {
+                child->SetCachedBoundsInParent({
+                    child->GetCachedBoundsInParent().x * reducer.x,
+                    child->GetCachedBoundsInParent().y * reducer.y,
+                    child->GetCachedBoundsInParent().z * reducer.x,
+                    child->GetCachedBoundsInParent().w * reducer.y
+                });
+            }
+            contentSize = localBounds.scale;
+        }
+    }
 }
 
 
-
-
-void UIHBoxBase::CalculateContentSize() {
-    glm::vec2 size = {0, 0};
-    float maxHeight = 0.0f;
+glm::vec2 UIHBoxBase::GetAvailableSize() const {
     float p = GetPadding();
     float s = GetSpacing();
-    for (auto& child : children) {
-        glm::vec2 childSize = child->GetPixelSize();
-        size.x += childSize.x;
-        maxHeight = std::max(maxHeight, childSize.y);
+    int nbChildren = static_cast<int>(children.size());
+
+    // Total space consumed by layout: 2*padding + (n-1)*spacing
+    float totalPadding = 2.0f * p;
+    float totalSpacing = (nbChildren > 1) ? s * (nbChildren - 1) : 0.0f;
+
+    // Use the definitive scale - if zero, fall back to computing from raw bounds
+    glm::vec2 size = localBounds.scale;
+    if (size.x <= 0.0f || size.y <= 0.0f) {
+        if (localBounds.width.type == ValueType::PIXEL && localBounds.height.type == ValueType::PIXEL) {
+            size = glm::vec2(static_cast<float>(localBounds.width.value), static_cast<float>(localBounds.height.value));
+        }
     }
-    if (!children.empty()) size.x += (children.size() - 1) * s;
 
-    size.x = std::max(size.x + 2 * p, GetPixelSize().x);
-    size.y = std::max(maxHeight + 2 * p, GetPixelSize().y);
+    glm::vec2 available = size;
+    // X: subtract horizontal padding and inter-child spacing (main axis)
+    available.x -= (totalPadding + totalSpacing);
+    // Y: subtract vertical padding only (cross axis)
+    available.y -= totalPadding;
 
-    contentSize = size;
+    // Ensure non-negative
+    available.x = std::min(std::max(available.x, 0.0f), 3.0f * size.x / 4.0f);
+    available.y = std::min(std::max(available.y, 0.0f), 3.0f * size.y / 4.0f);
+
+    return available;
 }
 
 void UIHBoxBase::DoSetChildAlignment(VAlign align) {

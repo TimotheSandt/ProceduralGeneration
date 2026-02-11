@@ -72,28 +72,58 @@ void UIVBoxBase::RecalculateChildBounds() {
     yOffset += padding;
 
     contentSize = {containerWidth, containerHeight};
+
+    if (this->overflowMode.Get() == OverflowMode::WRAP) {
+        if (contentSize.x > localBounds.scale.x || contentSize.y > localBounds.scale.y) {
+            glm::vec2 reducer = {
+                localBounds.scale.x / contentSize.x,
+                localBounds.scale.y / contentSize.y
+            };
+            for (auto& child : children) {
+                child->SetCachedBoundsInParent({
+                    child->GetCachedBoundsInParent().x * reducer.x,
+                    child->GetCachedBoundsInParent().y * reducer.y,
+                    child->GetCachedBoundsInParent().z * reducer.x,
+                    child->GetCachedBoundsInParent().w * reducer.y
+                });
+            }
+            contentSize = localBounds.scale;
+        }
+    }
 }
 
 
 
-
-void UIVBoxBase::CalculateContentSize() {
-    glm::vec2 size = {0, 0};
-    float maxWidth = 0.0f;
+glm::vec2 UIVBoxBase::GetAvailableSize() const {
     float p = GetPadding();
     float s = GetSpacing();
-    for (auto& child : children) {
-        glm::vec2 childSize = child->GetPixelSize();
-        size.y += childSize.y;
-        maxWidth = std::max(maxWidth, childSize.x);
+    int nbChildren = static_cast<int>(children.size());
+
+    // Total space consumed by layout: 2*padding + (n-1)*spacing
+    float totalPadding = 2.0f * p;
+    float totalSpacing = (nbChildren > 1) ? s * (nbChildren - 1) : 0.0f;
+
+    // Use the definitive scale - if zero, fall back to computing from raw bounds
+    glm::vec2 size = localBounds.scale;
+    if (size.x <= 0.0f || size.y <= 0.0f) {
+        if (localBounds.width.type == ValueType::PIXEL && localBounds.height.type == ValueType::PIXEL) {
+            size = glm::vec2(static_cast<float>(localBounds.width.value), static_cast<float>(localBounds.height.value));
+        }
     }
-    if (!children.empty()) size.y += (children.size() - 1) * s;
 
-    size.x = std::max(maxWidth + 2 * p, GetPixelSize().x);
-    size.y = std::max(size.y + 2 * p, GetPixelSize().y);
+    glm::vec2 available = size;
+    // X: subtract horizontal padding only
+    available.x -= totalPadding;
+    // Y: subtract vertical padding and inter-child spacing
+    available.y -= (totalPadding + totalSpacing);
 
-    contentSize = size;
+    // Ensure non-negative
+    available.x = std::min(std::max(available.x, 0.0f), 3.0f * size.x / 4.0f);
+    available.y = std::min(std::max(available.y, 0.0f), 3.0f * size.y / 4.0f);
+
+    return available;
 }
+
 
 void UIVBoxBase::DoSetChildAlignment(HAlign align) {
     childAlignment = align;

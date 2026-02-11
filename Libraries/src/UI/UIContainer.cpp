@@ -24,9 +24,10 @@ void UIContainerBase::AddChild(std::shared_ptr<UIComponentBase> child) {
 
 void UIContainerBase::Initialize() {
     UIComponentBase::Initialize();
-    CalculateContentSize();
-    InitializedFBO();
+
     for (auto& child : children) child->Initialize();
+    InitializedFBO();
+    RecalculateChildBounds();
 }
 
 void UIContainerBase::Update() {
@@ -36,13 +37,19 @@ void UIContainerBase::Update() {
     bool layoutChanged = false;
     if (padding.Apply()) layoutChanged = true;
     if (spacing.Apply()) layoutChanged = true;
+    bool wasWrap = overflowMode.Get() == OverflowMode::WRAP;
+    if (overflowMode.Apply()) {
+        if (wasWrap || (overflowMode.Get() == OverflowMode::WRAP)) {
+            layoutChanged = true;
+        }
+    }
 
     if (layoutChanged) {
         MarkFullDirty();
     }
 
     for (auto& child : children) child->Update();
-    CalculateContentSize();
+    RecalculateChildBounds();
     InitializedFBO();
 }
 
@@ -194,7 +201,7 @@ void UIContainerBase::MarkFullDirty() {
     for (auto& child : children) {
         child->MarkFullDirty();
     }
-    CalculateContentSize();
+
     NotifyParentChildLayoutDirty();
 }
 
@@ -209,13 +216,10 @@ void UIContainerBase::RecalculateChildBounds() {
         float y = p + anchorOffset.y;
         child->SetCachedBoundsInParent({x, y, childSize.x, childSize.y});
     }
-}
 
-void UIContainerBase::CalculateContentSize() {
     contentSize.x = localBounds.scale.x;
     contentSize.y = localBounds.scale.y;
 }
-
 
 void UIContainerBase::UpdateTheme() {
     UIComponentBase::UpdateTheme();
@@ -231,6 +235,10 @@ void UIContainerBase::DoSetPadding(float p) {
 
 void UIContainerBase::DoSetSpacing(float s) {
     spacing.Set(s);
+}
+
+void UIContainerBase::DoSetOverflowMode(OverflowMode mode) {
+    overflowMode.Set(mode);
 }
 
 }
