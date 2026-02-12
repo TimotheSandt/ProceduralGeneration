@@ -36,6 +36,8 @@ protected:
     DeferredValue<IdentifierKind> kind;
 
     DeferredValue<glm::vec4> color;
+    bool isDeformed = false;
+    DeferredValue<bool> allowDeform = false;
 
     // Animation state
     glm::vec2 offset = {0, 0};
@@ -53,20 +55,26 @@ public:
 
 
     // Bounds
-    void SetPixelSize(glm::vec2 size) {
+    void SetSize(glm::vec2 size) {
         this->localBounds.scale = size;
         this->localBounds.width = Value{static_cast<double>(size.x), ValueType::PIXEL};
         this->localBounds.height = Value{static_cast<double>(size.y), ValueType::PIXEL};
         MarkSelfLayoutDirty();
     }
-    glm::vec2 GetPixelSize();
+    void SetPixelSize(glm::vec2 size) {
+        this->localBounds.scale = size;
+        MarkSelfLayoutDirty();
+    }
+
+    glm::vec2 CalculatePixelSize();
+    glm::vec2 GetPixelSize() const { return localBounds.scale; }
     glm::vec2 GetAnchorOffset(glm::vec2 containerSize) const { return localBounds.getAnchorOffset(containerSize); }
     bool IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const;
 
     // Hierarchy
     void SetParent(std::weak_ptr<UIContainerBase> p) {
         parent = p;
-        GetPixelSize();
+        CalculatePixelSize();
         MarkSelfLayoutDirty();
     };
 
@@ -77,6 +85,16 @@ public:
     void DoSetColor(glm::vec4 c);
     void DoSetTheme(std::weak_ptr<UITheme> t);
     void DoSetIdentifierKind(IdentifierKind k);
+    void DoSetAllowDeform(bool allow);
+
+    bool DoesAllowDeform() const { return allowDeform.Get(); }
+    void DoSetDeform(bool deform) {
+        if (!allowDeform.Get())
+            throw std::runtime_error("UIComponent does not allow deformations");
+        isDeformed = deform;
+    }
+
+
 
     // Dirty state management - three-tier system
     void MarkAppearanceDirty();                     // Color/visibility change
@@ -97,7 +115,6 @@ public:
 protected:
     void NotifyParentChildLayoutDirty();
     void NotifyParentFullDirty();
-    void RecalculateChildBounds();
 
     virtual void UpdateTheme();
 
@@ -123,6 +140,16 @@ public:
 
     std::shared_ptr<Derived> SetIdentifierKind(IdentifierKind k) {
         this->DoSetIdentifierKind(k);
+        return std::static_pointer_cast<Derived>(this->shared_from_this());
+    }
+
+    std::shared_ptr<Derived> SetAllowDeform(bool allow) {
+        this->DoSetAllowDeform(allow);
+        return std::static_pointer_cast<Derived>(this->shared_from_this());
+    }
+
+    std::shared_ptr<Derived> SetDeform(bool deform) {
+        this->DoSetDeform(deform);
         return std::static_pointer_cast<Derived>(this->shared_from_this());
     }
 };

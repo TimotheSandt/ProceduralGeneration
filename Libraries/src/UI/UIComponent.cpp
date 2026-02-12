@@ -32,7 +32,7 @@ UIComponentBase::UIComponentBase(Bounds bounds) : localBounds(bounds) {
 
 void UIComponentBase::Initialize() {
     MarkSelfLayoutDirty();
-    GetPixelSize();
+    CalculatePixelSize();
 }
 
 void UIComponentBase::Update() {
@@ -47,13 +47,22 @@ void UIComponentBase::Update() {
     if (visible.Apply()) {
         MarkAppearanceDirty();
     }
+    if (allowDeform.Apply()) {
+        MarkSelfLayoutDirty();
+    }
+
+    if (dirtyChildLayout || dirtySelfLayout) {
+        CalculatePixelSize();
+    }
 }
-glm::vec2 UIComponentBase::GetPixelSize() {
+
+glm::vec2 UIComponentBase::CalculatePixelSize() {
     if (auto p = parent.lock()) {
         this->localBounds.scale = localBounds.getPixelSize(p->GetAvailableSize());
     } else {
         this->localBounds.scale = localBounds.getPixelSize();
     }
+
 
     mesh.InitUniform2f("scale", glm::value_ptr(this->localBounds.scale));
     return this->localBounds.scale;
@@ -76,6 +85,8 @@ void UIComponentBase::Draw(glm::vec2 containerSize, glm::vec2 offset) {
 
     mesh.UnbindVAO();
     mesh.UnbindShader();
+
+    ClearDirty();
 }
 
 bool UIComponentBase::IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const {
@@ -83,7 +94,7 @@ bool UIComponentBase::IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const {
 }
 
 void UIComponentBase::DoSetColor(glm::vec4 c) {
-    color.ForceSet(c);
+    color.Set(c);
     MarkAppearanceDirty();
 }
 
@@ -94,9 +105,16 @@ void UIComponentBase::DoSetTheme(std::weak_ptr<UITheme> t) {
 }
 
 void UIComponentBase::DoSetIdentifierKind(IdentifierKind k) {
-    kind.ForceSet(k);
+    kind.Set(k);
     UpdateTheme();
     MarkAppearanceDirty();
+}
+
+void UIComponentBase::DoSetAllowDeform(bool allow) {
+    allowDeform.Set(allow);
+    if (!isDeformed && allowDeform.Get()) {
+        allowDeform.Apply();
+    }
 }
 
 // Three-tier dirty system implementation

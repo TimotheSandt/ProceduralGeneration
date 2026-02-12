@@ -11,84 +11,133 @@ void UIVBoxBase::RecalculateChildBounds() {
     float padding = GetPadding();
     float spacing = GetSpacing();
 
-    float yOffset = padding;
-    float maxWidth = 0;
     float totalChildrenHeight = 0;
+    float totalChildrenWidth = 0;
     int visibleChildrenCount = 0;
 
-    // First pass: calculate max width
+    // First pass: calculate dimensions
     for (auto& child : children) {
         glm::vec2 childSize = child->GetPixelSize();
-        maxWidth = std::max(maxWidth, childSize.x);
+        totalChildrenWidth = std::max(totalChildrenWidth, childSize.x);
         totalChildrenHeight += childSize.y;
         visibleChildrenCount++;
     }
 
-    if (visibleChildrenCount > 1) totalChildrenHeight += (visibleChildrenCount - 1) * spacing;
+    // Add spacing to total height calculation
+    if (visibleChildrenCount > 1) {
+        totalChildrenHeight += (visibleChildrenCount - 1) * spacing;
+    }
 
-    // Content dimensions
-    float containerWidth = std::max(maxWidth + 2 * padding, localBounds.scale.x);
+    // Content size
+    float containerWidth = std::max(totalChildrenWidth + 2 * padding, localBounds.scale.x);
     float containerHeight = std::max(totalChildrenHeight + 2 * padding, localBounds.scale.y);
+    contentSize = {containerWidth, containerHeight};
+
+    glm::vec2 reducer = {1.0f, 1.0f};
+    glm::vec2 actualPadding = {padding, padding};
+    float actualSpacing = std::max(spacing, 0.0f);
+
+    if (this->overflowMode.Get() == OverflowMode::WRAP &&
+        (contentSize.x > localBounds.scale.x || contentSize.y > localBounds.scale.y))
+    {
+        // Ensure non-zero contentSize to avoid division by zero
+        if (contentSize.x > 0 && contentSize.y > 0) {
+            reducer = {
+                std::min(localBounds.scale.x / contentSize.x, 1.0f),
+                std::min(localBounds.scale.y / contentSize.y, 1.0f)
+            };
+        } else {
+            reducer = {1.0f, 1.0f};
+        }
+
+        actualPadding = actualPadding * reducer;
+        actualSpacing = actualSpacing * reducer.y;
+
+        float totalReduceWidth = 0;
+        float totalReduceHeight = 0;
+        for (auto& child : children) {
+            float ratio = std::min(reducer.x, reducer.y);
+            glm::vec2 redducerChild = {
+                child->DoesAllowDeform() ? reducer.x : ratio,
+                child->DoesAllowDeform() ? reducer.y : ratio
+            };
+            child->SetPixelSize(child->GetPixelSize() * redducerChild);
+            totalReduceWidth = std::max(totalReduceWidth, child->GetPixelSize().x);
+            totalReduceHeight += child->GetPixelSize().y;
+        }
+
+        if (visibleChildrenCount > 1) {
+            totalReduceHeight += (visibleChildrenCount - 1) * actualSpacing;
+        }
+
+        totalChildrenWidth = totalReduceWidth;
+        totalChildrenHeight = totalReduceHeight;
+        containerWidth = std::max(totalChildrenWidth, localBounds.scale.x);
+        containerHeight = std::max(totalChildrenHeight, localBounds.scale.y);
+        contentSize = {containerWidth, containerHeight};
+    }
 
     // Calculate starting offset and extra spacing based on JustifyContent
-    float currentSpacing = spacing;
+    float yOffset = actualPadding.y;
+    float currentSpacing = actualSpacing;
 
-    if (justifyContent != JustifyContent::START && containerHeight > totalChildrenHeight + 2 * padding) {
-        float freeSpace = containerHeight - (2 * padding + totalChildrenHeight);
+    // Only apply justification if we have extra space and not START alignment
+    if (justifyContent != JustifyContent::START && containerHeight > totalChildrenHeight + 2 * actualPadding.y) {
+        float freeSpace = containerHeight - (2 * actualPadding.y + totalChildrenHeight);
+
         switch (justifyContent) {
-            case JustifyContent::CENTER: yOffset = padding + freeSpace / 2.0f; break;
-            case JustifyContent::END: yOffset = containerHeight - padding - totalChildrenHeight; break;
+            case JustifyContent::CENTER:
+                yOffset = actualPadding.y + freeSpace / 2.0f;
+                break;
+            case JustifyContent::END:
+                yOffset = containerHeight - actualPadding.y - totalChildrenHeight;
+                break;
             case JustifyContent::SPACE_BETWEEN:
-                yOffset = padding; if (visibleChildrenCount > 1) currentSpacing = spacing + freeSpace / (visibleChildrenCount - 1); break;
+                yOffset = actualPadding.y;
+                if (visibleChildrenCount > 1) {
+                    currentSpacing = actualSpacing + freeSpace / (visibleChildrenCount - 1);
+                }
+                break;
             case JustifyContent::SPACE_AROUND:
-                if (visibleChildrenCount > 0) { float ex = freeSpace / visibleChildrenCount; currentSpacing = spacing + ex; yOffset = padding + ex / 2.0f; } break;
-            default: break;
+                if (visibleChildrenCount > 0) {
+                    float extra = freeSpace / visibleChildrenCount;
+                    currentSpacing = actualSpacing + extra;
+                    yOffset = actualPadding.y + extra / 2.0f;
+                    if (visibleChildrenCount > 1) currentSpacing = freeSpace / (visibleChildrenCount - 1);
+                }
+                break;
+             default: break;
+        }
+
+        if (justifyContent == JustifyContent::SPACE_BETWEEN && visibleChildrenCount > 1) {
+             currentSpacing = actualSpacing + freeSpace / (visibleChildrenCount - 1);
+             yOffset = actualPadding.y;
+        } else if (justifyContent == JustifyContent::SPACE_AROUND && visibleChildrenCount > 0) {
+             float extra = freeSpace / visibleChildrenCount;
+             currentSpacing = actualSpacing + extra;
+             yOffset = actualPadding.y + extra / 2.0f;
         }
     }
 
     // Second pass: set positions with horizontal alignment
-    // yOffset is already initialized
     for (auto& child : children) {
         glm::vec2 childSize = child->GetPixelSize();
 
-        float xPos = padding;
+        float xPos = actualPadding.x;
         switch (childAlignment) {
             case HAlign::LEFT:
-                xPos = padding;
+                xPos = actualPadding.x;
                 break;
             case HAlign::CENTER:
                 xPos = (containerWidth - childSize.x) / 2.0f;
                 break;
             case HAlign::RIGHT:
-                xPos = containerWidth - padding - childSize.x;
+                xPos = containerWidth - actualPadding.x - childSize.x;
                 break;
         }
 
         child->SetCachedBoundsInParent({xPos, yOffset, childSize.x, childSize.y});
         yOffset += childSize.y + currentSpacing;
-    }
-
-    if (!children.empty()) yOffset -= spacing; // Remove last spacing
-    yOffset += padding;
-
-    contentSize = {containerWidth, containerHeight};
-
-    if (this->overflowMode.Get() == OverflowMode::WRAP) {
-        if (contentSize.x > localBounds.scale.x || contentSize.y > localBounds.scale.y) {
-            glm::vec2 reducer = {
-                localBounds.scale.x / contentSize.x,
-                localBounds.scale.y / contentSize.y
-            };
-            for (auto& child : children) {
-                child->SetCachedBoundsInParent({
-                    child->GetCachedBoundsInParent().x * reducer.x,
-                    child->GetCachedBoundsInParent().y * reducer.y,
-                    child->GetCachedBoundsInParent().z * reducer.x,
-                    child->GetCachedBoundsInParent().w * reducer.y
-                });
-            }
-            contentSize = localBounds.scale;
-        }
     }
 }
 
@@ -118,8 +167,8 @@ glm::vec2 UIVBoxBase::GetAvailableSize() const {
     available.y -= (totalPadding + totalSpacing);
 
     // Ensure non-negative
-    available.x = std::min(std::max(available.x, 0.0f), 3.0f * size.x / 4.0f);
-    available.y = std::min(std::max(available.y, 0.0f), 3.0f * size.y / 4.0f);
+    available.x = std::max(std::max(available.x, 0.0f), 3.0f * size.x / 4.0f);
+    available.y = std::max(std::max(available.y, 0.0f), 3.0f * size.y / 4.0f);
 
     return available;
 }

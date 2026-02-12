@@ -31,9 +31,10 @@ void UIManager::CreateUI(int w, int h) {
                 Box(Bounds(40_pct, 100_pct), {0.2f, 1.0f, 0.2f, 1.0f})
             })
                 ->SetColor(glm::vec4{0.3f, 0.9f, 0.4f, 1.0f})
-                ->SetPadding(0.0f)
+                ->SetPadding(10.0f)
                 ->SetJustifyContent(UI::JustifyContent::CENTER)
                 ->SetOverflowMode(UI::OverflowMode::WRAP)
+                ->SetChildrenDeform(true)
                 ->SetChildAlignment(UI::VAlign::CENTER),
             Box(Bounds(100_px, 50_px), {0.2f, 1.0f, 0.2f, 1.0f})
         })  ->SetPadding(10.0f)
@@ -64,7 +65,7 @@ void UIManager::Update(float dt, int w, int h) {
 
     // Only update layout if size changed
     if (lastWidth != w || lastHeight != h) {
-        rootContainer->SetPixelSize({static_cast<float>(w), static_cast<float>(h)});
+        rootContainer->SetSize({static_cast<float>(w), static_cast<float>(h)});
         lastWidth = w;
         lastHeight = h;
     }

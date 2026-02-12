@@ -49,36 +49,39 @@ void UIContainerBase::Update() {
     }
 
     for (auto& child : children) child->Update();
-    RecalculateChildBounds();
-    InitializedFBO();
+    if (dirtySelfLayout || dirtyChildLayout) {
+        RecalculateChildBounds();
+        InitializedFBO();
+
+    }
 }
 
 
 // FBO helper functions
 void UIContainerBase::InitializedFBO() {
+    if (contentSize.x <= 0 || contentSize.y <= 0) return;
+
     if (fbo.GetWidth() != static_cast<int>(contentSize.x) ||
         fbo.GetHeight() != static_cast<int>(contentSize.y)) {
 
-        if (contentSize.x > 0 && contentSize.y > 0) {
-            fbo.Init(static_cast<int>(contentSize.x), static_cast<int>(contentSize.y));
-            fboInitialized = true;
-            GL_CHECK_ERROR_M("UIContainer FBO Init");
+        fbo.Init(static_cast<int>(contentSize.x), static_cast<int>(contentSize.y));
+        fboInitialized = true;
+        GL_CHECK_ERROR_M("UIContainer FBO Init");
 
-            // Clear FBO to transparent immediately after init
-            GLint currentFBO;
-            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFBO);
-            GLint viewport[4];
-            glGetIntegerv(GL_VIEWPORT, viewport);
+        // Clear FBO to transparent immediately after init
+        GLint currentFBO;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFBO);
+        GLint viewport[4];
+        glGetIntegerv(GL_VIEWPORT, viewport);
 
-            fbo.Bind();
-            glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-            glClear(GL_COLOR_BUFFER_BIT);
-            glBindFramebuffer(GL_FRAMEBUFFER, currentFBO);
-            glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+        fbo.Bind();
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glBindFramebuffer(GL_FRAMEBUFFER, currentFBO);
+        glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 
-            // Force re-render on next frame
-            MarkFullDirty();
-        }
+        // Force re-render on next frame
+        MarkFullDirty();
     }
 }
 
@@ -165,7 +168,7 @@ void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset) {
     if (!visible.Get()) return;
 
     // Update child positions
-    RecalculateChildBounds();
+    if (dirtySelfLayout || dirtyChildLayout) RecalculateChildBounds();
 
     // offset already includes anchor offset from cachedBoundsInParent
     RenderChildren();
@@ -206,10 +209,11 @@ void UIContainerBase::MarkFullDirty() {
 }
 
 void UIContainerBase::RecalculateChildBounds() {
+    CalculatePixelSize();
     float p = GetPadding();
     // Default implementation: stack children at origin + padding, with anchor offset
     for (auto& child : children) {
-        glm::vec2 childSize = child->GetPixelSize();
+        glm::vec2 childSize = child->CalculatePixelSize();
         // Calculate anchor offset based on contentSize
         glm::vec2 anchorOffset = child->GetAnchorOffset(contentSize);
         float x = p + anchorOffset.x;
@@ -239,6 +243,12 @@ void UIContainerBase::DoSetSpacing(float s) {
 
 void UIContainerBase::DoSetOverflowMode(OverflowMode mode) {
     overflowMode.Set(mode);
+}
+
+void UIContainerBase::DoSetChildrenAllowDeform(bool deform) {
+    for (auto& child : children) {
+        child->DoSetAllowDeform(deform);
+    }
 }
 
 }

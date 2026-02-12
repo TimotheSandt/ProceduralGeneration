@@ -66,7 +66,9 @@ public:
     void DoSetPadding(float p);
     void DoSetSpacing(float s);
     void DoSetOverflowMode(OverflowMode mode);
+    void DoSetChildrenAllowDeform(bool deform);
 
+    // Children
     void AddChild(std::shared_ptr<UIComponentBase> child);
 
 protected:
@@ -104,6 +106,11 @@ public:
 
     std::shared_ptr<Derived> SetOverflowMode(OverflowMode mode) {
         this->DoSetOverflowMode(mode);
+        return std::static_pointer_cast<Derived>(this->shared_from_this());
+    }
+
+    std::shared_ptr<Derived> SetChildrenDeform(bool deform) {
+        this->DoSetChildrenAllowDeform(deform);
         return std::static_pointer_cast<Derived>(this->shared_from_this());
     }
 };
