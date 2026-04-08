@@ -101,14 +101,14 @@ public:
         Type *newBuffer = new Type[newCapacity]();
         size_t copySize = std::min(this->size, newCapacity);
         for (size_t i = 0; i < copySize; ++i) {
-            newBuffer[newCapacity - i - 1] = Get(i);
+            newBuffer[i] = Get(copySize - i - 1);
         }
 
         delete[] this->buffer;
         this->buffer = newBuffer;
         this->capacity = newCapacity;
         this->size = copySize;
-        this->index = (this->capacity - this->size) % this->capacity;
+        this->index = (this->size == 0) ? 0 : (this->size - 1);
     }
 
     [[nodiscard]] size_t GetCapacity() const noexcept
