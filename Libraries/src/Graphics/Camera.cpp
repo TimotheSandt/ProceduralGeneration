@@ -46,8 +46,14 @@ void Camera::Copy(const Camera& other) {
     this->Orientation = other.Orientation;
     this->up = other.up;
     this->camMatrix = other.camMatrix;
+    this->width = other.width;
+    this->height = other.height;
+    this->FOV = other.FOV;
+    this->nearPlane = other.nearPlane;
+    this->farPlane = other.farPlane;
     this->speed = other.speed;
     this->sensitivity = other.sensitivity;
+    this->firstClick = other.firstClick;
     this->isWireframe = other.isWireframe;
     this->InitializeUBO();
     this->UpdateUBO();

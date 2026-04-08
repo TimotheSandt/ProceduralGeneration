@@ -26,9 +26,14 @@ void Texture::Swap(Texture& other) noexcept {
     std::swap(this->UniformName, other.UniformName);
 }
 
-void Texture::Copy(Texture& texture) {
-    void* data = texture.GetTextureData(this->Width, this->Height, this->format, this->pixelType);
-    this->SetTextureData(data, this->Width, this->Height, this->format, this->pixelType);
+void Texture::Copy(const Texture& texture) {
+    int width = 0;
+    int height = 0;
+    GLenum format = GL_RGBA;
+    GLenum pixelType = GL_UNSIGNED_BYTE;
+    void* data = texture.GetTextureData(width, height, format, pixelType);
+    this->SetTextureData(data, width, height, format, pixelType);
+    std::free(data);
 }
 
 Texture Texture::Copy() const {
@@ -36,6 +41,7 @@ Texture Texture::Copy() const {
     GLenum f, p;
     void* data = this->GetTextureData(w, h, f, p);
     Texture texture(data, w, h, this->UniformName, this->slot, f, p);
+    std::free(data);
     return texture;
 }
 
@@ -82,6 +88,7 @@ Texture::~Texture() {
 
 
 void Texture::SetTextureData(void* data, int width, int height, GLenum format, GLenum pixelType, GLenum filter) {
+    this->Destroy();
     this->Width = width;
     this->Height = height;
     this->format = format;
@@ -112,10 +119,9 @@ void* Texture::GetTextureData(int& width, int& height, GLenum& format, GLenum& p
     this->Bind();
 
     size_t dataSize = GetDataSize();
-    void *data = malloc(dataSize);
-
-    glReadPixels(0, 0, this->Width, this->Height, this->format, this->pixelType, data);
-    
+    void *data = std::malloc(dataSize);
+    glGetTexImage(GL_TEXTURE_2D, 0, this->format, this->pixelType, data);
+    this->Unbind();
     return data;
 }
 
@@ -162,6 +168,7 @@ size_t Texture::GetDataSize() const {
 }
 
 void Texture::SetFramebufferTexture(const char* uniformName, GLuint slot, int width, int height, GLuint FBO) {
+    this->Destroy();
     this->slot = slot;
     this->UniformName = uniformName;
     this->Width = width;
@@ -192,6 +199,7 @@ void Texture::ResizeFramebufferTexture(int width, int height) {
     this->Height = height;
     glBindTexture(GL_TEXTURE_2D, this->ID);
     glTexImage2D(GL_TEXTURE_2D, 0, this->format, this->Width, this->Height, 0, this->format, GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void Texture::texUnit(const Shader &shader) const {

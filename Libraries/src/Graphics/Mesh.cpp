@@ -10,10 +10,28 @@ Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vect
 
 Mesh::Mesh(const Mesh& mesh) noexcept {
     this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.SizeAttribInstance);
+    for (const Texture& texture : mesh.textures) {
+        this->textures.push_back(texture.Copy());
+    }
+    this->shader = Shader(mesh.shader);
+    this->position = mesh.position;
+    this->scale = mesh.scale;
+    this->rotation = mesh.rotation;
 }
 
-Mesh Mesh::operator=(const Mesh& mesh) noexcept {
+Mesh& Mesh::operator=(const Mesh& mesh) noexcept {
+    if (this == &mesh) {
+        return *this;
+    }
+    this->Destroy();
     this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.SizeAttribInstance);
+    for (const Texture& texture : mesh.textures) {
+        this->textures.push_back(texture.Copy());
+    }
+    this->shader = Shader(mesh.shader);
+    this->position = mesh.position;
+    this->scale = mesh.scale;
+    this->rotation = mesh.rotation;
     return *this;
 }
 
@@ -21,7 +39,7 @@ Mesh::Mesh(Mesh&& mesh) noexcept : position(0.0f), scale(1.0f), rotation(0.0f), 
     this->Swap(mesh);
 }
 
-Mesh Mesh::operator=(Mesh&& mesh) noexcept {
+Mesh& Mesh::operator=(Mesh&& mesh) noexcept {
     if (this != &mesh) {
         this->Destroy();
         this->Swap(mesh);
@@ -35,6 +53,7 @@ void Mesh::Swap(Mesh& mesh) noexcept {
     std::swap(this->sizeAttrib, mesh.sizeAttrib);
     std::swap(this->instances, mesh.instances);
     std::swap(this->SizeAttribInstance, mesh.SizeAttribInstance);
+    std::swap(this->textures, mesh.textures);
     std::swap(this->instancing, mesh.instancing);
     std::swap(this->bVAO, mesh.bVAO);
     std::swap(this->bUBO, mesh.bUBO);

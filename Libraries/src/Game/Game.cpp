@@ -1,8 +1,12 @@
 #include "Game.h"
 
+#include <stdexcept>
+
 Game::Game() {
     LOG_TRACE("Initializing window");
-    window.Init();
+    if (window.Init() != 0) {
+        throw std::runtime_error("Failed to initialize window");
+    }
 }
 Game::~Game() {
     this->stop();
@@ -29,9 +33,20 @@ void Game::init() {
 }
 
 void Game::stop() {
-    glfwMakeContextCurrent(this->window.GetWindow());
-    this->world->Destroy();
-    this->world.reset();
+    if (this->stopped) {
+        return;
+    }
+    this->stopped = true;
+
+    if (this->window.GetWindow() != nullptr) {
+        glfwMakeContextCurrent(this->window.GetWindow());
+    }
+    if (this->world) {
+        this->world->Destroy();
+        this->world.reset();
+    }
+    this->textRenderer.reset();
+    UI::UIManager::Instance().Shutdown();
     this->camera.Destroy();
     this->window.Close();
 }
@@ -62,12 +77,14 @@ void Game::processInput() {
 }
 
 void Game::update() {
-    this->camera.Inputs(this->window.GetWindow(), 1.0 / this->window.GetFPS());
+    const double fps = this->window.GetFPS();
+    const float deltaTime = fps > 0.0 ? static_cast<float>(1.0 / fps) : 1.0f / 60.0f;
+    this->camera.Inputs(this->window.GetWindow(), deltaTime);
     this->camera.UpdateMatrix();
 
     this->world->Update();
 
-    UI::UIManager::Instance().Update(1.0f / this->window.GetFPS(), *window.GetWidthptr(), *window.GetHeightptr());
+    UI::UIManager::Instance().Update(deltaTime, *window.GetWidthptr(), *window.GetHeightptr());
 }
 
 void Game::render() {

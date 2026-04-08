@@ -24,10 +24,10 @@ public:
         std::vector<GLfloat> instances, std::vector<GLuint> SizeAttribInstance);
 
     Mesh(const Mesh&) noexcept;
-    Mesh operator=(const Mesh&) noexcept;
+    Mesh& operator=(const Mesh&) noexcept;
 
     Mesh(Mesh&&) noexcept;
-    Mesh operator=(Mesh&&) noexcept;
+    Mesh& operator=(Mesh&&) noexcept;
 
     ~Mesh() { this->Destroy(); }
 

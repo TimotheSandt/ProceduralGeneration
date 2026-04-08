@@ -25,6 +25,35 @@ public:
         this->Destroy();
     }
 
+    RingBuffer(const RingBuffer&) = delete;
+    RingBuffer& operator=(const RingBuffer&) = delete;
+
+    RingBuffer(RingBuffer&& other) noexcept {
+        this->buffer = other.buffer;
+        this->capacity = other.capacity;
+        this->size = other.size;
+        this->index = other.index;
+        other.buffer = nullptr;
+        other.capacity = 0;
+        other.size = 0;
+        other.index = 0;
+    }
+
+    RingBuffer& operator=(RingBuffer&& other) noexcept {
+        if (this != &other) {
+            this->Destroy();
+            this->buffer = other.buffer;
+            this->capacity = other.capacity;
+            this->size = other.size;
+            this->index = other.index;
+            other.buffer = nullptr;
+            other.capacity = 0;
+            other.size = 0;
+            other.index = 0;
+        }
+        return *this;
+    }
+
     void Init(size_t capacity) noexcept {
         capacity = std::min(std::max(capacity, MIN_CAPACITY), MAX_CAPACITY);
         if (this->buffer != nullptr)

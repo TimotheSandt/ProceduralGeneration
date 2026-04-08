@@ -14,6 +14,7 @@ GLint Window::GLFW_MINOR_VERSION = 3;
 
 Window::Window() {
     this->window = nullptr;
+    this->inputManager = nullptr;
     this->parameters.title = "Window";
     this->parameters.width = 800;
     this->parameters.height = 600;
@@ -64,9 +65,9 @@ void Window::Swap(Window& other) noexcept {
     std::swap(this->FBORendering, other.FBORendering);
     std::swap(this->FBOUpscaled, other.FBOUpscaled);
     std::swap(this->parameters, other.parameters);
+    std::swap(this->inputManager, other.inputManager);
     std::swap(this->fpsCounter, other.fpsCounter);
     std::swap(this->lastTime, other.lastTime);
-    std::swap(this->isOpenGLInitialized, other.isOpenGLInitialized);
 }
 
 
@@ -82,7 +83,6 @@ int Window::Init() {
     glfwMakeContextCurrent(this->window);
 
     // Initialize GLAD to load all OpenGL function pointers
-    gladLoadGL();
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         LOG_FATAL(-1, "Failed to initialize GLAD");
         this->Close();

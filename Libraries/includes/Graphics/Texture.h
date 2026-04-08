@@ -20,7 +20,7 @@ public:
     Texture(Texture&&) noexcept;
     Texture& operator=(Texture&&) noexcept;
 
-    void Copy(Texture& texture);
+    void Copy(const Texture& texture);
     Texture Copy() const;
 
     void SetTextureData(void* data, int width, int height, GLenum format = GL_RGBA, GLenum pixelType = GL_UNSIGNED_BYTE, GLenum filter = GL_LINEAR);

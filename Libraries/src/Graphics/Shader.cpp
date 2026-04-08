@@ -26,7 +26,6 @@ std::string get_file_contents(const char* filename) {
 Shader::Shader(const char* vertexFile, const char* fragmentFile)
 		: vertexShaderPath(vertexFile), fragmentShaderPath(fragmentFile) {
 	this->SetShader(vertexFile, fragmentFile);
-	this->CompileShader();
 }
 
 Shader::~Shader() {
@@ -35,13 +34,11 @@ Shader::~Shader() {
 
 Shader::Shader(const Shader& shader) noexcept {
 	this->SetShader(shader.vertexShaderPath, shader.fragmentShaderPath);
-	this->CompileShader();
 }
 
 Shader& Shader::operator=(const Shader& shader) noexcept {
 	if (this != &shader) {
 		this->SetShader(shader.vertexShaderPath, shader.fragmentShaderPath);
-		this->CompileShader();
 	}
 	return *this;
 }

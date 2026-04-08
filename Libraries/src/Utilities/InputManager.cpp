@@ -1,5 +1,7 @@
 #include "Utilities/InputManager.h"
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <functional>
 #include <iostream>
 #include "Logger.h"
@@ -18,9 +20,7 @@ InputManager::InputManager(GLFWwindow* window) : window(window) {
     Init();
 }
 
-InputManager::~InputManager() {
-    RemoveInstance(window);
-}
+InputManager::~InputManager() = default;
 
 InputManager& InputManager::GetInstance(GLFWwindow* window) {
     if (keyLayout == KeyLayout::UNDEFINED) {
@@ -30,6 +30,13 @@ InputManager& InputManager::GetInstance(GLFWwindow* window) {
         inputManagers[window] = std::unique_ptr<InputManager>(new InputManager(window));
     }
     return *inputManagers[window];
+}
+
+void InputManager::RemoveInstance(GLFWwindow* window) {
+    if (window == nullptr) {
+        return;
+    }
+    inputManagers.erase(window);
 }
 
 void InputManager::Init() {
@@ -51,8 +58,6 @@ void InputManager::Init() {
 
 // Update method implementation
 void InputManager::Update() {
-    glfwPollEvents();
-
     // Keyboard
     for (auto it = keyStateMap.begin(); it != keyStateMap.end(); ++it) {
         bool isPressed = glfwGetKey(window, keyMap[it->first]) == GLFW_PRESS;

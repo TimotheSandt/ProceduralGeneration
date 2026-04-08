@@ -11,11 +11,21 @@
 #ifdef _WIN32
     #include <windows.h>
     #include <io.h>
+    #include <process.h>
 #else
     #include <sys/ioctl.h>
     #include <unistd.h>
 #endif
 
+namespace {
+int GetCurrentProcessIdForLog() {
+#ifdef _WIN32
+    return _getpid();
+#else
+    return getpid();
+#endif
+}
+}
 
 std::vector<Logger::LogMessage> Logger::logs;
 std::mutex Logger::logMutex;
@@ -74,7 +84,7 @@ void Logger::Initialize(const std::string& sFilename) {
     auto now = std::chrono::system_clock::now();
     *logFile << "\n=== Logger Session Started: "
              << FormatTimestamp(now) << " ===" << std::endl;
-    *logFile << "Process ID: " << getpid() << std::endl;
+    *logFile << "Process ID: " << GetCurrentProcessIdForLog() << std::endl;
     *logFile << "Working Directory: " << std::filesystem::current_path() << std::endl;
     *logFile << std::endl;
     logFile->flush();
@@ -111,34 +121,19 @@ LogLevel Logger::GetMinimumLevel() {
 void Logger::FlushToFile() {
     if (!isLoggingToFile) return;
 
-#ifdef DEBUG
-    size_t sizeLogs = logs.size();
-    LOG_DEBUGGING("=== FlushToFile Debug Info ===");
-    LOG_DEBUGGING("Total logs: ", sizeLogs);
-    LOG_DEBUGGING("Last flushed index: ", lastFlushedIndex);
-    LOG_DEBUGGING("Logs to write: ", (sizeLogs - lastFlushedIndex));
-#endif
-
+    bool flushFailed = false;
+    bool wroteLogs = false;
     std::lock_guard<std::mutex> lock(logMutex);
 
-    if (!logFile) {
-        LOG_ERROR(-1, "logFile is null!");
+    if (!logFile || !logFile->is_open()) {
+        std::cerr << "Logger file is not available for flushing" << std::endl;
         return;
     }
 
-    if (!logFile->is_open()) {
-        LOG_ERROR(-1, "logFile is not open!");
-        return;
-    }
-
-    // Check if there are new logs to write
     if (lastFlushedIndex >= logs.size()) {
-        LOG_DEBUGGING("No new logs to write");
         return;
     }
 
-    // Write logs that haven't been written yet
-    size_t logsWritten = 0;
     for (size_t i = lastFlushedIndex; i < logs.size(); ++i) {
         const LogMessage& log = logs[i];
 
@@ -168,17 +163,16 @@ void Logger::FlushToFile() {
         }
 
         *logFile << std::endl;
-        logsWritten++;
+        wroteLogs = true;
     }
     lastFlushedIndex = logs.size();
 
     logFile->flush();
+    flushFailed = logFile->fail();
 #ifdef DEBUG
-    if (logFile->fail()) {
-        std::cout << "\033[31m";
-        std::cout << "ERROR: Failed to write to log file!";
-        std::cout << "\033[0m" << std::endl;
-    } else {
+    if (flushFailed) {
+        std::cerr << "ERROR: Failed to write to log file!" << std::endl;
+    } else if (wroteLogs) {
         std::cout << "\033[32m";
         std::cout << "Successfully flushed logs to file";
         std::cout << "\033[0m" << std::endl;

@@ -36,9 +36,9 @@ FPSCounter& FPSCounter::operator=(FPSCounter&& other) noexcept {
 }
 
 void FPSCounter::Swap(FPSCounter& other) noexcept {
-    std::atomic<double> tempFPS = this->fps.exchange(other.fps.load(std::memory_order_relaxed));
+    double tempFPS = this->fps.exchange(other.fps.load(std::memory_order_relaxed));
     other.fps.exchange(tempFPS, std::memory_order_relaxed);
-    std::atomic<double> tempFrame = this->frame.exchange(other.frame.load(std::memory_order_relaxed));
+    int tempFrame = this->frame.exchange(other.frame.load(std::memory_order_relaxed));
     other.frame.exchange(tempFrame, std::memory_order_relaxed);
     std::swap(this->elapseTime, other.elapseTime);
     std::swap(this->lastTime, other.lastTime);
@@ -50,7 +50,7 @@ void FPSCounter::Swap(FPSCounter& other) noexcept {
     std::swap(this->sleepOffset, other.sleepOffset);
     std::swap(this->adaptiveCounter, other.adaptiveCounter);
     std::swap(this->sleepAccuracy, other.sleepAccuracy);
-    std::atomic<double> tempFramesDropped = this->framesDropped.exchange(other.framesDropped.load(std::memory_order_relaxed));
+    int64_t tempFramesDropped = this->framesDropped.exchange(other.framesDropped.load(std::memory_order_relaxed));
     other.framesDropped.exchange(tempFramesDropped, std::memory_order_relaxed);
     std::swap(this->avgFps, other.avgFps);
     std::swap(this->maxFps, other.maxFps);

@@ -98,7 +98,7 @@ private:
 
 public:
     static InputManager& GetInstance(GLFWwindow* window);
-    static void RemoveInstance(GLFWwindow* window) { inputManagers.erase(window); }
+    static void RemoveInstance(GLFWwindow* window);
 
     void Init();
     void Update();

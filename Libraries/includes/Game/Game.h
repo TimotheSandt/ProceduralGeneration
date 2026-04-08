@@ -33,4 +33,5 @@ private:
     Camera camera;
     std::unique_ptr<World> world = nullptr;
     std::unique_ptr<UI::TextRenderer> textRenderer;
+    bool stopped = false;
 };
