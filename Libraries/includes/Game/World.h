@@ -5,16 +5,12 @@
 #include "glm/glm.hpp"
 #include "glm/gtx/hash.hpp"
 
-
 #include "TerrainGenerator.h"
 #include "Light.h"
 
-
-
-
 class World
 {
-public:
+  public:
     World();
     ~World();
 
@@ -23,9 +19,9 @@ public:
 
     void Update();
 
-    void Render(Camera& camera);
+    void Render(Camera &camera);
 
-private:
+  private:
     TerrainGenerator terrain;
     LightManager lightManager;
 };

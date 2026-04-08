@@ -9,15 +9,16 @@
 #include <glm/glm.hpp>
 #include <unordered_map>
 
-
-enum class InputState {
-    Release, // Key not pressed
-    Pressed, // Key pressed
-    PressBegin,  // Key was just pressed
-    PressEnd, // Key was just released
+enum class InputState
+{
+    Release,    // Key not pressed
+    Pressed,    // Key pressed
+    PressBegin, // Key was just pressed
+    PressEnd,   // Key was just released
 };
 
-enum class MouseButton {
+enum class MouseButton
+{
     LEFT,
     RIGHT,
     MIDDLE,
@@ -28,13 +29,15 @@ enum class MouseButton {
     X5,
 };
 
-struct MouseMoveData {
+struct MouseMoveData
+{
     glm::vec2 position;
     glm::vec2 delta;
     glm::vec2 scroll;
 };
 
-enum class KeyLayout {
+enum class KeyLayout
+{
     UNDEFINED = 0,
     QWERTY,
     QWERTZ,
@@ -42,63 +45,168 @@ enum class KeyLayout {
     DVORAK
 };
 
-enum class KeyButton {
+enum class KeyButton
+{
     // Alphabetic
-    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    W,
+    X,
+    Y,
+    Z,
     // Function
-    F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25,
+    F1,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
+    F13,
+    F14,
+    F15,
+    F16,
+    F17,
+    F18,
+    F19,
+    F20,
+    F21,
+    F22,
+    F23,
+    F24,
+    F25,
     // Numeric
-    NUM_0, NUM_1, NUM_2, NUM_3, NUM_4, NUM_5, NUM_6, NUM_7, NUM_8, NUM_9,
+    NUM_0,
+    NUM_1,
+    NUM_2,
+    NUM_3,
+    NUM_4,
+    NUM_5,
+    NUM_6,
+    NUM_7,
+    NUM_8,
+    NUM_9,
     // Special
-    SPACE, ENTER, TAB, ESCAPE, BACKSPACE, INSERT, DELETE,
-    HOME, END, PAGE_UP, PAGE_DOWN,
-    LEFT, RIGHT, UP, DOWN,
-    MINUS, EQUALS, LEFT_BRACKET, RIGHT_BRACKET, BACKSLASH, SEMICOLON, APOSTROPHE, COMMA, PERIOD, SLASH,
-    NUMPAD_0, NUMPAD_1, NUMPAD_2, NUMPAD_3, NUMPAD_4, NUMPAD_5, NUMPAD_6, NUMPAD_7, NUMPAD_8, NUMPAD_9,
-    NUMPAD_DECIMAL, NUMPAD_DIVIDE, NUMPAD_MULTIPLY, NUMPAD_SUBTRACT, NUMPAD_ADD, NUMPAD_ENTER,
+    SPACE,
+    ENTER,
+    TAB,
+    ESCAPE,
+    BACKSPACE,
+    INSERT,
+    DELETE,
+    HOME,
+    END,
+    PAGE_UP,
+    PAGE_DOWN,
+    LEFT,
+    RIGHT,
+    UP,
+    DOWN,
+    MINUS,
+    EQUALS,
+    LEFT_BRACKET,
+    RIGHT_BRACKET,
+    BACKSLASH,
+    SEMICOLON,
+    APOSTROPHE,
+    COMMA,
+    PERIOD,
+    SLASH,
+    NUMPAD_0,
+    NUMPAD_1,
+    NUMPAD_2,
+    NUMPAD_3,
+    NUMPAD_4,
+    NUMPAD_5,
+    NUMPAD_6,
+    NUMPAD_7,
+    NUMPAD_8,
+    NUMPAD_9,
+    NUMPAD_DECIMAL,
+    NUMPAD_DIVIDE,
+    NUMPAD_MULTIPLY,
+    NUMPAD_SUBTRACT,
+    NUMPAD_ADD,
+    NUMPAD_ENTER,
     // Modifiers
-    CAPS_LOCK, NUM_LOCK, SCROLL_LOCK,
-    LEFT_SHIFT, LEFT_CONTROL, LEFT_ALT, LEFT_SUPER,
-    RIGHT_SHIFT, RIGHT_CONTROL, RIGHT_ALT, RIGHT_SUPER
+    CAPS_LOCK,
+    NUM_LOCK,
+    SCROLL_LOCK,
+    LEFT_SHIFT,
+    LEFT_CONTROL,
+    LEFT_ALT,
+    LEFT_SUPER,
+    RIGHT_SHIFT,
+    RIGHT_CONTROL,
+    RIGHT_ALT,
+    RIGHT_SUPER
 };
 
-struct KeyButtonEvent {
+struct KeyButtonEvent
+{
     InputState state;
     KeyButton key;
 };
 
-struct MouseButtonEvent {
+struct MouseButtonEvent
+{
     InputState state;
     MouseButton button;
 };
 
-struct InputEvent {
+struct InputEvent
+{
     std::vector<KeyButtonEvent> keys;
     std::vector<MouseButtonEvent> mouseButtons;
     MouseMoveData mouseMoveData;
 };
 
-struct InputAction {
+struct InputAction
+{
     std::vector<KeyButton> keys;
     std::vector<MouseButton> mouseButtons;
 };
 
+class InputManager
+{
 
-class InputManager {
-
-private:
-    InputManager(GLFWwindow* window);
+  private:
+    InputManager(GLFWwindow *window);
     ~InputManager();
 
-    InputManager(const InputManager&) = delete;
-    InputManager& operator=(const InputManager&) = delete;
-
+    InputManager(const InputManager &) = delete;
+    InputManager &operator=(const InputManager &) = delete;
 
     friend struct std::default_delete<InputManager>;
 
-public:
-    static InputManager& GetInstance(GLFWwindow* window);
-    static void RemoveInstance(GLFWwindow* window);
+  public:
+    static InputManager &GetInstance(GLFWwindow *window);
+    static void RemoveInstance(GLFWwindow *window);
 
     void Init();
     void Update();
@@ -107,9 +215,11 @@ public:
     static void SetKeyLayout(KeyLayout layout);
 
 #pragma region Getters
-public:
-    InputState GetKeyState(KeyButton key) const {
-        if (keyStateMap.find(key) == keyStateMap.end()) return InputState::Release;
+  public:
+    InputState GetKeyState(KeyButton key) const
+    {
+        if (keyStateMap.find(key) == keyStateMap.end())
+            return InputState::Release;
         return keyStateMap.at(key);
     }
     bool IsKeyRelease(KeyButton key) const { return GetKeyState(key) == InputState::Release; }
@@ -117,8 +227,10 @@ public:
     bool IsKeyJustPressed(KeyButton key) const { return GetKeyState(key) == InputState::PressBegin; }
     bool IsKeyJustReleased(KeyButton key) const { return GetKeyState(key) == InputState::PressEnd; }
 
-    InputState GetMouseButtonState(MouseButton button) const {
-        if (mouseButtonStateMap.find(button) == mouseButtonStateMap.end()) return InputState::Release;
+    InputState GetMouseButtonState(MouseButton button) const
+    {
+        if (mouseButtonStateMap.find(button) == mouseButtonStateMap.end())
+            return InputState::Release;
         return mouseButtonStateMap.at(button);
     }
     bool IsMouseButtonRelease(MouseButton button) const { return GetMouseButtonState(button) == InputState::Release; }
@@ -135,33 +247,34 @@ public:
 
 #pragma endregion Getters
 
-private:
+  private:
     void UpdateInputEvent();
 
-
 #pragma region Actions
-private:
-    static InputAction _GetInputAction(InputAction inputAction, KeyButton key) {
+  private:
+    static InputAction GetInputAction(InputAction inputAction, KeyButton key)
+    {
         inputAction.keys.push_back(key);
         return inputAction;
     }
-    static InputAction _GetInputAction(InputAction inputAction, MouseButton mouseButton) {
+    static InputAction GetInputAction(InputAction inputAction, MouseButton mouseButton)
+    {
         inputAction.mouseButtons.push_back(mouseButton);
         return inputAction;
     }
-    template<typename... Args, typename T>
-    static InputAction _GetInputAction(InputAction inputAction, T arg, Args... args) {
-        inputAction = _GetInputAction(inputAction, arg);
-        return _GetInputAction(inputAction, args...);
+    template <typename... Args, typename T> static InputAction GetInputAction(InputAction inputAction, T arg, Args... args)
+    {
+        inputAction = GetInputAction(inputAction, arg);
+        return GetInputAction(inputAction, args...);
     }
 
-public:
+  public:
     InputAction GetInputActionOfAction(std::string action) { return mapActionToInputAction[action]; }
 
     static void BindActionToInput(std::string action, InputAction inputAction);
-    template<typename... Args>
-    static void BindActionToInput(std::string action, Args... args) {
-        InputAction inputAction = _GetInputAction(InputAction(), args...);
+    template <typename... Args> static void BindActionToInput(std::string action, Args... args)
+    {
+        InputAction inputAction = GetInputAction(InputAction(), args...);
         BindActionToInput(action, inputAction);
     }
 
@@ -171,8 +284,8 @@ public:
 
 #pragma endregion Actions
 
-private:
-    GLFWwindow* window;
+  private:
+    GLFWwindow *window;
 
     InputEvent inputEvent;
     std::unordered_map<KeyButton, InputState> keyStateMap;
@@ -180,7 +293,7 @@ private:
     MouseMoveData mouseMoveData;
     // TODO: Scroll
 
-private:
+  private:
     static std::unordered_map<std::string, InputAction> mapActionToInputAction;
 
     static KeyLayout keyLayout;
@@ -188,5 +301,5 @@ private:
     static std::unordered_map<KeyButton, GLint> keyMap;
     static std::unordered_map<MouseButton, GLint> mouseButtonMap;
 
-    static std::unordered_map<GLFWwindow*, std::unique_ptr<InputManager>> inputManagers;
+    static std::unordered_map<GLFWwindow *, std::unique_ptr<InputManager>> inputManagers;
 };

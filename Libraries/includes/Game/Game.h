@@ -9,11 +9,9 @@
 #include "TextRenderer.h"
 #include "InputManager.h"
 
-
-
 class Game
 {
-public:
+  public:
     Game();
     ~Game();
 
@@ -22,13 +20,12 @@ public:
 
     void run();
 
-private:
+  private:
     void processInput();
     void update();
     void render();
 
-
-private:
+  private:
     Window window;
     Camera camera;
     std::unique_ptr<World> world = nullptr;

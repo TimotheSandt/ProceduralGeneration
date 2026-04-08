@@ -1,4 +1,5 @@
-#pragma once
+#ifndef PROCEDURAL_GENERATION_GRAPHICS_CAMERA_H
+#define PROCEDURAL_GENERATION_GRAPHICS_CAMERA_H
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -13,15 +14,15 @@
 
 class Camera
 {
-public:
+  public:
     Camera() = default;
     Camera(int *width, int *height, glm::vec3 position);
 
-    Camera(const Camera&) noexcept;
-    Camera& operator=(const Camera&) noexcept;
+    Camera(const Camera &) noexcept;
+    Camera &operator=(const Camera &) noexcept;
 
-    Camera(Camera&&) noexcept;
-    Camera& operator=(Camera&&) noexcept;
+    Camera(Camera &&) noexcept;
+    Camera &operator=(Camera &&) noexcept;
 
     ~Camera();
     void Destroy();
@@ -30,11 +31,11 @@ public:
     void InitializeInputs();
     void UpdateMatrix();
     void UpdateMatrix(float FOVdeg, float nearPlane, float farPlane);
-    void Inputs(GLFWwindow* window, float ElapseTime);
+    void Inputs(GLFWwindow *window, float ElapseTime);
 
     void BindUBO() const;
 
-public:
+  public:
     void SetPosition(glm::vec3 position) { this->position = position; }
     void SetOrientation(glm::vec3 orientation) { this->Orientation = orientation; }
     void SetUp(glm::vec3 up) { this->up = up; }
@@ -53,12 +54,11 @@ public:
     float GetNearPlane() const { return this->nearPlane; }
     float GetFarPlane() const { return this->farPlane; }
 
+  private:
+    void Copy(const Camera &other);
+    void Swap(Camera &other) noexcept;
 
-private:
-    void Copy(const Camera& other);
-    void Swap(Camera& other) noexcept;
-
-private:
+  private:
     glm::vec3 position;
     glm::vec3 Orientation = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -78,10 +78,11 @@ private:
     UBO bUBO;
     bool isWireframe = false;
 
-private:
+  private:
     void ToggleWireframe();
 
     void InitializeUBO();
     void UpdateUBO();
-
 };
+
+#endif

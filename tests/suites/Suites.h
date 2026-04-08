@@ -2,7 +2,8 @@
 
 #include "framework/TestFramework.h"
 
-namespace tests {
+namespace tests
+{
 
 TestSuite CreateUtilitiesSuite();
 TestSuite CreateShaderSuite();
@@ -11,4 +12,4 @@ TestSuite CreateProceduralSuite();
 TestSuite CreateProfilerSuite();
 TestSuite CreateUIFoundationSuite();
 
-}  // namespace tests
+} // namespace tests

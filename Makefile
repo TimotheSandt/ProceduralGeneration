@@ -9,6 +9,10 @@ CXX ?= g++
 CC ?= gcc
 RC ?= windres
 VCPKG ?= vcpkg
+CLANG_FORMAT ?= clang-format
+CLANG_TIDY ?= clang-tidy
+PLATFORM_DEFINES :=
+POWERSHELL ?= powershell -NoProfile -Command
 
 # Directories
 INCLUDES_BASE := Libraries/includes
@@ -49,6 +53,7 @@ ifeq ($(DETECTED_OS),Windows)
 	EXE_EXT := .exe
 	VCPKG_TRIPLET ?= x64-mingw-dynamic
 	GLFW_LINK_NAME := glfw3dll
+	PLATFORM_DEFINES += -DNOMINMAX -DWIN32_LEAN_AND_MEAN
 	LDFLAGS = -L$(VCPKG_INSTALLED_DIR)/lib -l$(GLFW_LINK_NAME) -lglad -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lpsapi -lwinmm -lgdi32 -lstdc++exp
 	COPY_LIBS_TARGETS := copy_libs
 	CREATE_INSTALLER := create_windows_installer
@@ -130,7 +135,8 @@ else ifneq ($(or $(findstring release,$(MAKECMDGOALS)),$(findstring installer,$(
 	CXXFLAGS += -flto=jobserver
 endif
 
-CXXFLAGS += $(CFLAGS) -DGLM_ENABLE_EXPERIMENTAL
+CXXFLAGS += $(CFLAGS) $(PLATFORM_DEFINES) -DGLM_ENABLE_EXPERIMENTAL
+LINT_CXXFLAGS := $(filter-out -flto=jobserver,$(CXXFLAGS))
 
 BIN_DIR_TYPE := $(BIN_DIR)/$(BUILD_TYPE)
 OBJ_DIR_TYPE := $(OBJ_DIR)/$(BUILD_TYPE)
@@ -139,6 +145,7 @@ TEST_BIN_DIR := $(BIN_DIR)/tests
 TEST_OBJ_DIR := $(OBJ_DIR)/tests
 TEST_TARGET := $(TEST_BIN_DIR)/tests$(EXE_EXT)
 TEST_CPP_SOURCES = $(shell $(FIND) $(TEST_DIR) -type f -name "*.cpp" 2>/dev/null)
+STYLE_SOURCES = $(shell $(FIND) Libraries src tests -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.c" -o -name "*.cpp" \) 2>/dev/null)
 
 # Source files
 LIBRARIES_CPP_SOURCES := $(shell $(FIND) $(LIBRARIES_SRC_DIR) -type f -name "*.cpp" 2>/dev/null)
@@ -343,12 +350,34 @@ re-debug: fclean debug
 re-dev: fclean dev
 re-release: fclean release
 
-# Check syntax
-check:
+# Check syntax and style
+check: check-syntax check-format lint
+
+check-syntax:
 	@echo "Checking C++ syntax..."
 	@if [ -n "$(strip $(ALL_CPP_SOURCES))" ]; then $(CXX) $(CXXFLAGS) $(INCLUDES) -fsyntax-only $(ALL_CPP_SOURCES); fi
 	@echo "Checking C syntax..."
 	@if [ -n "$(strip $(ALL_C_SOURCES))" ]; then $(CC) $(CFLAGS) $(INCLUDES) -fsyntax-only $(ALL_C_SOURCES); fi
+
+check-format:
+	@echo "Checking code formatting..."
+	@command -v $(CLANG_FORMAT) >/dev/null 2>&1 || { echo "$(CLANG_FORMAT) not found"; exit 1; }
+	@if [ -n "$(strip $(STYLE_SOURCES))" ]; then $(CLANG_FORMAT) --dry-run --Werror $(STYLE_SOURCES); fi
+
+format:
+	@echo "Formatting code..."
+	@command -v $(CLANG_FORMAT) >/dev/null 2>&1 || { echo "$(CLANG_FORMAT) not found"; exit 1; }
+ifeq ($(DETECTED_OS),Windows)
+	@$(POWERSHELL) "& '.\\tools\\format_sources.ps1' '$(CLANG_FORMAT)'"
+else
+	@if [ -n "$(strip $(STYLE_SOURCES))" ]; then $(CLANG_FORMAT) -i $(STYLE_SOURCES); fi
+endif
+
+lint:
+	@echo "Running clang-tidy..."
+	@command -v $(CLANG_TIDY) >/dev/null 2>&1 || { echo "$(CLANG_TIDY) not found"; exit 1; }
+	@if [ -n "$(strip $(ALL_CPP_SOURCES))" ]; then $(CLANG_TIDY) $(ALL_CPP_SOURCES) -- $(LINT_CXXFLAGS) $(INCLUDES); fi
+	@if [ -n "$(strip $(TEST_CPP_SOURCES))" ]; then $(CLANG_TIDY) $(TEST_CPP_SOURCES) -- $(LINT_CXXFLAGS) $(TEST_INCLUDES); fi
 
 # Info
 debug-info info-debug: info
@@ -386,7 +415,7 @@ endif
 .PHONY: run run-release run-dev run-debug
 .PHONY: clean fclean fclean-build re re-debug re-dev re-release
 .PHONY: info info-debug info-dev info-release debug-info dev-info release-info
-.PHONY: check copy_libs copy_res copy_test_libs all_copy
+.PHONY: check check-syntax check-format format lint copy_libs copy_res copy_test_libs all_copy
 .PHONY: create_windows_installer create_linux_installer installer
 .PHONY: install_deps remove_deps reset_deps
 

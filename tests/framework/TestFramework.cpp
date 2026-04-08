@@ -7,11 +7,14 @@
 #include <iostream>
 #include <sstream>
 
-namespace tests {
+namespace tests
+{
 
-namespace {
+namespace
+{
 
-struct SuiteProgress {
+struct SuiteProgress
+{
     std::string name;
     int total = 0;
     int completed = 0;
@@ -19,8 +22,10 @@ struct SuiteProgress {
     int failed = 0;
 };
 
-std::string ProgressBar(int completed, int total, int width = 28) {
-    if (total <= 0) {
+std::string ProgressBar(int completed, int total, int width = 28)
+{
+    if (total <= 0)
+    {
         return "[" + std::string(width, '-') + "]";
     }
 
@@ -28,29 +33,25 @@ std::string ProgressBar(int completed, int total, int width = 28) {
     return "[" + std::string(filled, '#') + std::string(width - filled, '-') + "]";
 }
 
-std::string BuildSummaryLine(const std::string& name, int completed, int total, int passed, int failed) {
+std::string BuildSummaryLine(const std::string &name, int completed, int total, int passed, int failed)
+{
     std::ostringstream output;
-    output << std::left << std::setw(14) << name << " "
-           << ProgressBar(completed, total)
-           << " " << std::setw(3) << completed << "/" << std::setw(3) << total
-           << " | todo " << std::setw(3) << (total - completed)
-           << " | ok " << std::setw(3) << passed
-           << " | fail " << failed;
+    output << std::left << std::setw(14) << name << " " << ProgressBar(completed, total) << " " << std::setw(3) << completed << "/"
+           << std::setw(3) << total << " | todo " << std::setw(3) << (total - completed) << " | ok " << std::setw(3) << passed << " | fail "
+           << failed;
     return output.str();
 }
 
-void RenderDashboard(
-    const std::vector<SuiteProgress>& suiteProgress,
-    const std::vector<FailureInfo>& failures,
-    const std::string& currentSuite,
-    const std::string& currentTest
-) {
+void RenderDashboard(const std::vector<SuiteProgress> &suiteProgress, const std::vector<FailureInfo> &failures,
+                     const std::string &currentSuite, const std::string &currentTest)
+{
     int totalTests = 0;
     int totalCompleted = 0;
     int totalPassed = 0;
     int totalFailed = 0;
 
-    for (const SuiteProgress& suite : suiteProgress) {
+    for (const SuiteProgress &suite : suiteProgress)
+    {
         totalTests += suite.total;
         totalCompleted += suite.completed;
         totalPassed += suite.passed;
@@ -64,56 +65,67 @@ void RenderDashboard(
     output << "Current test : " << (currentTest.empty() ? "-" : currentTest) << "\n\n";
     output << BuildSummaryLine("Total", totalCompleted, totalTests, totalPassed, totalFailed) << "\n\n";
 
-    for (const SuiteProgress& suite : suiteProgress) {
+    for (const SuiteProgress &suite : suiteProgress)
+    {
         output << BuildSummaryLine(suite.name, suite.completed, suite.total, suite.passed, suite.failed) << "\n";
     }
 
     output << "\nRecent failures:\n";
-    if (failures.empty()) {
+    if (failures.empty())
+    {
         output << "  none\n";
-    } else {
+    }
+    else
+    {
         const size_t begin = failures.size() > 6 ? failures.size() - 6 : 0;
-        for (size_t i = begin; i < failures.size(); ++i) {
-            output << "  - " << failures[i].suiteName << " / " << failures[i].testName
-                   << ": " << failures[i].message << "\n";
+        for (size_t i = begin; i < failures.size(); ++i)
+        {
+            output << "  - " << failures[i].suiteName << " / " << failures[i].testName << ": " << failures[i].message << "\n";
         }
     }
 
     std::cout << output.str() << std::flush;
 }
 
-std::string ExceptionMessage(const std::exception& exception) {
+std::string ExceptionMessage(const std::exception &exception)
+{
     return exception.what() == nullptr ? "unknown std::exception" : exception.what();
 }
 
-}  // namespace
+} // namespace
 
-AssertionFailure::AssertionFailure(const std::string& message)
-    : std::runtime_error(message) {}
+AssertionFailure::AssertionFailure(const std::string &message) : std::runtime_error(message) {}
 
-void AddTest(TestSuite& suite, const std::string& name, std::function<void()> run) {
+void AddTest(TestSuite &suite, const std::string &name, std::function<void()> run)
+{
     suite.tests.push_back(TestCase{name, std::move(run)});
 }
 
-void Assert(bool condition, const std::string& message) {
-    if (!condition) {
+void Assert(bool condition, const std::string &message)
+{
+    if (!condition)
+    {
         throw AssertionFailure(message);
     }
 }
 
-void AssertNear(double actual, double expected, double epsilon, const std::string& message) {
-    if (std::abs(actual - expected) > epsilon) {
+void AssertNear(double actual, double expected, double epsilon, const std::string &message)
+{
+    if (std::abs(actual - expected) > epsilon)
+    {
         std::ostringstream output;
         output << message << " (expected " << expected << ", got " << actual << ")";
         throw AssertionFailure(output.str());
     }
 }
 
-int RunSuites(const std::vector<TestSuite>& suites) {
+int RunSuites(const std::vector<TestSuite> &suites)
+{
     std::vector<SuiteProgress> suiteProgress;
     suiteProgress.reserve(suites.size());
 
-    for (const TestSuite& suite : suites) {
+    for (const TestSuite &suite : suites)
+    {
         suiteProgress.push_back(SuiteProgress{suite.name, static_cast<int>(suite.tests.size())});
     }
 
@@ -123,25 +135,34 @@ int RunSuites(const std::vector<TestSuite>& suites) {
 
     RenderDashboard(suiteProgress, failures, currentSuite, currentTest);
 
-    for (size_t suiteIndex = 0; suiteIndex < suites.size(); ++suiteIndex) {
-        const TestSuite& suite = suites[suiteIndex];
-        SuiteProgress& progress = suiteProgress[suiteIndex];
+    for (size_t suiteIndex = 0; suiteIndex < suites.size(); ++suiteIndex)
+    {
+        const TestSuite &suite = suites[suiteIndex];
+        SuiteProgress &progress = suiteProgress[suiteIndex];
 
-        for (const TestCase& test : suite.tests) {
+        for (const TestCase &test : suite.tests)
+        {
             currentSuite = suite.name;
             currentTest = test.name;
             RenderDashboard(suiteProgress, failures, currentSuite, currentTest);
 
-            try {
+            try
+            {
                 test.run();
                 ++progress.passed;
-            } catch (const AssertionFailure& failure) {
+            }
+            catch (const AssertionFailure &failure)
+            {
                 ++progress.failed;
                 failures.push_back(FailureInfo{suite.name, test.name, failure.what()});
-            } catch (const std::exception& exception) {
+            }
+            catch (const std::exception &exception)
+            {
                 ++progress.failed;
                 failures.push_back(FailureInfo{suite.name, test.name, ExceptionMessage(exception)});
-            } catch (...) {
+            }
+            catch (...)
+            {
                 ++progress.failed;
                 failures.push_back(FailureInfo{suite.name, test.name, "unknown exception"});
             }
@@ -158,4 +179,4 @@ int RunSuites(const std::vector<TestSuite>& suites) {
     return failures.empty() ? 0 : 1;
 }
 
-}  // namespace tests
+} // namespace tests

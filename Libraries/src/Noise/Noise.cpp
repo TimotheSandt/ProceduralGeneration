@@ -2,10 +2,8 @@
 
 #include <cmath>
 
-
-
-
-uint64_t hash(uint64_t x) {
+uint64_t hash(uint64_t x)
+{
     x ^= x >> 30;
     x *= 0xbf58476d1ce4e5b9ULL;
     x ^= x >> 27;
@@ -14,40 +12,25 @@ uint64_t hash(uint64_t x) {
     return x;
 }
 
-Noise::Noise() {
-    this->SetSeed();
-}
+Noise::Noise() { this->SetSeed(); }
 
-Noise::Noise(uint64_t seed) {
-    this->SetSeed(seed);
-}
+Noise::Noise(uint64_t seed) { this->SetSeed(seed); }
 
-void Noise::SetSeed() {
-    this->seed = static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-}
+void Noise::SetSeed() { this->seed = static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count()); }
 
-void Noise::SetSeed(uint64_t seed) {
-    this->seed = seed;
-}
+void Noise::SetSeed(uint64_t seed) { this->seed = seed; }
 
-uint64_t Noise::GetSeed() {
-    return this->seed;
-}
+uint64_t Noise::GetSeed() { return this->seed; }
 
-float Noise::WhiteNoise(float x) {
-    return WhiteNoise(x, 0.0f, 0.0f, 0.0f);
-}
+float Noise::WhiteNoise(float x) { return WhiteNoise(x, 0.0f, 0.0f, 0.0f); }
 
-float Noise::WhiteNoise(float x, float y) {
-    return WhiteNoise(x, y, 0.0f, 0.0f);
-}
+float Noise::WhiteNoise(float x, float y) { return WhiteNoise(x, y, 0.0f, 0.0f); }
 
-float Noise::WhiteNoise(float x, float y, float z) {
-    return WhiteNoise(x, y, z, 0.0f);
-}
+float Noise::WhiteNoise(float x, float y, float z) { return WhiteNoise(x, y, z, 0.0f); }
 
-float Noise::WhiteNoise(float x, float y, float z, float w) {
-    int32_t ix = (int32_t)(x * 113.0f);  // Scale factor for precision
+float Noise::WhiteNoise(float x, float y, float z, float w)
+{
+    int32_t ix = (int32_t)(x * 113.0f); // Scale factor for precision
     int32_t iy = (int32_t)(y * 113.0f);
     int32_t iz = (int32_t)(z * 113.0f);
     int32_t iw = (int32_t)(w * 113.0f);
@@ -60,9 +43,10 @@ float Noise::WhiteNoise(float x, float y, float z, float w) {
     return PCGRandom::RandomFloat(h, -1.0f, 1.0f);
 }
 
-
-float Noise::SmoothNoise(float x, float scale) {
-    if (scale == 0.0f) return 0.0f;
+float Noise::SmoothNoise(float x, float scale)
+{
+    if (scale == 0.0f)
+        return 0.0f;
 
     float tx = x * std::cos(0.5f);
 
@@ -79,8 +63,10 @@ float Noise::SmoothNoise(float x, float scale) {
     return lerp(n0, n1, fx);
 }
 
-float Noise::SmoothNoise(float x, float y, float scale) {
-    if (scale == 0.0f) return 0.0f;
+float Noise::SmoothNoise(float x, float y, float scale)
+{
+    if (scale == 0.0f)
+        return 0.0f;
     rotate(x, y, 0.5f);
 
     float tx = x * std::cos(0.5f) - y * std::sin(0.5f);
@@ -112,10 +98,12 @@ float Noise::SmoothNoise(float x, float y, float scale) {
     return lerp(l1, l2, fy);
 }
 
-float Noise::SmoothNoise(float x, float y, float z, float scale) {
-    if (scale == 0.0f) return 0.0f;
+float Noise::SmoothNoise(float x, float y, float z, float scale)
+{
+    if (scale == 0.0f)
+        return 0.0f;
     rotate(x, y, z, 0.5f);
-    
+
     float x0 = x * scale;
     float y0 = y * scale;
     float z0 = z * scale;
@@ -152,14 +140,16 @@ float Noise::SmoothNoise(float x, float y, float z, float scale) {
 
     float i1 = lerp(l1, l2, fy);
     float i2 = lerp(l3, l4, fy);
-    
+
     return lerp(i1, i2, fz);
 }
 
-float Noise::SmoothNoise(float x, float y, float z, float w, float scale) {
-    if (scale == 0.0f) return 0.0f;
+float Noise::SmoothNoise(float x, float y, float z, float w, float scale)
+{
+    if (scale == 0.0f)
+        return 0.0f;
     rotate(x, y, z, w, 0.5f);
-    
+
     float x0 = x * scale;
     float y0 = y * scale;
     float z0 = z * scale;
@@ -222,9 +212,11 @@ float Noise::SmoothNoise(float x, float y, float z, float w, float scale) {
     return lerp(j1, j2, fw);
 }
 
-float Noise::FractalNoise(float x, float scale, int octaves, float persistence, float lacunarity) {
+float Noise::FractalNoise(float x, float scale, int octaves, float persistence, float lacunarity)
+{
     float total = 0.0f, frequency = scale, amplitude = 1.0f, maxAmp = 0.0f;
-    for (int i = 0; i < octaves; i++) {
+    for (int i = 0; i < octaves; i++)
+    {
         total += SmoothNoise(x + i * 67, frequency) * amplitude;
         maxAmp += amplitude;
         amplitude *= persistence;
@@ -233,9 +225,11 @@ float Noise::FractalNoise(float x, float scale, int octaves, float persistence, 
     return total / maxAmp;
 }
 
-float Noise::FractalNoise(float x, float y, float scale, int octaves, float persistence, float lacunarity) {
+float Noise::FractalNoise(float x, float y, float scale, int octaves, float persistence, float lacunarity)
+{
     float total = 0.0f, frequency = scale, amplitude = 1.0f, maxAmp = 0.0f;
-    for (int i = 0; i < octaves; i++) {
+    for (int i = 0; i < octaves; i++)
+    {
         total += SmoothNoise(x + i * 67, y - i * 79, frequency) * amplitude;
         maxAmp += amplitude;
         amplitude *= persistence;
@@ -244,9 +238,11 @@ float Noise::FractalNoise(float x, float y, float scale, int octaves, float pers
     return total / maxAmp;
 }
 
-float Noise::FractalNoise(float x, float y, float z, float scale, int octaves, float persistence, float lacunarity) {
+float Noise::FractalNoise(float x, float y, float z, float scale, int octaves, float persistence, float lacunarity)
+{
     float total = 0.0f, frequency = scale, amplitude = 1.0f, maxAmp = 0.0f;
-    for (int i = 0; i < octaves; i++) {
+    for (int i = 0; i < octaves; i++)
+    {
         total += SmoothNoise(x + i * 67, y - i * 79, z + i * 97, frequency) * amplitude;
         maxAmp += amplitude;
         amplitude *= persistence;
@@ -255,9 +251,11 @@ float Noise::FractalNoise(float x, float y, float z, float scale, int octaves, f
     return total / maxAmp;
 }
 
-float Noise::FractalNoise(float x, float y, float z, float w, float scale, int octaves, float persistence, float lacunarity) {
+float Noise::FractalNoise(float x, float y, float z, float w, float scale, int octaves, float persistence, float lacunarity)
+{
     float total = 0.0f, frequency = scale, amplitude = 1.0f, maxAmp = 0.0f;
-    for (int i = 0; i < octaves; i++) {
+    for (int i = 0; i < octaves; i++)
+    {
         total += SmoothNoise(x + i * 67, y - i * 79, z + i * 97, w - i * 137, frequency) * amplitude;
         maxAmp += amplitude;
         amplitude *= persistence;

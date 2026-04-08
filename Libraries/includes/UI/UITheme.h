@@ -5,9 +5,11 @@
 #include <string>
 #include <memory>
 
-namespace UI {
+namespace UI
+{
 
-enum class IdentifierKind {
+enum class IdentifierKind
+{
     TRANSPARENT,
     BACKGROUND,
     PRIMARY,
@@ -21,12 +23,14 @@ enum class IdentifierKind {
     SUCCESS
 };
 
-enum class PresetTheme {
+enum class PresetTheme
+{
     LIGHT,
     DARK,
 };
 
-struct UIColors {
+struct UIColors
+{
     glm::vec4 transparent = {0.0f, 0.0f, 0.0f, 0.0f};
     glm::vec4 background = {0.15f, 0.15f, 0.2f, 1.0f};
     glm::vec4 primary = {0.3f, 0.6f, 1.0f, 1.0f};
@@ -40,8 +44,9 @@ struct UIColors {
     glm::vec4 success = {0.3f, 1.0f, 0.5f, 1.0f};
 };
 
-class UITheme {
-public:
+class UITheme
+{
+  public:
     UIColors GetColors() const { return colors; }
     glm::vec4 GetColor(IdentifierKind kind) const;
     std::string GetName() const { return name; }
@@ -49,11 +54,11 @@ public:
     float GetPadding() const { return padding; }
     float GetSpacing() const { return spacing; }
 
-public:
+  public:
     static std::weak_ptr<UITheme> GetTheme(std::string themeName);
     static void CreateTheme(std::string name, UIColors colors, float cornerRadius, float padding, float spacing);
 
-private:
+  private:
     std::string name;
     UIColors colors;
     float cornerRadius;
@@ -65,4 +70,4 @@ private:
     static std::unordered_map<std::string, std::shared_ptr<UITheme>> themes;
 };
 
-}
+} // namespace UI

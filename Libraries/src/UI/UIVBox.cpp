@@ -1,13 +1,12 @@
 #include "UIVBox.h"
 
-
-namespace UI {
-
-
+namespace UI
+{
 
 // ============ UIVBoxBase Implementation ============
 
-void UIVBoxBase::RecalculateChildBounds() {
+void UIVBoxBase::RecalculateChildBounds()
+{
     float padding = GetPadding();
     float spacing = GetSpacing();
 
@@ -16,7 +15,8 @@ void UIVBoxBase::RecalculateChildBounds() {
     int visibleChildrenCount = 0;
 
     // First pass: calculate dimensions
-    for (auto& child : children) {
+    for (auto &child : children)
+    {
         glm::vec2 childSize = child->GetPixelSize();
         totalChildrenWidth = std::max(totalChildrenWidth, childSize.x);
         totalChildrenHeight += childSize.y;
@@ -24,7 +24,8 @@ void UIVBoxBase::RecalculateChildBounds() {
     }
 
     // Add spacing to total height calculation
-    if (visibleChildrenCount > 1) {
+    if (visibleChildrenCount > 1)
+    {
         totalChildrenHeight += (visibleChildrenCount - 1) * spacing;
     }
 
@@ -37,16 +38,15 @@ void UIVBoxBase::RecalculateChildBounds() {
     glm::vec2 actualPadding = {padding, padding};
     float actualSpacing = std::max(spacing, 0.0f);
 
-    if (this->overflowMode.Get() == OverflowMode::WRAP &&
-        (contentSize.x > localBounds.scale.x || contentSize.y > localBounds.scale.y))
+    if (this->overflowMode.Get() == OverflowMode::WRAP && (contentSize.x > localBounds.scale.x || contentSize.y > localBounds.scale.y))
     {
         // Ensure non-zero contentSize to avoid division by zero
-        if (contentSize.x > 0 && contentSize.y > 0) {
-            reducer = {
-                std::min(localBounds.scale.x / contentSize.x, 1.0f),
-                std::min(localBounds.scale.y / contentSize.y, 1.0f)
-            };
-        } else {
+        if (contentSize.x > 0 && contentSize.y > 0)
+        {
+            reducer = {std::min(localBounds.scale.x / contentSize.x, 1.0f), std::min(localBounds.scale.y / contentSize.y, 1.0f)};
+        }
+        else
+        {
             reducer = {1.0f, 1.0f};
         }
 
@@ -55,18 +55,17 @@ void UIVBoxBase::RecalculateChildBounds() {
 
         float totalReduceWidth = 0;
         float totalReduceHeight = 0;
-        for (auto& child : children) {
+        for (auto &child : children)
+        {
             float ratio = std::min(reducer.x, reducer.y);
-            glm::vec2 redducerChild = {
-                child->DoesAllowDeform() ? reducer.x : ratio,
-                child->DoesAllowDeform() ? reducer.y : ratio
-            };
+            glm::vec2 redducerChild = {child->DoesAllowDeform() ? reducer.x : ratio, child->DoesAllowDeform() ? reducer.y : ratio};
             child->SetPixelSize(child->GetPixelSize() * redducerChild);
             totalReduceWidth = std::max(totalReduceWidth, child->GetPixelSize().x);
             totalReduceHeight += child->GetPixelSize().y;
         }
 
-        if (visibleChildrenCount > 1) {
+        if (visibleChildrenCount > 1)
+        {
             totalReduceHeight += (visibleChildrenCount - 1) * actualSpacing;
         }
 
@@ -82,10 +81,12 @@ void UIVBoxBase::RecalculateChildBounds() {
     float currentSpacing = actualSpacing;
 
     // Only apply justification if we have extra space and not START alignment
-    if (justifyContent != JustifyContent::START && containerHeight > totalChildrenHeight + 2 * actualPadding.y) {
+    if (justifyContent != JustifyContent::START && containerHeight > totalChildrenHeight + 2 * actualPadding.y)
+    {
         float freeSpace = containerHeight - (2 * actualPadding.y + totalChildrenHeight);
 
-        switch (justifyContent) {
+        switch (justifyContent)
+        {
             case JustifyContent::CENTER:
                 yOffset = actualPadding.y + freeSpace / 2.0f;
                 break;
@@ -94,37 +95,46 @@ void UIVBoxBase::RecalculateChildBounds() {
                 break;
             case JustifyContent::SPACE_BETWEEN:
                 yOffset = actualPadding.y;
-                if (visibleChildrenCount > 1) {
+                if (visibleChildrenCount > 1)
+                {
                     currentSpacing = actualSpacing + freeSpace / (visibleChildrenCount - 1);
                 }
                 break;
             case JustifyContent::SPACE_AROUND:
-                if (visibleChildrenCount > 0) {
+                if (visibleChildrenCount > 0)
+                {
                     float extra = freeSpace / visibleChildrenCount;
                     currentSpacing = actualSpacing + extra;
                     yOffset = actualPadding.y + extra / 2.0f;
-                    if (visibleChildrenCount > 1) currentSpacing = freeSpace / (visibleChildrenCount - 1);
+                    if (visibleChildrenCount > 1)
+                        currentSpacing = freeSpace / (visibleChildrenCount - 1);
                 }
                 break;
-             default: break;
+            default:
+                break;
         }
 
-        if (justifyContent == JustifyContent::SPACE_BETWEEN && visibleChildrenCount > 1) {
-             currentSpacing = actualSpacing + freeSpace / (visibleChildrenCount - 1);
-             yOffset = actualPadding.y;
-        } else if (justifyContent == JustifyContent::SPACE_AROUND && visibleChildrenCount > 0) {
-             float extra = freeSpace / visibleChildrenCount;
-             currentSpacing = actualSpacing + extra;
-             yOffset = actualPadding.y + extra / 2.0f;
+        if (justifyContent == JustifyContent::SPACE_BETWEEN && visibleChildrenCount > 1)
+        {
+            currentSpacing = actualSpacing + freeSpace / (visibleChildrenCount - 1);
+            yOffset = actualPadding.y;
+        }
+        else if (justifyContent == JustifyContent::SPACE_AROUND && visibleChildrenCount > 0)
+        {
+            float extra = freeSpace / visibleChildrenCount;
+            currentSpacing = actualSpacing + extra;
+            yOffset = actualPadding.y + extra / 2.0f;
         }
     }
 
     // Second pass: set positions with horizontal alignment
-    for (auto& child : children) {
+    for (auto &child : children)
+    {
         glm::vec2 childSize = child->GetPixelSize();
 
         float xPos = actualPadding.x;
-        switch (childAlignment) {
+        switch (childAlignment)
+        {
             case HAlign::LEFT:
                 xPos = actualPadding.x;
                 break;
@@ -141,9 +151,8 @@ void UIVBoxBase::RecalculateChildBounds() {
     }
 }
 
-
-
-glm::vec2 UIVBoxBase::GetAvailableSize() const {
+glm::vec2 UIVBoxBase::GetAvailableSize() const
+{
     float p = GetPadding();
     float s = GetSpacing();
     int nbChildren = static_cast<int>(children.size());
@@ -154,8 +163,10 @@ glm::vec2 UIVBoxBase::GetAvailableSize() const {
 
     // Use the definitive scale - if zero, fall back to computing from raw bounds
     glm::vec2 size = localBounds.scale;
-    if (size.x <= 0.0f || size.y <= 0.0f) {
-        if (localBounds.width.type == ValueType::PIXEL && localBounds.height.type == ValueType::PIXEL) {
+    if (size.x <= 0.0f || size.y <= 0.0f)
+    {
+        if (localBounds.width.type == ValueType::PIXEL && localBounds.height.type == ValueType::PIXEL)
+        {
             size = glm::vec2(static_cast<float>(localBounds.width.value), static_cast<float>(localBounds.height.value));
         }
     }
@@ -173,15 +184,16 @@ glm::vec2 UIVBoxBase::GetAvailableSize() const {
     return available;
 }
 
-
-void UIVBoxBase::DoSetChildAlignment(HAlign align) {
+void UIVBoxBase::DoSetChildAlignment(HAlign align)
+{
     childAlignment = align;
     MarkChildLayoutDirty();
 }
 
-void UIVBoxBase::DoSetJustifyContent(JustifyContent j) {
+void UIVBoxBase::DoSetJustifyContent(JustifyContent j)
+{
     justifyContent = j;
     MarkChildLayoutDirty();
 }
 
-}
+} // namespace UI

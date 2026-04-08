@@ -13,74 +13,82 @@ std::unordered_map<KeyButton, GLint> InputManager::keyMap;
 std::unordered_map<MouseButton, GLint> InputManager::mouseButtonMap;
 std::unordered_map<std::string, InputAction> InputManager::mapActionToInputAction;
 
-std::unordered_map<GLFWwindow*, std::unique_ptr<InputManager>> InputManager::inputManagers;
+std::unordered_map<GLFWwindow *, std::unique_ptr<InputManager>> InputManager::inputManagers;
 
-
-InputManager::InputManager(GLFWwindow* window) : window(window) {
-    Init();
-}
+InputManager::InputManager(GLFWwindow *window) : window(window) { Init(); }
 
 InputManager::~InputManager() = default;
 
-InputManager& InputManager::GetInstance(GLFWwindow* window) {
-    if (keyLayout == KeyLayout::UNDEFINED) {
+InputManager &InputManager::GetInstance(GLFWwindow *window)
+{
+    if (keyLayout == KeyLayout::UNDEFINED)
+    {
         AutoDetectKeyLayout();
     }
-    if (inputManagers.find(window) == inputManagers.end()) {
+    if (inputManagers.find(window) == inputManagers.end())
+    {
         inputManagers[window] = std::unique_ptr<InputManager>(new InputManager(window));
     }
     return *inputManagers[window];
 }
 
-void InputManager::RemoveInstance(GLFWwindow* window) {
-    if (window == nullptr) {
+void InputManager::RemoveInstance(GLFWwindow *window)
+{
+    if (window == nullptr)
+    {
         return;
     }
     inputManagers.erase(window);
 }
 
-void InputManager::Init() {
+void InputManager::Init()
+{
     // Keyboard
-    for (auto it = keyMap.begin(); it != keyMap.end(); ++it) {
+    for (auto it = keyMap.begin(); it != keyMap.end(); ++it)
+    {
         keyStateMap[it->first] = InputState::Release;
     }
     // Mouse
-    for (auto it = mouseButtonMap.begin(); it != mouseButtonMap.end(); ++it) {
+    for (auto it = mouseButtonMap.begin(); it != mouseButtonMap.end(); ++it)
+    {
         mouseButtonStateMap[it->first] = InputState::Release;
     }
 
     // Mouse position
-    glfwGetCursorPos(window, reinterpret_cast<double*>(&this->mouseMoveData.position.x), reinterpret_cast<double*>(&this->mouseMoveData.position.y));
+    glfwGetCursorPos(window, reinterpret_cast<double *>(&this->mouseMoveData.position.x),
+                     reinterpret_cast<double *>(&this->mouseMoveData.position.y));
 
     // Mouse delta
     this->mouseMoveData.delta = glm::vec2(0.0f, 0.0f);
 }
 
 // Update method implementation
-void InputManager::Update() {
+void InputManager::Update()
+{
     // Keyboard
-    for (auto it = keyStateMap.begin(); it != keyStateMap.end(); ++it) {
+    for (auto it = keyStateMap.begin(); it != keyStateMap.end(); ++it)
+    {
         bool isPressed = glfwGetKey(window, keyMap[it->first]) == GLFW_PRESS;
-        it->second = isPressed ?
-            ((it->second == InputState::Release || it->second == InputState::PressEnd) ?
-                InputState::PressBegin : InputState::Pressed) :
-            ((it->second == InputState::Pressed || it->second == InputState::PressBegin) ?
-                InputState::PressEnd : InputState::Release);
+        it->second = isPressed ? ((it->second == InputState::Release || it->second == InputState::PressEnd) ? InputState::PressBegin
+                                                                                                            : InputState::Pressed)
+                               : ((it->second == InputState::Pressed || it->second == InputState::PressBegin) ? InputState::PressEnd
+                                                                                                              : InputState::Release);
     }
 
     // Mouse
-    for (auto it = mouseButtonStateMap.begin(); it != mouseButtonStateMap.end(); ++it) {
+    for (auto it = mouseButtonStateMap.begin(); it != mouseButtonStateMap.end(); ++it)
+    {
         bool isPressed = glfwGetMouseButton(window, mouseButtonMap[it->first]) == GLFW_PRESS;
-        it->second = isPressed ?
-            ((it->second == InputState::Release || it->second == InputState::PressEnd) ?
-                InputState::PressBegin : InputState::Pressed) :
-            ((it->second == InputState::Pressed || it->second == InputState::PressBegin) ?
-                InputState::PressEnd : InputState::Release);
+        it->second = isPressed ? ((it->second == InputState::Release || it->second == InputState::PressEnd) ? InputState::PressBegin
+                                                                                                            : InputState::Pressed)
+                               : ((it->second == InputState::Pressed || it->second == InputState::PressBegin) ? InputState::PressEnd
+                                                                                                              : InputState::Release);
     }
 
     // Mouse Position
     glm::vec2 lastMousePos = this->mouseMoveData.position;
-    glfwGetCursorPos(window, reinterpret_cast<double*>(&this->mouseMoveData.position.x), reinterpret_cast<double*>(&this->mouseMoveData.position.y));
+    glfwGetCursorPos(window, reinterpret_cast<double *>(&this->mouseMoveData.position.x),
+                     reinterpret_cast<double *>(&this->mouseMoveData.position.y));
 
     // Mouse delta
     this->mouseMoveData.delta = this->mouseMoveData.position - lastMousePos;
@@ -90,34 +98,37 @@ void InputManager::Update() {
     UpdateInputEvent();
 }
 
-
-
-void InputManager::AutoDetectKeyLayout() {
+void InputManager::AutoDetectKeyLayout()
+{
     KeyLayout layout = KeyLayout::QWERTY;
 #ifdef _WIN32
     HKL keyboardLayout = GetKeyboardLayout(0);
     DWORD layoutID = LOWORD(reinterpret_cast<DWORD_PTR>(keyboardLayout));
 
-    switch (layoutID) { // Use the LOWORD for the switch
-    case 0x0409: // US English (Primary QWERTY)
-        if (reinterpret_cast<UINT_PTR>(keyboardLayout) == 0x00010409) {
-            layout = KeyLayout::DVORAK;
-        } else {
+    switch (layoutID)
+    {                // Use the LOWORD for the switch
+        case 0x0409: // US English (Primary QWERTY)
+            if (reinterpret_cast<UINT_PTR>(keyboardLayout) == 0x00010409)
+            {
+                layout = KeyLayout::DVORAK;
+            }
+            else
+            {
+                layout = KeyLayout::QWERTY;
+            }
+            break;
+
+        case 0x040C: // French (AZERTY)
+            layout = KeyLayout::AZERTY;
+            break;
+
+        case 0x0407: // German (QWERTZ)
+            layout = KeyLayout::QWERTZ;
+            break;
+
+        default:
             layout = KeyLayout::QWERTY;
-        }
-        break;
-
-    case 0x040C: // French (AZERTY)
-        layout = KeyLayout::AZERTY;
-        break;
-
-    case 0x0407: // German (QWERTZ)
-        layout = KeyLayout::QWERTZ;
-        break;
-
-    default:
-        layout = KeyLayout::QWERTY;
-        break;
+            break;
     }
 #else
     layout = KeyLayout::QWERTY;
@@ -127,192 +138,194 @@ void InputManager::AutoDetectKeyLayout() {
 }
 
 #pragma region Key Layout Mapping
-void InputManager::SetKeyLayout(KeyLayout layout) {
+void InputManager::SetKeyLayout(KeyLayout layout)
+{
     InputManager::keyLayout = layout;
     InputManager::keyMap.clear();
     InputManager::mouseButtonMap.clear();
 
-    switch (layout) {
+    switch (layout)
+    {
 #pragma region AZERTY
-    case KeyLayout::AZERTY:
-        // Lettres AZERTY
-        keyMap[KeyButton::A] = GLFW_KEY_Q;
-        keyMap[KeyButton::B] = GLFW_KEY_B;
-        keyMap[KeyButton::C] = GLFW_KEY_C;
-        keyMap[KeyButton::D] = GLFW_KEY_D;
-        keyMap[KeyButton::E] = GLFW_KEY_E;
-        keyMap[KeyButton::F] = GLFW_KEY_F;
-        keyMap[KeyButton::G] = GLFW_KEY_G;
-        keyMap[KeyButton::H] = GLFW_KEY_H;
-        keyMap[KeyButton::I] = GLFW_KEY_I;
-        keyMap[KeyButton::J] = GLFW_KEY_J;
-        keyMap[KeyButton::K] = GLFW_KEY_K;
-        keyMap[KeyButton::L] = GLFW_KEY_L;
-        keyMap[KeyButton::M] = GLFW_KEY_SEMICOLON;
-        keyMap[KeyButton::N] = GLFW_KEY_N;
-        keyMap[KeyButton::O] = GLFW_KEY_O;
-        keyMap[KeyButton::P] = GLFW_KEY_P;
-        keyMap[KeyButton::Q] = GLFW_KEY_A;
-        keyMap[KeyButton::R] = GLFW_KEY_R;
-        keyMap[KeyButton::S] = GLFW_KEY_S;
-        keyMap[KeyButton::T] = GLFW_KEY_T;
-        keyMap[KeyButton::U] = GLFW_KEY_U;
-        keyMap[KeyButton::V] = GLFW_KEY_V;
-        keyMap[KeyButton::W] = GLFW_KEY_Z;
-        keyMap[KeyButton::X] = GLFW_KEY_X;
-        keyMap[KeyButton::Y] = GLFW_KEY_Y;
-        keyMap[KeyButton::Z] = GLFW_KEY_W;
+        case KeyLayout::AZERTY:
+            // Lettres AZERTY
+            keyMap[KeyButton::A] = GLFW_KEY_Q;
+            keyMap[KeyButton::B] = GLFW_KEY_B;
+            keyMap[KeyButton::C] = GLFW_KEY_C;
+            keyMap[KeyButton::D] = GLFW_KEY_D;
+            keyMap[KeyButton::E] = GLFW_KEY_E;
+            keyMap[KeyButton::F] = GLFW_KEY_F;
+            keyMap[KeyButton::G] = GLFW_KEY_G;
+            keyMap[KeyButton::H] = GLFW_KEY_H;
+            keyMap[KeyButton::I] = GLFW_KEY_I;
+            keyMap[KeyButton::J] = GLFW_KEY_J;
+            keyMap[KeyButton::K] = GLFW_KEY_K;
+            keyMap[KeyButton::L] = GLFW_KEY_L;
+            keyMap[KeyButton::M] = GLFW_KEY_SEMICOLON;
+            keyMap[KeyButton::N] = GLFW_KEY_N;
+            keyMap[KeyButton::O] = GLFW_KEY_O;
+            keyMap[KeyButton::P] = GLFW_KEY_P;
+            keyMap[KeyButton::Q] = GLFW_KEY_A;
+            keyMap[KeyButton::R] = GLFW_KEY_R;
+            keyMap[KeyButton::S] = GLFW_KEY_S;
+            keyMap[KeyButton::T] = GLFW_KEY_T;
+            keyMap[KeyButton::U] = GLFW_KEY_U;
+            keyMap[KeyButton::V] = GLFW_KEY_V;
+            keyMap[KeyButton::W] = GLFW_KEY_Z;
+            keyMap[KeyButton::X] = GLFW_KEY_X;
+            keyMap[KeyButton::Y] = GLFW_KEY_Y;
+            keyMap[KeyButton::Z] = GLFW_KEY_W;
 
-        // Symboles AZERTY
-        keyMap[KeyButton::MINUS] = GLFW_KEY_MINUS;
-        keyMap[KeyButton::EQUALS] = GLFW_KEY_EQUAL;
-        keyMap[KeyButton::LEFT_BRACKET] = GLFW_KEY_LEFT_BRACKET;
-        keyMap[KeyButton::RIGHT_BRACKET] = GLFW_KEY_RIGHT_BRACKET;
-        keyMap[KeyButton::SEMICOLON] = GLFW_KEY_COMMA;
-        keyMap[KeyButton::COMMA] = GLFW_KEY_M;
-        keyMap[KeyButton::PERIOD] = GLFW_KEY_PERIOD;
-        keyMap[KeyButton::SLASH] = GLFW_KEY_SLASH;
-        keyMap[KeyButton::BACKSLASH] = GLFW_KEY_BACKSLASH;
-        keyMap[KeyButton::APOSTROPHE] = GLFW_KEY_APOSTROPHE;
-        break;
+            // Symboles AZERTY
+            keyMap[KeyButton::MINUS] = GLFW_KEY_MINUS;
+            keyMap[KeyButton::EQUALS] = GLFW_KEY_EQUAL;
+            keyMap[KeyButton::LEFT_BRACKET] = GLFW_KEY_LEFT_BRACKET;
+            keyMap[KeyButton::RIGHT_BRACKET] = GLFW_KEY_RIGHT_BRACKET;
+            keyMap[KeyButton::SEMICOLON] = GLFW_KEY_COMMA;
+            keyMap[KeyButton::COMMA] = GLFW_KEY_M;
+            keyMap[KeyButton::PERIOD] = GLFW_KEY_PERIOD;
+            keyMap[KeyButton::SLASH] = GLFW_KEY_SLASH;
+            keyMap[KeyButton::BACKSLASH] = GLFW_KEY_BACKSLASH;
+            keyMap[KeyButton::APOSTROPHE] = GLFW_KEY_APOSTROPHE;
+            break;
 #pragma endregion AZERTY
 
 #pragma region QWERTZ
-    case KeyLayout::QWERTZ:
-        // Lettres QWERTZ (seuls Y et Z sont échangés par rapport à QWERTY)
-        keyMap[KeyButton::A] = GLFW_KEY_A;
-        keyMap[KeyButton::B] = GLFW_KEY_B;
-        keyMap[KeyButton::C] = GLFW_KEY_C;
-        keyMap[KeyButton::D] = GLFW_KEY_D;
-        keyMap[KeyButton::E] = GLFW_KEY_E;
-        keyMap[KeyButton::F] = GLFW_KEY_F;
-        keyMap[KeyButton::G] = GLFW_KEY_G;
-        keyMap[KeyButton::H] = GLFW_KEY_H;
-        keyMap[KeyButton::I] = GLFW_KEY_I;
-        keyMap[KeyButton::J] = GLFW_KEY_J;
-        keyMap[KeyButton::K] = GLFW_KEY_K;
-        keyMap[KeyButton::L] = GLFW_KEY_L;
-        keyMap[KeyButton::M] = GLFW_KEY_M;
-        keyMap[KeyButton::N] = GLFW_KEY_N;
-        keyMap[KeyButton::O] = GLFW_KEY_O;
-        keyMap[KeyButton::P] = GLFW_KEY_P;
-        keyMap[KeyButton::Q] = GLFW_KEY_Q;
-        keyMap[KeyButton::R] = GLFW_KEY_R;
-        keyMap[KeyButton::S] = GLFW_KEY_S;
-        keyMap[KeyButton::T] = GLFW_KEY_T;
-        keyMap[KeyButton::U] = GLFW_KEY_U;
-        keyMap[KeyButton::V] = GLFW_KEY_V;
-        keyMap[KeyButton::W] = GLFW_KEY_W;
-        keyMap[KeyButton::X] = GLFW_KEY_X;
-        keyMap[KeyButton::Y] = GLFW_KEY_Z;
-        keyMap[KeyButton::Z] = GLFW_KEY_Y;
+        case KeyLayout::QWERTZ:
+            // Lettres QWERTZ (seuls Y et Z sont échangés par rapport à QWERTY)
+            keyMap[KeyButton::A] = GLFW_KEY_A;
+            keyMap[KeyButton::B] = GLFW_KEY_B;
+            keyMap[KeyButton::C] = GLFW_KEY_C;
+            keyMap[KeyButton::D] = GLFW_KEY_D;
+            keyMap[KeyButton::E] = GLFW_KEY_E;
+            keyMap[KeyButton::F] = GLFW_KEY_F;
+            keyMap[KeyButton::G] = GLFW_KEY_G;
+            keyMap[KeyButton::H] = GLFW_KEY_H;
+            keyMap[KeyButton::I] = GLFW_KEY_I;
+            keyMap[KeyButton::J] = GLFW_KEY_J;
+            keyMap[KeyButton::K] = GLFW_KEY_K;
+            keyMap[KeyButton::L] = GLFW_KEY_L;
+            keyMap[KeyButton::M] = GLFW_KEY_M;
+            keyMap[KeyButton::N] = GLFW_KEY_N;
+            keyMap[KeyButton::O] = GLFW_KEY_O;
+            keyMap[KeyButton::P] = GLFW_KEY_P;
+            keyMap[KeyButton::Q] = GLFW_KEY_Q;
+            keyMap[KeyButton::R] = GLFW_KEY_R;
+            keyMap[KeyButton::S] = GLFW_KEY_S;
+            keyMap[KeyButton::T] = GLFW_KEY_T;
+            keyMap[KeyButton::U] = GLFW_KEY_U;
+            keyMap[KeyButton::V] = GLFW_KEY_V;
+            keyMap[KeyButton::W] = GLFW_KEY_W;
+            keyMap[KeyButton::X] = GLFW_KEY_X;
+            keyMap[KeyButton::Y] = GLFW_KEY_Z;
+            keyMap[KeyButton::Z] = GLFW_KEY_Y;
 
-        // Symboles QWERTZ
-        keyMap[KeyButton::MINUS] = GLFW_KEY_MINUS;
-        keyMap[KeyButton::EQUALS] = GLFW_KEY_EQUAL;
-        keyMap[KeyButton::LEFT_BRACKET] = GLFW_KEY_LEFT_BRACKET;
-        keyMap[KeyButton::RIGHT_BRACKET] = GLFW_KEY_RIGHT_BRACKET;
-        keyMap[KeyButton::SEMICOLON] = GLFW_KEY_SEMICOLON;
-        keyMap[KeyButton::COMMA] = GLFW_KEY_COMMA;
-        keyMap[KeyButton::PERIOD] = GLFW_KEY_PERIOD;
-        keyMap[KeyButton::SLASH] = GLFW_KEY_SLASH;
-        keyMap[KeyButton::BACKSLASH] = GLFW_KEY_BACKSLASH;
-        keyMap[KeyButton::APOSTROPHE] = GLFW_KEY_APOSTROPHE;
-        break;
+            // Symboles QWERTZ
+            keyMap[KeyButton::MINUS] = GLFW_KEY_MINUS;
+            keyMap[KeyButton::EQUALS] = GLFW_KEY_EQUAL;
+            keyMap[KeyButton::LEFT_BRACKET] = GLFW_KEY_LEFT_BRACKET;
+            keyMap[KeyButton::RIGHT_BRACKET] = GLFW_KEY_RIGHT_BRACKET;
+            keyMap[KeyButton::SEMICOLON] = GLFW_KEY_SEMICOLON;
+            keyMap[KeyButton::COMMA] = GLFW_KEY_COMMA;
+            keyMap[KeyButton::PERIOD] = GLFW_KEY_PERIOD;
+            keyMap[KeyButton::SLASH] = GLFW_KEY_SLASH;
+            keyMap[KeyButton::BACKSLASH] = GLFW_KEY_BACKSLASH;
+            keyMap[KeyButton::APOSTROPHE] = GLFW_KEY_APOSTROPHE;
+            break;
 #pragma endregion QWERTZ
 
 #pragma region DVORAK
-    case KeyLayout::DVORAK:
-        // Disposition Dvorak complète
-        // Rangée supérieure: ',.PYFGCRL
-        keyMap[KeyButton::Q] = GLFW_KEY_APOSTROPHE;  // Q logique -> ' physique
-        keyMap[KeyButton::W] = GLFW_KEY_COMMA;        // W logique -> , physique
-        keyMap[KeyButton::E] = GLFW_KEY_PERIOD;       // E logique -> . physique
-        keyMap[KeyButton::R] = GLFW_KEY_P;            // R logique -> P physique
-        keyMap[KeyButton::T] = GLFW_KEY_Y;            // T logique -> Y physique
-        keyMap[KeyButton::Y] = GLFW_KEY_F;            // Y logique -> F physique
-        keyMap[KeyButton::U] = GLFW_KEY_G;            // U logique -> G physique
-        keyMap[KeyButton::I] = GLFW_KEY_C;            // I logique -> C physique
-        keyMap[KeyButton::O] = GLFW_KEY_R;            // O logique -> R physique
-        keyMap[KeyButton::P] = GLFW_KEY_L;            // P logique -> L physique
+        case KeyLayout::DVORAK:
+            // Disposition Dvorak complète
+            // Rangée supérieure: ',.PYFGCRL
+            keyMap[KeyButton::Q] = GLFW_KEY_APOSTROPHE; // Q logique -> ' physique
+            keyMap[KeyButton::W] = GLFW_KEY_COMMA;      // W logique -> , physique
+            keyMap[KeyButton::E] = GLFW_KEY_PERIOD;     // E logique -> . physique
+            keyMap[KeyButton::R] = GLFW_KEY_P;          // R logique -> P physique
+            keyMap[KeyButton::T] = GLFW_KEY_Y;          // T logique -> Y physique
+            keyMap[KeyButton::Y] = GLFW_KEY_F;          // Y logique -> F physique
+            keyMap[KeyButton::U] = GLFW_KEY_G;          // U logique -> G physique
+            keyMap[KeyButton::I] = GLFW_KEY_C;          // I logique -> C physique
+            keyMap[KeyButton::O] = GLFW_KEY_R;          // O logique -> R physique
+            keyMap[KeyButton::P] = GLFW_KEY_L;          // P logique -> L physique
 
-        // Rangée du milieu: AOEUIDHTNS
-        keyMap[KeyButton::A] = GLFW_KEY_A;            // A reste A
-        keyMap[KeyButton::S] = GLFW_KEY_O;            // S logique -> O physique
-        keyMap[KeyButton::D] = GLFW_KEY_E;            // D logique -> E physique
-        keyMap[KeyButton::F] = GLFW_KEY_U;            // F logique -> U physique
-        keyMap[KeyButton::G] = GLFW_KEY_I;            // G logique -> I physique
-        keyMap[KeyButton::H] = GLFW_KEY_D;            // H logique -> D physique
-        keyMap[KeyButton::J] = GLFW_KEY_H;            // J logique -> H physique
-        keyMap[KeyButton::K] = GLFW_KEY_T;            // K logique -> T physique
-        keyMap[KeyButton::L] = GLFW_KEY_N;            // L logique -> N physique
+            // Rangée du milieu: AOEUIDHTNS
+            keyMap[KeyButton::A] = GLFW_KEY_A; // A reste A
+            keyMap[KeyButton::S] = GLFW_KEY_O; // S logique -> O physique
+            keyMap[KeyButton::D] = GLFW_KEY_E; // D logique -> E physique
+            keyMap[KeyButton::F] = GLFW_KEY_U; // F logique -> U physique
+            keyMap[KeyButton::G] = GLFW_KEY_I; // G logique -> I physique
+            keyMap[KeyButton::H] = GLFW_KEY_D; // H logique -> D physique
+            keyMap[KeyButton::J] = GLFW_KEY_H; // J logique -> H physique
+            keyMap[KeyButton::K] = GLFW_KEY_T; // K logique -> T physique
+            keyMap[KeyButton::L] = GLFW_KEY_N; // L logique -> N physique
 
-        // Rangée inférieure: ;QJKXBM
-        keyMap[KeyButton::Z] = GLFW_KEY_SEMICOLON;    // Z logique -> ; physique
-        keyMap[KeyButton::X] = GLFW_KEY_Q;            // X logique -> Q physique
-        keyMap[KeyButton::C] = GLFW_KEY_J;            // C logique -> J physique
-        keyMap[KeyButton::V] = GLFW_KEY_K;            // V logique -> K physique
-        keyMap[KeyButton::B] = GLFW_KEY_X;            // B logique -> X physique
-        keyMap[KeyButton::N] = GLFW_KEY_B;            // N logique -> B physique
-        keyMap[KeyButton::M] = GLFW_KEY_M;            // M reste M
+            // Rangée inférieure: ;QJKXBM
+            keyMap[KeyButton::Z] = GLFW_KEY_SEMICOLON; // Z logique -> ; physique
+            keyMap[KeyButton::X] = GLFW_KEY_Q;         // X logique -> Q physique
+            keyMap[KeyButton::C] = GLFW_KEY_J;         // C logique -> J physique
+            keyMap[KeyButton::V] = GLFW_KEY_K;         // V logique -> K physique
+            keyMap[KeyButton::B] = GLFW_KEY_X;         // B logique -> X physique
+            keyMap[KeyButton::N] = GLFW_KEY_B;         // N logique -> B physique
+            keyMap[KeyButton::M] = GLFW_KEY_M;         // M reste M
 
-        // Symboles Dvorak
-        keyMap[KeyButton::MINUS] = GLFW_KEY_LEFT_BRACKET;       // - logique -> [ physique
-        keyMap[KeyButton::EQUALS] = GLFW_KEY_RIGHT_BRACKET;     // = logique -> ] physique
-        keyMap[KeyButton::LEFT_BRACKET] = GLFW_KEY_SLASH;        // [ logique -> / physique
-        keyMap[KeyButton::RIGHT_BRACKET] = GLFW_KEY_EQUAL;       // ] logique -> = physique
-        keyMap[KeyButton::SEMICOLON] = GLFW_KEY_S;              // ; logique -> S physique
-        keyMap[KeyButton::APOSTROPHE] = GLFW_KEY_MINUS;         // ' logique -> - physique
-        keyMap[KeyButton::COMMA] = GLFW_KEY_W;                  // , logique -> W physique
-        keyMap[KeyButton::PERIOD] = GLFW_KEY_V;                 // . logique -> V physique
-        keyMap[KeyButton::SLASH] = GLFW_KEY_Z;                  // / logique -> Z physique
-        keyMap[KeyButton::BACKSLASH] = GLFW_KEY_BACKSLASH;      // Backslash remains Backslash
-        break;
+            // Symboles Dvorak
+            keyMap[KeyButton::MINUS] = GLFW_KEY_LEFT_BRACKET;   // - logique -> [ physique
+            keyMap[KeyButton::EQUALS] = GLFW_KEY_RIGHT_BRACKET; // = logique -> ] physique
+            keyMap[KeyButton::LEFT_BRACKET] = GLFW_KEY_SLASH;   // [ logique -> / physique
+            keyMap[KeyButton::RIGHT_BRACKET] = GLFW_KEY_EQUAL;  // ] logique -> = physique
+            keyMap[KeyButton::SEMICOLON] = GLFW_KEY_S;          // ; logique -> S physique
+            keyMap[KeyButton::APOSTROPHE] = GLFW_KEY_MINUS;     // ' logique -> - physique
+            keyMap[KeyButton::COMMA] = GLFW_KEY_W;              // , logique -> W physique
+            keyMap[KeyButton::PERIOD] = GLFW_KEY_V;             // . logique -> V physique
+            keyMap[KeyButton::SLASH] = GLFW_KEY_Z;              // / logique -> Z physique
+            keyMap[KeyButton::BACKSLASH] = GLFW_KEY_BACKSLASH;  // Backslash remains Backslash
+            break;
 #pragma endregion DVORAK
 
 #pragma region QWERTY
-    case KeyLayout::QWERTY:
-    default:
-        // Lettres QWERTY (mapping direct)
-        keyMap[KeyButton::A] = GLFW_KEY_A;
-        keyMap[KeyButton::B] = GLFW_KEY_B;
-        keyMap[KeyButton::C] = GLFW_KEY_C;
-        keyMap[KeyButton::D] = GLFW_KEY_D;
-        keyMap[KeyButton::E] = GLFW_KEY_E;
-        keyMap[KeyButton::F] = GLFW_KEY_F;
-        keyMap[KeyButton::G] = GLFW_KEY_G;
-        keyMap[KeyButton::H] = GLFW_KEY_H;
-        keyMap[KeyButton::I] = GLFW_KEY_I;
-        keyMap[KeyButton::J] = GLFW_KEY_J;
-        keyMap[KeyButton::K] = GLFW_KEY_K;
-        keyMap[KeyButton::L] = GLFW_KEY_L;
-        keyMap[KeyButton::M] = GLFW_KEY_M;
-        keyMap[KeyButton::N] = GLFW_KEY_N;
-        keyMap[KeyButton::O] = GLFW_KEY_O;
-        keyMap[KeyButton::P] = GLFW_KEY_P;
-        keyMap[KeyButton::Q] = GLFW_KEY_Q;
-        keyMap[KeyButton::R] = GLFW_KEY_R;
-        keyMap[KeyButton::S] = GLFW_KEY_S;
-        keyMap[KeyButton::T] = GLFW_KEY_T;
-        keyMap[KeyButton::U] = GLFW_KEY_U;
-        keyMap[KeyButton::V] = GLFW_KEY_V;
-        keyMap[KeyButton::W] = GLFW_KEY_W;
-        keyMap[KeyButton::X] = GLFW_KEY_X;
-        keyMap[KeyButton::Y] = GLFW_KEY_Y;
-        keyMap[KeyButton::Z] = GLFW_KEY_Z;
+        case KeyLayout::QWERTY:
+        default:
+            // Lettres QWERTY (mapping direct)
+            keyMap[KeyButton::A] = GLFW_KEY_A;
+            keyMap[KeyButton::B] = GLFW_KEY_B;
+            keyMap[KeyButton::C] = GLFW_KEY_C;
+            keyMap[KeyButton::D] = GLFW_KEY_D;
+            keyMap[KeyButton::E] = GLFW_KEY_E;
+            keyMap[KeyButton::F] = GLFW_KEY_F;
+            keyMap[KeyButton::G] = GLFW_KEY_G;
+            keyMap[KeyButton::H] = GLFW_KEY_H;
+            keyMap[KeyButton::I] = GLFW_KEY_I;
+            keyMap[KeyButton::J] = GLFW_KEY_J;
+            keyMap[KeyButton::K] = GLFW_KEY_K;
+            keyMap[KeyButton::L] = GLFW_KEY_L;
+            keyMap[KeyButton::M] = GLFW_KEY_M;
+            keyMap[KeyButton::N] = GLFW_KEY_N;
+            keyMap[KeyButton::O] = GLFW_KEY_O;
+            keyMap[KeyButton::P] = GLFW_KEY_P;
+            keyMap[KeyButton::Q] = GLFW_KEY_Q;
+            keyMap[KeyButton::R] = GLFW_KEY_R;
+            keyMap[KeyButton::S] = GLFW_KEY_S;
+            keyMap[KeyButton::T] = GLFW_KEY_T;
+            keyMap[KeyButton::U] = GLFW_KEY_U;
+            keyMap[KeyButton::V] = GLFW_KEY_V;
+            keyMap[KeyButton::W] = GLFW_KEY_W;
+            keyMap[KeyButton::X] = GLFW_KEY_X;
+            keyMap[KeyButton::Y] = GLFW_KEY_Y;
+            keyMap[KeyButton::Z] = GLFW_KEY_Z;
 
-        // Symboles QWERTY
-        keyMap[KeyButton::MINUS] = GLFW_KEY_MINUS;
-        keyMap[KeyButton::EQUALS] = GLFW_KEY_EQUAL;
-        keyMap[KeyButton::LEFT_BRACKET] = GLFW_KEY_LEFT_BRACKET;
-        keyMap[KeyButton::RIGHT_BRACKET] = GLFW_KEY_RIGHT_BRACKET;
-        keyMap[KeyButton::SEMICOLON] = GLFW_KEY_SEMICOLON;
-        keyMap[KeyButton::COMMA] = GLFW_KEY_COMMA;
-        keyMap[KeyButton::PERIOD] = GLFW_KEY_PERIOD;
-        keyMap[KeyButton::SLASH] = GLFW_KEY_SLASH;
-        keyMap[KeyButton::BACKSLASH] = GLFW_KEY_BACKSLASH;
-        keyMap[KeyButton::APOSTROPHE] = GLFW_KEY_APOSTROPHE;
-        break;
+            // Symboles QWERTY
+            keyMap[KeyButton::MINUS] = GLFW_KEY_MINUS;
+            keyMap[KeyButton::EQUALS] = GLFW_KEY_EQUAL;
+            keyMap[KeyButton::LEFT_BRACKET] = GLFW_KEY_LEFT_BRACKET;
+            keyMap[KeyButton::RIGHT_BRACKET] = GLFW_KEY_RIGHT_BRACKET;
+            keyMap[KeyButton::SEMICOLON] = GLFW_KEY_SEMICOLON;
+            keyMap[KeyButton::COMMA] = GLFW_KEY_COMMA;
+            keyMap[KeyButton::PERIOD] = GLFW_KEY_PERIOD;
+            keyMap[KeyButton::SLASH] = GLFW_KEY_SLASH;
+            keyMap[KeyButton::BACKSLASH] = GLFW_KEY_BACKSLASH;
+            keyMap[KeyButton::APOSTROPHE] = GLFW_KEY_APOSTROPHE;
+            break;
 #pragma endregion QWERTY
     }
 
@@ -416,17 +429,20 @@ void InputManager::SetKeyLayout(KeyLayout layout) {
 #pragma endregion All Layouts Mapping
 
     // Réinitialise tous les InputManagers existants avec le nouveau layout
-    for (auto it = inputManagers.begin(); it != inputManagers.end(); ++it) {
+    for (auto it = inputManagers.begin(); it != inputManagers.end(); ++it)
+    {
         it->second->Init();
     }
 }
 #pragma endregion Key Layout Mapping
 
-
-void InputManager::UpdateInputEvent() {
+void InputManager::UpdateInputEvent()
+{
     InputEvent event;
-    for (const auto& [key, state] : keyStateMap) {
-        if (state != InputState::Release) {
+    for (const auto &[key, state] : keyStateMap)
+    {
+        if (state != InputState::Release)
+        {
             KeyButtonEvent keyEvent;
             keyEvent.key = key;
             keyEvent.state = state;
@@ -434,8 +450,10 @@ void InputManager::UpdateInputEvent() {
         }
     }
 
-    for (const auto& [button, state] : mouseButtonStateMap) {
-        if (state != InputState::Release) {
+    for (const auto &[button, state] : mouseButtonStateMap)
+    {
+        if (state != InputState::Release)
+        {
             MouseButtonEvent mouseButtonEvent;
             mouseButtonEvent.button = button;
             mouseButtonEvent.state = state;
@@ -446,34 +464,39 @@ void InputManager::UpdateInputEvent() {
     this->inputEvent = event;
 }
 
-void InputManager::BindActionToInput(std::string action, InputAction inputAction) {
-    if (IsActionBound(action)) {
+void InputManager::BindActionToInput(std::string action, InputAction inputAction)
+{
+    if (IsActionBound(action))
+    {
         LOG_WARNING("Action ", action, " already bound. Overwriting.");
     }
     mapActionToInputAction[action] = inputAction;
 }
 
-bool InputManager::IsCurrentInputEventEmpty() {
-    return inputEvent.keys.empty() &&
-        inputEvent.mouseButtons.empty();
-}
+bool InputManager::IsCurrentInputEventEmpty() { return inputEvent.keys.empty() && inputEvent.mouseButtons.empty(); }
 
-bool InputManager::IsActionActive(std::string action) {
-    if (!IsActionBound(action)) {
+bool InputManager::IsActionActive(std::string action)
+{
+    if (!IsActionBound(action))
+    {
         LOG_WARNING("Action ", action, " is not bound.");
         return false;
     }
 
-    InputAction& actionInput = mapActionToInputAction[action];
+    InputAction &actionInput = mapActionToInputAction[action];
 
     // Check keys
-    for(const auto& key : actionInput.keys) {
-        if (!IsKeyPressed(key)) return false;
+    for (const auto &key : actionInput.keys)
+    {
+        if (!IsKeyPressed(key))
+            return false;
     }
 
     // Check mouse buttons
-    for(const auto& button : actionInput.mouseButtons) {
-        if (!IsMouseButtonPressed(button)) return false;
+    for (const auto &button : actionInput.mouseButtons)
+    {
+        if (!IsMouseButtonPressed(button))
+            return false;
     }
 
     return true;

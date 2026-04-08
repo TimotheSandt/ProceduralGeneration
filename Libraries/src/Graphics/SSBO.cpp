@@ -3,43 +3,43 @@
 
 SSBO::SSBO() : ID(0), bindingPoint(0), size(0), usage(DYNAMIC_DRAW) {}
 
-SSBO::SSBO(size_t size, GLuint bindingPoint, Usage usage) 
-        : ID(0), bindingPoint(bindingPoint), size(size), usage(usage) {
+SSBO::SSBO(size_t size, GLuint bindingPoint, Usage usage) : ID(0), bindingPoint(bindingPoint), size(size), usage(usage)
+{
     Initialize(size, bindingPoint);
 }
 
-SSBO::~SSBO() {
-    Destroy();
-}
+SSBO::~SSBO() { Destroy(); }
 
+SSBO::SSBO(SSBO &&other) noexcept : ID(0), bindingPoint(0), size(0), usage(DYNAMIC_DRAW) { this->Swap(other); }
 
-SSBO::SSBO(SSBO&& other) noexcept : ID(0), bindingPoint(0), size(0), usage(DYNAMIC_DRAW) {
-    this->Swap(other);
-}
-
-SSBO& SSBO::operator=(SSBO&& other) noexcept {
-    if (this != &other) {
+SSBO &SSBO::operator=(SSBO &&other) noexcept
+{
+    if (this != &other)
+    {
         this->Destroy();
         this->Swap(other);
     }
     return *this;
 }
 
-void SSBO::Swap(SSBO& other) noexcept {
+void SSBO::Swap(SSBO &other) noexcept
+{
     std::swap(this->ID, other.ID);
     std::swap(this->bindingPoint, other.bindingPoint);
     std::swap(this->size, other.size);
     std::swap(this->usage, other.usage);
 }
 
-bool SSBO::Initialize(size_t size, GLuint bindingPoint, Usage usage) {
+bool SSBO::Initialize(size_t size, GLuint bindingPoint, Usage usage)
+{
     this->size = size;
     this->bindingPoint = bindingPoint;
     this->usage = usage;
 
     glGenBuffers(1, &this->ID);
     GL_CHECK_ERROR();
-    if (this->ID == 0) return false;
+    if (this->ID == 0)
+        return false;
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
     GL_CHECK_ERROR();
@@ -53,32 +53,37 @@ bool SSBO::Initialize(size_t size, GLuint bindingPoint, Usage usage) {
     return true;
 }
 
-void SSBO::Destroy() {
-    if (this->ID == 0) return
-    glDeleteBuffers(1, &this->ID);
+void SSBO::Destroy()
+{
+    if (this->ID == 0)
+        return glDeleteBuffers(1, &this->ID);
     GL_CHECK_ERROR();
     this->ID = 0;
     this->bindingPoint = 0;
     this->size = 0;
 }
 
-void SSBO::Bind() const {
-    if (this->ID == 0) return;
+void SSBO::Bind() const
+{
+    if (this->ID == 0)
+        return;
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
 }
 
-void SSBO::BindToPoint() const {
-    if (this->ID == 0) return;
+void SSBO::BindToPoint() const
+{
+    if (this->ID == 0)
+        return;
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, this->bindingPoint, this->ID);
     GL_CHECK_ERROR_M("Failed to bind SSBO");
 }
 
-void SSBO::Unbind() const {
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-}
+void SSBO::Unbind() const { glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); }
 
-void SSBO::UploadData(const void* data, size_t size, size_t offset) {
-    if (this->ID == 0) return;
+void SSBO::UploadData(const void *data, size_t size, size_t offset)
+{
+    if (this->ID == 0)
+        return;
     ensureCapacity(offset + size);
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
@@ -89,20 +94,22 @@ void SSBO::UploadData(const void* data, size_t size, size_t offset) {
     GL_CHECK_ERROR_M("Error uploading data to SSBO");
 }
 
-void SSBO::DownloadData(void* data, size_t size, size_t offset) const {
-    if (this->ID == 0) return;
+void SSBO::DownloadData(void *data, size_t size, size_t offset) const
+{
+    if (this->ID == 0)
+        return;
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
     glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, data);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 #ifdef DEBUG
     GLenum error = glGetError();
-    if (error != GL_NO_ERROR) LOG_ERROR(error, "Error downloading data from SSBO");
+    if (error != GL_NO_ERROR)
+        LOG_ERROR(error, "Error downloading data from SSBO");
 #endif
 }
 
-
-
-void SSBO::Resize(size_t newSize) {
+void SSBO::Resize(size_t newSize)
+{
     this->size = newSize;
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
@@ -113,7 +120,8 @@ void SSBO::Resize(size_t newSize) {
     GL_CHECK_ERROR();
 }
 
-void SSBO::ResizePreserveData(size_t newSize) {
+void SSBO::ResizePreserveData(size_t newSize)
+{
     GLuint oldID = this->ID;
     size_t oldSize = this->size;
 
@@ -122,7 +130,7 @@ void SSBO::ResizePreserveData(size_t newSize) {
     glGenBuffers(1, &this->ID);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
     glBufferData(GL_SHADER_STORAGE_BUFFER, this->size, nullptr, static_cast<GLenum>(this->usage));
-    
+
     size_t copySize = std::min(oldSize, this->size);
     glBindBuffer(GL_COPY_READ_BUFFER, oldID);
     glBindBuffer(GL_COPY_WRITE_BUFFER, this->ID);
@@ -135,27 +143,31 @@ void SSBO::ResizePreserveData(size_t newSize) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 
-
-
-void* SSBO::MapBuffer(GLenum access) const {
-    if (this->ID == 0) return nullptr;
+void *SSBO::MapBuffer(GLenum access) const
+{
+    if (this->ID == 0)
+        return nullptr;
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
     GL_CHECK_ERROR();
-    void* ptr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, this->size, access);
+    void *ptr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, this->size, access);
     GL_CHECK_ERROR();
     return ptr;
 }
 
-void SSBO::UnmapBuffer() const {
-    if (this->ID == 0) return;
+void SSBO::UnmapBuffer() const
+{
+    if (this->ID == 0)
+        return;
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
     GL_CHECK_ERROR();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     GL_CHECK_ERROR();
 }
 
-void SSBO::ensureCapacity(size_t newSize) {
-    if (newSize > this->size) {
+void SSBO::ensureCapacity(size_t newSize)
+{
+    if (newSize > this->size)
+    {
         this->ResizePreserveData(newSize);
     }
 }

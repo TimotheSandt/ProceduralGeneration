@@ -4,45 +4,43 @@
 #include <iostream>
 #include <glad/glad.h>
 
-namespace UI {
+namespace UI
+{
 
-UIManager& UIManager::Instance() {
+UIManager &UIManager::Instance()
+{
     static UIManager instance;
     return instance;
 }
 
-void UIManager::Init(int w, int h) {
+void UIManager::Init(int w, int h)
+{
     CreateUI(w, h);
     lastWidth = w;
     lastHeight = h;
 }
 
-void UIManager::CreateUI(int w, int h) {
+void UIManager::CreateUI(int w, int h)
+{
     // Create root with actual window size (not percentage)
-    rootContainer = Container( Bounds({static_cast<float>(w), ValueType::PIXEL}, {static_cast<float>(h), ValueType::PIXEL}),
-    {
-        VBox(Bounds(200_px, 200_px, Anchor::CENTER),
-        {
-            Box(Bounds(150_px, 50_px), {1.0f, 0.2f, 0.2f, 1.0f}),
-            HBox(Bounds(150_px, 75_px),
-            {
-                Box(Bounds(40_pct, 100_pct), {0.2f, 0.2f, 1.0f, 1.0f}),
-                Box(Bounds(40_pct, 100_pct), {1.0f, 0.2f, 0.2f, 1.0f}),
-                Box(Bounds(40_pct, 100_pct), {0.2f, 1.0f, 0.2f, 1.0f})
-            })
-                ->SetColor(glm::vec4{0.3f, 0.9f, 0.4f, 1.0f})
-                ->SetPadding(10.0f)
-                ->SetJustifyContent(UI::JustifyContent::CENTER)
-                ->SetOverflowMode(UI::OverflowMode::WRAP)
-                ->SetChildrenDeform(true)
-                ->SetChildAlignment(UI::VAlign::CENTER),
-            Box(Bounds(100_px, 50_px), {0.2f, 1.0f, 0.2f, 1.0f})
-        })  ->SetPadding(10.0f)
-            ->SetSpacing(5.0f)
-            ->SetColor(glm::vec4{0.3f, 0.6f, 1.0f, 0.5f})
-            ->SetJustifyContent(UI::JustifyContent::CENTER)
-            ->SetChildAlignment(UI::HAlign::CENTER)
-    });
+    rootContainer = Container(
+        Bounds({static_cast<float>(w), ValueType::PIXEL}, {static_cast<float>(h), ValueType::PIXEL}),
+        {VBox(Bounds(200_px, 200_px, Anchor::CENTER), {Box(Bounds(150_px, 50_px), {1.0f, 0.2f, 0.2f, 1.0f}),
+                                                       HBox(Bounds(150_px, 75_px), {Box(Bounds(40_pct, 100_pct), {0.2f, 0.2f, 1.0f, 1.0f}),
+                                                                                    Box(Bounds(40_pct, 100_pct), {1.0f, 0.2f, 0.2f, 1.0f}),
+                                                                                    Box(Bounds(40_pct, 100_pct), {0.2f, 1.0f, 0.2f, 1.0f})})
+                                                           ->SetColor(glm::vec4{0.3f, 0.9f, 0.4f, 1.0f})
+                                                           ->SetPadding(10.0f)
+                                                           ->SetJustifyContent(UI::JustifyContent::CENTER)
+                                                           ->SetOverflowMode(UI::OverflowMode::WRAP)
+                                                           ->SetChildrenDeform(true)
+                                                           ->SetChildAlignment(UI::VAlign::CENTER),
+                                                       Box(Bounds(100_px, 50_px), {0.2f, 1.0f, 0.2f, 1.0f})})
+             ->SetPadding(10.0f)
+             ->SetSpacing(5.0f)
+             ->SetColor(glm::vec4{0.3f, 0.6f, 1.0f, 0.5f})
+             ->SetJustifyContent(UI::JustifyContent::CENTER)
+             ->SetChildAlignment(UI::HAlign::CENTER)});
 
     // Set root's size
 
@@ -50,21 +48,22 @@ void UIManager::CreateUI(int w, int h) {
     rootContainer->Initialize();
 }
 
-void UIManager::Shutdown() {
-    rootContainer.reset();
-}
+void UIManager::Shutdown() { rootContainer.reset(); }
 
-void UIManager::Update(float dt, int w, int h) {
+void UIManager::Update(float dt, int w, int h)
+{
     (void)dt;
 
     // Ensure UI is initialized
-    if (!rootContainer) {
+    if (!rootContainer)
+    {
         // Fallback if Init wasn't called or failed
         Init(w, h);
     }
 
     // Only update layout if size changed
-    if (lastWidth != w || lastHeight != h) {
+    if (lastWidth != w || lastHeight != h)
+    {
         rootContainer->SetSize({static_cast<float>(w), static_cast<float>(h)});
         lastWidth = w;
         lastHeight = h;
@@ -74,11 +73,14 @@ void UIManager::Update(float dt, int w, int h) {
     rootContainer->Update();
 }
 
-void UIManager::Render(int w, int h) {
-    if (!active) return;
+void UIManager::Render(int w, int h)
+{
+    if (!active)
+        return;
 
     // Ensure UI exists
-    if (!rootContainer) {
+    if (!rootContainer)
+    {
         Init(w, h);
     }
 
@@ -91,7 +93,7 @@ void UIManager::Render(int w, int h) {
     GLboolean oldBlend = glIsEnabled(GL_BLEND);
 
     // Setup GL state for UI rendering
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);  // Ensure we render to screen
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // Ensure we render to screen
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -104,8 +106,14 @@ void UIManager::Render(int w, int h) {
     // Restore GL state
     glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
     glViewport(oldViewport[0], oldViewport[1], oldViewport[2], oldViewport[3]);
-    if (oldDepthTest) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
-    if (oldBlend) glEnable(GL_BLEND); else glDisable(GL_BLEND);
+    if (oldDepthTest)
+        glEnable(GL_DEPTH_TEST);
+    else
+        glDisable(GL_DEPTH_TEST);
+    if (oldBlend)
+        glEnable(GL_BLEND);
+    else
+        glDisable(GL_BLEND);
 }
 
-}
+} // namespace UI

@@ -1,9 +1,10 @@
 #include "UIHBox.h"
 
-namespace UI {
+namespace UI
+{
 
-
-void UIHBoxBase::RecalculateChildBounds() {
+void UIHBoxBase::RecalculateChildBounds()
+{
     float padding = GetPadding();
     float spacing = GetSpacing();
 
@@ -12,7 +13,8 @@ void UIHBoxBase::RecalculateChildBounds() {
     int visibleChildrenCount = 0;
 
     // First pass: calculate dimensions
-    for (auto& child : children) {
+    for (auto &child : children)
+    {
         // if (!child->IsVisible()) continue;
         glm::vec2 childSize = child->GetPixelSize();
         totalChildrenHeight = std::max(totalChildrenHeight, childSize.y);
@@ -21,7 +23,8 @@ void UIHBoxBase::RecalculateChildBounds() {
     }
 
     // Add spacing to total width calculation
-    if (visibleChildrenCount > 1) {
+    if (visibleChildrenCount > 1)
+    {
         totalChildrenWidth += (visibleChildrenCount - 1) * spacing;
     }
 
@@ -34,16 +37,15 @@ void UIHBoxBase::RecalculateChildBounds() {
     glm::vec2 actualPadding = {padding, padding};
     float actualSpacing = std::max(spacing, 0.0f);
 
-    if (this->overflowMode.Get() == OverflowMode::WRAP &&
-        (contentSize.x > localBounds.scale.x || contentSize.y > localBounds.scale.y))
+    if (this->overflowMode.Get() == OverflowMode::WRAP && (contentSize.x > localBounds.scale.x || contentSize.y > localBounds.scale.y))
     {
         // Ensure non-zero contentSize to avoid division by zero
-        if (contentSize.x > 0 && contentSize.y > 0) {
-            reducer = {
-                std::min(localBounds.scale.x / contentSize.x, 1.0f),
-                std::min(localBounds.scale.y / contentSize.y, 1.0f)
-            };
-        } else {
+        if (contentSize.x > 0 && contentSize.y > 0)
+        {
+            reducer = {std::min(localBounds.scale.x / contentSize.x, 1.0f), std::min(localBounds.scale.y / contentSize.y, 1.0f)};
+        }
+        else
+        {
             reducer = {1.0f, 1.0f};
         }
 
@@ -52,18 +54,17 @@ void UIHBoxBase::RecalculateChildBounds() {
 
         float totalReduceWidth = 0;
         float totalReduceHeight = 0;
-        for (auto& child : children) {
+        for (auto &child : children)
+        {
             float ratio = std::min(reducer.x, reducer.y);
-            glm::vec2 redducerChild = {
-                child->DoesAllowDeform() ? reducer.x : ratio,
-                child->DoesAllowDeform() ? reducer.y : ratio
-            };
+            glm::vec2 redducerChild = {child->DoesAllowDeform() ? reducer.x : ratio, child->DoesAllowDeform() ? reducer.y : ratio};
             child->SetPixelSize(child->GetPixelSize() * redducerChild);
             totalReduceWidth += child->GetPixelSize().x;
             totalReduceHeight = std::max(totalReduceHeight, child->GetPixelSize().y);
         }
 
-        if (visibleChildrenCount > 1) {
+        if (visibleChildrenCount > 1)
+        {
             totalReduceWidth += (visibleChildrenCount - 1) * actualSpacing;
         }
 
@@ -79,53 +80,64 @@ void UIHBoxBase::RecalculateChildBounds() {
     float currentSpacing = actualSpacing;
 
     // Only apply justification if we have extra space and not START alignment
-    if (justifyContent != JustifyContent::START && containerWidth > totalChildrenWidth + 2 * actualPadding.x) {
-        float freeSpace = containerWidth - 2 * actualPadding.x - (totalChildrenWidth - (visibleChildrenCount > 1 ? (visibleChildrenCount - 1) * actualSpacing : 0));
+    if (justifyContent != JustifyContent::START && containerWidth > totalChildrenWidth + 2 * actualPadding.x)
+    {
+        float freeSpace = containerWidth - 2 * actualPadding.x -
+                          (totalChildrenWidth - (visibleChildrenCount > 1 ? (visibleChildrenCount - 1) * actualSpacing : 0));
         freeSpace = containerWidth - (2 * actualPadding.x + totalChildrenWidth);
 
-        switch (justifyContent) {
+        switch (justifyContent)
+        {
             case JustifyContent::CENTER:
                 xOffset = actualPadding.x + freeSpace / 2.0f;
                 break;
             case JustifyContent::END:
-                xOffset = containerWidth - actualPadding.x - totalChildrenWidth + (visibleChildrenCount > 1 ? (visibleChildrenCount - 1) * actualSpacing : 0);
+                xOffset = containerWidth - actualPadding.x - totalChildrenWidth +
+                          (visibleChildrenCount > 1 ? (visibleChildrenCount - 1) * actualSpacing : 0);
                 xOffset = containerWidth - actualPadding.x - totalChildrenWidth;
                 break;
             case JustifyContent::SPACE_BETWEEN:
                 xOffset = actualPadding.x;
-                if (visibleChildrenCount > 1) {
+                if (visibleChildrenCount > 1)
+                {
                     currentSpacing = actualSpacing + freeSpace / (visibleChildrenCount - 1);
                 }
                 break;
             case JustifyContent::SPACE_AROUND:
-                if (visibleChildrenCount > 0) {
+                if (visibleChildrenCount > 0)
+                {
                     float extraPerItem = freeSpace / visibleChildrenCount;
                     currentSpacing = actualSpacing + freeSpace / visibleChildrenCount;
                     xOffset = actualPadding.x + (freeSpace / visibleChildrenCount) / 2.0f;
-                     if (visibleChildrenCount > 1) currentSpacing = freeSpace / (visibleChildrenCount - 1);
+                    if (visibleChildrenCount > 1)
+                        currentSpacing = freeSpace / (visibleChildrenCount - 1);
                 }
                 break;
-             default: break;
+            default:
+                break;
         }
 
-
-
-        if (justifyContent == JustifyContent::SPACE_BETWEEN && visibleChildrenCount > 1) {
-             currentSpacing = actualSpacing + freeSpace / (visibleChildrenCount - 1);
-             xOffset = actualPadding.x;
-        } else if (justifyContent == JustifyContent::SPACE_AROUND && visibleChildrenCount > 0) {
-             float extra = freeSpace / visibleChildrenCount;
-             currentSpacing = actualSpacing + extra; // This expands actualSpacing
-             xOffset = actualPadding.x + extra / 2.0f;
+        if (justifyContent == JustifyContent::SPACE_BETWEEN && visibleChildrenCount > 1)
+        {
+            currentSpacing = actualSpacing + freeSpace / (visibleChildrenCount - 1);
+            xOffset = actualPadding.x;
+        }
+        else if (justifyContent == JustifyContent::SPACE_AROUND && visibleChildrenCount > 0)
+        {
+            float extra = freeSpace / visibleChildrenCount;
+            currentSpacing = actualSpacing + extra; // This expands actualSpacing
+            xOffset = actualPadding.x + extra / 2.0f;
         }
     }
 
     // Second pass: set positions with vertical alignment
-    for (auto& child : children) {
+    for (auto &child : children)
+    {
         glm::vec2 childSize = child->GetPixelSize();
 
         float yPos = actualPadding.y;
-        switch (childAlignment) {
+        switch (childAlignment)
+        {
             case VAlign::TOP:
                 yPos = actualPadding.y;
                 break;
@@ -142,7 +154,8 @@ void UIHBoxBase::RecalculateChildBounds() {
     }
 }
 
-glm::vec2 UIHBoxBase::GetAvailableSize() const {
+glm::vec2 UIHBoxBase::GetAvailableSize() const
+{
     float p = GetPadding();
     float s = GetSpacing();
     int nbChildren = static_cast<int>(children.size());
@@ -153,8 +166,10 @@ glm::vec2 UIHBoxBase::GetAvailableSize() const {
 
     // Use the definitive scale - if zero, fall back to computing from raw bounds
     glm::vec2 size = localBounds.scale;
-    if (size.x <= 0.0f || size.y <= 0.0f) {
-        if (localBounds.width.type == ValueType::PIXEL && localBounds.height.type == ValueType::PIXEL) {
+    if (size.x <= 0.0f || size.y <= 0.0f)
+    {
+        if (localBounds.width.type == ValueType::PIXEL && localBounds.height.type == ValueType::PIXEL)
+        {
             size = glm::vec2(static_cast<float>(localBounds.width.value), static_cast<float>(localBounds.height.value));
         }
     }
@@ -172,14 +187,16 @@ glm::vec2 UIHBoxBase::GetAvailableSize() const {
     return available;
 }
 
-void UIHBoxBase::DoSetChildAlignment(VAlign align) {
+void UIHBoxBase::DoSetChildAlignment(VAlign align)
+{
     childAlignment = align;
     MarkChildLayoutDirty();
 }
 
-void UIHBoxBase::DoSetJustifyContent(JustifyContent j) {
+void UIHBoxBase::DoSetJustifyContent(JustifyContent j)
+{
     justifyContent = j;
     MarkChildLayoutDirty();
 }
 
-}
+} // namespace UI

@@ -14,7 +14,13 @@
 #include "Profiler.h"
 #include "InputManager.h"
 
-enum WindowState { WINDOWED, BORDERLESS, FULLSCREEN, FULLSCREEN_UNFOCUSED};
+enum WindowState
+{
+    WINDOWED,
+    BORDERLESS,
+    FULLSCREEN,
+    FULLSCREEN_UNFOCUSED
+};
 
 struct WindowParameters
 {
@@ -38,28 +44,25 @@ struct WindowParameters
 
     bool taskbarVisible; // TODO
 
-
     // Upscaling
     float renderScale;
     int renderWidth, renderHeight;
     bool enableUpscaling;
 };
 
-
-
 class Window
 {
-public:
+  public:
     Window();
     Window(std::string title, int width, int height);
     Window(std::string title, int width, int height, WindowState windowState);
     Window(WindowParameters parameters);
 
-    Window(const Window&) = delete;
-    Window& operator=(const Window&) = delete;
+    Window(const Window &) = delete;
+    Window &operator=(const Window &) = delete;
 
-    Window(Window&&) noexcept;
-    Window& operator=(Window&&) noexcept;
+    Window(Window &&) noexcept;
+    Window &operator=(Window &&) noexcept;
 
     ~Window();
 
@@ -73,7 +76,6 @@ public:
 
     void Clear() const;
 
-
     // Window state
     void ChangeWindowState(WindowState state);
     void ToggleFullscreen();
@@ -83,7 +85,8 @@ public:
     void SetRenderScale(float scale);
     void EnableUpscaling(bool enable);
     float GetRenderScale() const { return parameters.renderScale; }
-    void GetRenderResolution(int& width, int& height) const {
+    void GetRenderResolution(int &width, int &height) const
+    {
         width = parameters.renderWidth;
         height = parameters.renderHeight;
     }
@@ -96,16 +99,15 @@ public:
     // Getters
     int GetWidth() const { return this->parameters.width; }
     int GetHeight() const { return this->parameters.height; }
-    int* GetWidthptr() { return &this->parameters.width; }
-    int* GetHeightptr() { return &this->parameters.height; }
+    int *GetWidthptr() { return &this->parameters.width; }
+    int *GetHeightptr() { return &this->parameters.height; }
     bool ShouldClose() const { return glfwWindowShouldClose(this->window); }
     double GetAspectRatio() const { return (double)this->parameters.width / (double)this->parameters.height; }
-    GLFWwindow* GetWindow() const { return this->window; }
-
+    GLFWwindow *GetWindow() const { return this->window; }
 
     // Performance
     int GetFrame() const { return this->fpsCounter.getFrame(); }
-    double GetFPS()  const{ return this->fpsCounter.getFPS(); }
+    double GetFPS() const { return this->fpsCounter.getFPS(); }
     double GetAverageFPS() const { return this->fpsCounter.getAverageFPS(); }
     double GetMaxFPS() const { return this->fpsCounter.getMaxFPS(); }
     double GetMinFPS() const { return this->fpsCounter.getMinFPS(); }
@@ -120,10 +122,9 @@ public:
     double GetMaxElapseTimeMillisecond() const { return this->fpsCounter.getMaxElapseTimeInMilliseconds(); }
     double GetMinElapseTimeMillisecond() const { return this->fpsCounter.getMinElapseTimeInMilliseconds(); }
 
-
-private:
+  private:
     void HandleInput();
-    void Swap(Window& other) noexcept;
+    void Swap(Window &other) noexcept;
 
     // Window state
     void SaveWindowedParameters();
@@ -133,20 +134,17 @@ private:
     void ActivateWindowed();
     void ActivateBorderless();
 
-
     // Resolution Scaling methods
     void InitFBOs();
     void BindRenderFBO() const;
     void UnbindRenderFBO() const;
     void UpdateFBOResotution();
 
-
-
     // Callbacks
     void SetupCallbacks();
-    void CallbackFocus(GLFWwindow* window, int focused);
-    void CallbackResize(GLFWwindow* window, int width, int height);
-    void CallbackPosition(GLFWwindow* window, int x, int y);
+    void CallbackFocus(GLFWwindow *window, int focused);
+    void CallbackResize(GLFWwindow *window, int width, int height);
+    void CallbackPosition(GLFWwindow *window, int x, int y);
 
     void ClearCallbacks();
 
@@ -154,15 +152,15 @@ private:
     static void SetupErrorHandling();
     bool IsWindowHealthy() const;
 
-private:
-    GLFWwindow* window = nullptr;
+  private:
+    GLFWwindow *window = nullptr;
 
     FBO FBORendering;
     FBO FBOUpscaled;
 
     WindowParameters parameters;
 
-    InputManager* inputManager;
+    InputManager *inputManager;
 
     FPSCounter fpsCounter;
 

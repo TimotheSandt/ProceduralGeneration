@@ -1,0 +1,7 @@
+Checks: >
+  -*,
+  bugprone-integer-division,
+  bugprone-reserved-identifier
+WarningsAsErrors: '*'
+HeaderFilterRegex: '^(Libraries|src|tests)/'
+FormatStyle: file

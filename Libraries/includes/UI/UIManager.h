@@ -1,17 +1,19 @@
 #pragma once
 #include "UIContainer.h"
 
-namespace UI {
+namespace UI
+{
 
-class UIManager {
+class UIManager
+{
     std::shared_ptr<UIContainer> rootContainer;
     bool active = true;
 
     int lastWidth = 0;
     int lastHeight = 0;
 
-public:
-    static UIManager& Instance();
+  public:
+    static UIManager &Instance();
 
     void Init(int w, int h);
     void Shutdown();
@@ -27,4 +29,4 @@ public:
     bool IsActive() const { return active; }
 };
 
-}
+} // namespace UI
