@@ -189,7 +189,7 @@ void Texture::SetFramebufferTexture(const char *uniformName, GLuint slot, int wi
 
     glGenTextures(1, &this->ID);
     glBindTexture(GL_TEXTURE_2D, this->ID);
-    glTexImage2D(GL_TEXTURE_2D, 0, this->format, this->Width, this->Height, 0, this->format, this->pixelType, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, this->format, this->Width, this->Height, 0, this->format, this->pixelType, nullptr);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -208,7 +208,7 @@ void Texture::ResizeFramebufferTexture(int width, int height)
     this->Width = width;
     this->Height = height;
     glBindTexture(GL_TEXTURE_2D, this->ID);
-    glTexImage2D(GL_TEXTURE_2D, 0, this->format, this->Width, this->Height, 0, this->format, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, this->format, this->Width, this->Height, 0, this->format, GL_UNSIGNED_BYTE, nullptr);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 

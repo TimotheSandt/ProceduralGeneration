@@ -72,7 +72,7 @@ void Window::Swap(Window &other) noexcept
 int Window::Init()
 {
     // Create a window of size 800x800 and called "OpenGL"
-    this->window = glfwCreateWindow(this->parameters.width, this->parameters.height, this->parameters.title.c_str(), NULL, NULL);
+    this->window = glfwCreateWindow(this->parameters.width, this->parameters.height, this->parameters.title.c_str(), nullptr, nullptr);
     if (!this->window)
     {
         LOG_ERROR(1, "Failed to create GLFW window");
@@ -136,7 +136,7 @@ void Window::Close()
     this->window = nullptr;
 
 #ifdef _WIN32
-    ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_SHOW);
+    ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_SHOW);
 #endif
 }
 
@@ -394,7 +394,7 @@ void Window::ActivateWindowed()
     }
 
 #ifdef _WIN32
-    ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_SHOW);
+    ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_SHOW);
 #endif
 
     glfwSetWindowMonitor(this->window, nullptr, this->parameters.windowedPosX, this->parameters.windowedPosY,
@@ -450,7 +450,7 @@ void Window::ActivateBorderless()
 
     // On Windows, we need to hide the taskbar
 #ifdef _WIN32
-    ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_HIDE);
+    ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_HIDE);
 #endif
 
     glfwSetWindowAttrib(this->window, GLFW_DECORATED, GLFW_FALSE);
@@ -603,7 +603,7 @@ void Window::CallbackFocus(GLFWwindow *window, int focused)
         }
 #ifdef _WIN32
         // Rendre la barre de tâches visible
-        ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_SHOW);
+        ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_SHOW);
 #endif
     }
     else
@@ -617,7 +617,7 @@ void Window::CallbackFocus(GLFWwindow *window, int focused)
 #ifdef _WIN32
         else if (this->parameters.windowState == WindowState::BORDERLESS)
         {
-            ShowWindow(FindWindowA("Shell_TrayWnd", NULL), SW_HIDE);
+            ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_HIDE);
         }
 #endif
     }

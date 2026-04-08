@@ -200,7 +200,7 @@ void FBO::Setup()
     VBO bVBO(vertices);
     EBO bEBO(indices);
 
-    this->screenQuadVAO.LinkAttrib(bVBO, 0, 2, GL_FLOAT, 4 * sizeof(GLfloat), 0);
+    this->screenQuadVAO.LinkAttrib(bVBO, 0, 2, GL_FLOAT, 4 * sizeof(GLfloat), nullptr);
     this->screenQuadVAO.LinkAttrib(bVBO, 1, 2, GL_FLOAT, 4 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
 
     GL_CHECK_ERROR_M("FBO screen VAO link");
@@ -228,7 +228,7 @@ void FBO::RenderScreenQuad(int fWidth, int fHeight) const
     this->screenQuadShader.Bind();
     this->screenQuadVAO.Bind();
 
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
     GL_CHECK_ERROR_M("FBO screen draw");
 
     this->screenQuadVAO.Unbind();

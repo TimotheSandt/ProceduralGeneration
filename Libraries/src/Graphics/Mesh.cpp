@@ -238,11 +238,11 @@ void Mesh::Draw(bool wireframe) const
 
     if (this->instancing > 1)
     {
-        glDrawElementsInstanced(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, 0, this->instancing);
+        glDrawElementsInstanced(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, nullptr, this->instancing);
     }
     else
     {
-        glDrawElements(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, nullptr);
     }
 
     // Reset to fill mode after drawing

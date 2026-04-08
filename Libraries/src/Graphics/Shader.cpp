@@ -118,13 +118,13 @@ void Shader::CompileShader()
 
     // Build and compile the vertex shader
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vSource, NULL);
+    glShaderSource(vertexShader, 1, &vSource, nullptr);
     glCompileShader(vertexShader);
     this->compileErrors(vertexShader, "VERTEX");
 
     // Build and compile the fragment shader
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fSource, NULL);
+    glShaderSource(fragmentShader, 1, &fSource, nullptr);
     glCompileShader(fragmentShader);
     this->compileErrors(fragmentShader, "FRAGMENT");
 
@@ -176,7 +176,7 @@ bool Shader::compileErrors(unsigned int shader, const char *type) const
         glGetShaderiv(shader, GL_COMPILE_STATUS, &hasCompiled);
         if (hasCompiled == GL_FALSE)
         {
-            glGetShaderInfoLog(shader, 1024, NULL, infoLog);
+            glGetShaderInfoLog(shader, 1024, nullptr, infoLog);
             LOG_ERROR(1, "SHADER_COMPILATION_ERROR for:", type, "\n", infoLog);
         }
     }
@@ -185,7 +185,7 @@ bool Shader::compileErrors(unsigned int shader, const char *type) const
         glGetProgramiv(shader, GL_LINK_STATUS, &hasCompiled);
         if (hasCompiled == GL_FALSE)
         {
-            glGetProgramInfoLog(shader, 1024, NULL, infoLog);
+            glGetProgramInfoLog(shader, 1024, nullptr, infoLog);
             LOG_ERROR(1, "SHADER_LINKING_ERROR for:", type, "\n", infoLog);
         }
     }
