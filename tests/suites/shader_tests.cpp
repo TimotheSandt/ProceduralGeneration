@@ -55,7 +55,7 @@ TestSuite CreateShaderSuite()
                 Shader source;
                 Shader moved(std::move(source));
                 AssertEqual(moved.GetID(), static_cast<GLuint>(0), "Moved default shader should still have zero id");
-                AssertEqual(source.GetID(), static_cast<GLuint>(0), "Moved-from default shader should keep zero id");
+                Assert(!moved.IsCompiled(), "Moved default shader should remain uncompiled");
             });
 
     return suite;

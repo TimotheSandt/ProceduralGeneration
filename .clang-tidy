@@ -2,6 +2,7 @@ Checks: >
   -*,
   readability-braces-around-statements,
   modernize-use-nullptr,
+  bugprone-use-after-move,
   bugprone-integer-division,
   bugprone-reserved-identifier
 WarningsAsErrors: '*'

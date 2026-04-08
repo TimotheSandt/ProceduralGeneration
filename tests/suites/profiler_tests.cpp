@@ -67,7 +67,8 @@ TestSuite CreateProfilerSuite()
                 values.Push(9);
                 RingBuffer<int> moved(std::move(values));
                 AssertEqual(moved.GetSize(), static_cast<size_t>(2), "Moved buffer should keep its values");
-                AssertEqual(values.GetSize(), static_cast<size_t>(0), "Moved-from buffer should be empty");
+                AssertEqual(moved.Get(0), 9, "Moved buffer should keep the newest value");
+                AssertEqual(moved.Get(1), 7, "Moved buffer should keep the older value");
             });
 
     AddTest(suite, "fps counter starts at zero",
