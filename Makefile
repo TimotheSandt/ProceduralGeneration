@@ -19,6 +19,7 @@ OBJ_DIR := obj
 BIN_DIR := bin
 BUILD_DIR := build
 RES_DIR := res
+TEST_DIR := tests
 TMP_DEB_DIR := /tmp/proceduralgeneration_deb
 
 # Helpers
@@ -104,11 +105,13 @@ LOCAL_IMPORT_LINK_INPUTS := $(LOCAL_IMPORT_LIBS)
 # Includes and resources
 INCLUDES_DIRS := $(notdir $(wildcard $(INCLUDES_BASE)/*))
 INCLUDES := -I$(INCLUDES_BASE) $(foreach dir,$(INCLUDES_DIRS),-I$(INCLUDES_BASE)/$(dir)) -I$(VCPKG_INSTALLED_DIR)/include
+TEST_INCLUDES := $(INCLUDES) -I$(TEST_DIR)
 ICON_RC := $(RES_DIR)/icon.rc
 
 # Flags
 CFLAGS := -m64 -O2 -DNDEBUG
 CXXFLAGS := -std=c++23
+DEPFLAGS := -MMD -MP
 
 # Target configuration
 BUILD_TYPE := normal
@@ -132,6 +135,10 @@ CXXFLAGS += $(CFLAGS) -DGLM_ENABLE_EXPERIMENTAL
 BIN_DIR_TYPE := $(BIN_DIR)/$(BUILD_TYPE)
 OBJ_DIR_TYPE := $(OBJ_DIR)/$(BUILD_TYPE)
 TARGET := $(BIN_DIR_TYPE)/$(TARGET_NAME)$(EXE_EXT)
+TEST_BIN_DIR := $(BIN_DIR)/tests
+TEST_OBJ_DIR := $(OBJ_DIR)/tests
+TEST_TARGET := $(TEST_BIN_DIR)/tests$(EXE_EXT)
+TEST_CPP_SOURCES = $(shell $(FIND) $(TEST_DIR) -type f -name "*.cpp" 2>/dev/null)
 
 # Source files
 LIBRARIES_CPP_SOURCES := $(shell $(FIND) $(LIBRARIES_SRC_DIR) -type f -name "*.cpp" 2>/dev/null)
@@ -149,6 +156,8 @@ LIBRARIES_C_OBJECTS := $(LIBRARIES_C_SOURCES:$(LIBRARIES_SRC_DIR)/%.c=$(OBJ_DIR_
 MAIN_CPP_OBJECTS := $(MAIN_CPP_SOURCES:$(MAIN_SRC_DIR)/%.cpp=$(OBJ_DIR_TYPE)/src/%.o)
 MAIN_C_OBJECTS := $(MAIN_C_SOURCES:$(MAIN_SRC_DIR)/%.c=$(OBJ_DIR_TYPE)/src/%.o)
 ALL_OBJECTS := $(LIBRARIES_CPP_OBJECTS) $(LIBRARIES_C_OBJECTS) $(MAIN_CPP_OBJECTS) $(MAIN_C_OBJECTS)
+TEST_CPP_OBJECTS := $(TEST_CPP_SOURCES:$(TEST_DIR)/%.cpp=$(TEST_OBJ_DIR)/tests/%.o)
+TEST_OBJECTS := $(TEST_CPP_OBJECTS) $(LIBRARIES_CPP_OBJECTS) $(LIBRARIES_C_OBJECTS)
 
 ifneq ($(strip $(ICON_NAME)),)
 ifneq ($(wildcard $(ICON_NAME)),)
@@ -164,6 +173,9 @@ COPY_TARGETS := copy_res $(COPY_LIBS_TARGETS)
 all: $(TARGET)
 
 debug dev: $(TARGET)
+
+test: $(TEST_TARGET) copy_test_libs
+	@./$(TEST_TARGET)
 
 installer: $(CREATE_INSTALLER)
 
@@ -259,6 +271,11 @@ copy_res: | $(BIN_DIR_TYPE)
 		cp -Rf "$(RES_DIR)/." "$(BIN_DIR_TYPE)/$(RES_DIR)/" 2>/dev/null || :; \
 	fi
 
+copy_test_libs: | $(TEST_BIN_DIR)
+	@echo "Copying test libraries to $(TEST_BIN_DIR)"
+	@set -- "$(VCPKG_BIN_DIR)"/*.dll; if [ -e "$$1" ]; then $(CP_F) "$$@" "$(TEST_BIN_DIR)/" 2>/dev/null || :; fi
+	@set -- $(LOCAL_DLLS); if [ -n "$(strip $(LOCAL_DLLS))" ] && [ -e "$$1" ]; then $(CP_F) "$$@" "$(TEST_BIN_DIR)/" 2>/dev/null || :; fi
+
 all_copy: $(COPY_TARGETS)
 
 # Build target
@@ -266,26 +283,35 @@ $(TARGET): all_copy $(ALL_OBJECTS) | $(BIN_DIR_TYPE)
 	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS) $(LOCAL_LINK_DIR_FLAGS) $(LOCAL_A_LINK_INPUTS) $(LOCAL_IMPORT_LINK_INPUTS) $(LDFLAGS) -o $@
 	@echo "Compilation successful for: $(TARGET)"
 
+$(TEST_TARGET): $(TEST_OBJECTS) | $(TEST_BIN_DIR)
+	$(CXX) $(filter-out -flto=jobserver,$(CXXFLAGS)) $(TEST_OBJECTS) $(LOCAL_LINK_DIR_FLAGS) $(LOCAL_A_LINK_INPUTS) $(LOCAL_IMPORT_LINK_INPUTS) $(LDFLAGS) -o $@
+	@echo "Compilation successful for: $(TEST_TARGET)"
+
 # Compilation rules
 $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.cpp
 	@$(MKDIR_P) "$(dir $@)"
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
 	@echo "Compiled (C++ Libraries) $(BUILD_TYPE): $<"
 
 $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.c
 	@$(MKDIR_P) "$(dir $@)"
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+	$(CC) $(CFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
 	@echo "Compiled (C Libraries) $(BUILD_TYPE): $<"
 
 $(OBJ_DIR_TYPE)/src/%.o: $(MAIN_SRC_DIR)/%.cpp
 	@$(MKDIR_P) "$(dir $@)"
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
 	@echo "Compiled (C++ Main) $(BUILD_TYPE): $<"
 
 $(OBJ_DIR_TYPE)/src/%.o: $(MAIN_SRC_DIR)/%.c
 	@$(MKDIR_P) "$(dir $@)"
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+	$(CC) $(CFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
 	@echo "Compiled (C Main) $(BUILD_TYPE): $<"
+
+$(TEST_OBJ_DIR)/tests/%.o: $(TEST_DIR)/%.cpp
+	@$(MKDIR_P) "$(dir $@)"
+	$(CXX) $(filter-out -flto=jobserver,$(CXXFLAGS)) $(DEPFLAGS) $(TEST_INCLUDES) -c $< -o $@
+	@echo "Compiled (C++ Tests): $<"
 
 # Directories
 $(BIN_DIR_TYPE):
@@ -293,6 +319,9 @@ $(BIN_DIR_TYPE):
 	@$(MKDIR_P) "$@"
 
 $(BUILD_DIR):
+	@$(MKDIR_P) "$@"
+
+$(TEST_BIN_DIR):
 	@$(MKDIR_P) "$@"
 
 # Clean rules
@@ -353,12 +382,14 @@ endif
 
 # Phony rules
 .PHONY: all release dev debug
+.PHONY: test
 .PHONY: run run-release run-dev run-debug
 .PHONY: clean fclean fclean-build re re-debug re-dev re-release
 .PHONY: info info-debug info-dev info-release debug-info dev-info release-info
-.PHONY: check copy_libs copy_res all_copy
+.PHONY: check copy_libs copy_res copy_test_libs all_copy
 .PHONY: create_windows_installer create_linux_installer installer
 .PHONY: install_deps remove_deps reset_deps
 
 # Dependencies
 -include $(wildcard $(ALL_OBJECTS:.o=.d))
+-include $(wildcard $(TEST_OBJECTS:.o=.d))
