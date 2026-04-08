@@ -219,7 +219,9 @@ class InputManager
     InputState GetKeyState(KeyButton key) const
     {
         if (keyStateMap.find(key) == keyStateMap.end())
+        {
             return InputState::Release;
+        }
         return keyStateMap.at(key);
     }
     bool IsKeyRelease(KeyButton key) const { return GetKeyState(key) == InputState::Release; }
@@ -230,7 +232,9 @@ class InputManager
     InputState GetMouseButtonState(MouseButton button) const
     {
         if (mouseButtonStateMap.find(button) == mouseButtonStateMap.end())
+        {
             return InputState::Release;
+        }
         return mouseButtonStateMap.at(button);
     }
     bool IsMouseButtonRelease(MouseButton button) const { return GetMouseButtonState(button) == InputState::Release; }

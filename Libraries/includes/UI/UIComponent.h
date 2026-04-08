@@ -97,7 +97,9 @@ class UIComponentBase : public std::enable_shared_from_this<UIComponentBase>
     void DoSetDeform(bool deform)
     {
         if (!allowDeform.Get())
+        {
             throw std::runtime_error("UIComponent does not allow deformations");
+        }
         isDeformed = deform;
     }
 

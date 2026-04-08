@@ -130,7 +130,9 @@ LogLevel Logger::GetMinimumLevel()
 void Logger::FlushToFile()
 {
     if (!isLoggingToFile)
+    {
         return;
+    }
 
     bool flushFailed = false;
     bool wroteLogs = false;
@@ -249,7 +251,9 @@ size_t Logger::CalculateNumberOfLines(const LogMessage &log)
 {
     size_t terminalWidth = getTerminalWidth();
     if (terminalWidth == 0)
+    {
         return 1;
+    }
 
     // Calculer la longueur du préfixe (tout sauf le message)
     size_t prefixLength = 4;
@@ -402,7 +406,9 @@ std::string Logger::FormatTimestamp(const std::chrono::time_point<std::chrono::s
 void Logger::PrintLog(const LogMessage &log)
 {
     if (log.level < lLevelPrinted)
+    {
         return;
+    }
 
     std::cout << "[" << FormatTimestamp(log.time) << "] ";
     if (log.repetition > 1)

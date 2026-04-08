@@ -489,14 +489,18 @@ bool InputManager::IsActionActive(std::string action)
     for (const auto &key : actionInput.keys)
     {
         if (!IsKeyPressed(key))
+        {
             return false;
+        }
     }
 
     // Check mouse buttons
     for (const auto &button : actionInput.mouseButtons)
     {
         if (!IsMouseButtonPressed(button))
+        {
             return false;
+        }
     }
 
     return true;

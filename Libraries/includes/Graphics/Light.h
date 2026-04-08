@@ -38,7 +38,9 @@ struct Light
     bool operator==(const Light &other) const
     {
         if (type != other.type)
+        {
             return false;
+        }
         switch (type)
         {
             case AMBIENT:
@@ -83,7 +85,9 @@ struct alignas(16) AmbientLightBlock
     AmbientLightBlock &operator=(const lght::Light &light)
     {
         if (light.type != lght::AMBIENT)
+        {
             return *this;
+        }
         color = glm::vec4(light.color, 1.0f);
         strength = light.strength;
         return *this;
@@ -92,7 +96,9 @@ struct alignas(16) AmbientLightBlock
     bool operator==(const lght::Light &other) const
     {
         if (other.type != lght::AMBIENT)
+        {
             return false;
+        }
         return this->color == glm::vec4(other.color, 0.0f) && this->strength == other.strength;
     }
 };
@@ -134,7 +140,9 @@ struct alignas(16) LightBlock
     bool operator==(const LightBlock &other) const
     {
         if (type != other.type)
+        {
             return false;
+        }
         switch (type)
         {
             case AMBIENT:

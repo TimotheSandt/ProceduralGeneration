@@ -25,7 +25,9 @@ void UIContainerBase::Initialize()
     UIComponentBase::Initialize();
 
     for (auto &child : children)
+    {
         child->Initialize();
+    }
     InitializedFBO();
     RecalculateChildBounds();
 }
@@ -37,9 +39,13 @@ void UIContainerBase::Update()
     // Apply deferred layout properties
     bool layoutChanged = false;
     if (padding.Apply())
+    {
         layoutChanged = true;
+    }
     if (spacing.Apply())
+    {
         layoutChanged = true;
+    }
     bool wasWrap = overflowMode.Get() == OverflowMode::WRAP;
     if (overflowMode.Apply())
     {
@@ -55,7 +61,9 @@ void UIContainerBase::Update()
     }
 
     for (auto &child : children)
+    {
         child->Update();
+    }
     if (dirtySelfLayout || dirtyChildLayout)
     {
         RecalculateChildBounds();
@@ -67,7 +75,9 @@ void UIContainerBase::Update()
 void UIContainerBase::InitializedFBO()
 {
     if (contentSize.x <= 0 || contentSize.y <= 0)
+    {
         return;
+    }
 
     if (fbo.GetWidth() != static_cast<int>(contentSize.x) || fbo.GetHeight() != static_cast<int>(contentSize.y))
     {
@@ -181,11 +191,15 @@ void UIContainerBase::RenderChildren()
 void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
 {
     if (!visible.Get())
+    {
         return;
+    }
 
     // Update child positions
     if (dirtySelfLayout || dirtyChildLayout)
+    {
         RecalculateChildBounds();
+    }
 
     // offset already includes anchor offset from cachedBoundsInParent
     RenderChildren();

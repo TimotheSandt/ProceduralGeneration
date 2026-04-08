@@ -36,7 +36,9 @@ void VBO::Unbind() const { glBindBuffer(GL_ARRAY_BUFFER, 0); }
 void VBO::Destroy()
 {
     if (this->ID == 0)
+    {
         return;
+    }
     glDeleteBuffers(1, &this->ID);
     GL_CHECK_ERROR();
     this->ID = 0;

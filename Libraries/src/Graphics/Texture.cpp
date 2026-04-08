@@ -79,7 +79,9 @@ Texture::Texture(std::string image, const char *name, GLuint slot, GLenum format
     this->SetTextureData(bytes, this->Width, this->Height, this->format, pixelType, filter);
 
     if (isLoaded)
+    {
         stbi_image_free(bytes);
+    }
 }
 
 Texture::Texture(void *data, int width, int height, const char *name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter)
@@ -227,7 +229,9 @@ void Texture::Unbind() const { glBindTexture(GL_TEXTURE_2D, 0); }
 void Texture::Destroy()
 {
     if (this->ID == 0)
+    {
         return;
+    }
     glDeleteTextures(1, &this->ID);
     this->ID = 0;
 }

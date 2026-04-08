@@ -107,7 +107,9 @@ void UIVBoxBase::RecalculateChildBounds()
                     currentSpacing = actualSpacing + extra;
                     yOffset = actualPadding.y + extra / 2.0f;
                     if (visibleChildrenCount > 1)
+                    {
                         currentSpacing = freeSpace / (visibleChildrenCount - 1);
+                    }
                 }
                 break;
             default:

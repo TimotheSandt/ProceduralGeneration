@@ -81,7 +81,9 @@ glm::vec2 UIComponentBase::CalculatePixelSize()
 void UIComponentBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
 {
     if (!visible.Get())
+    {
         return;
+    }
 
     // offset already includes anchor offset from cachedBoundsInParent
 

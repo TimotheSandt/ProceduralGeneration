@@ -146,7 +146,9 @@ void Shader::CompileShader()
 void Shader::Bind() const
 {
     if (this->ID == 0)
+    {
         return;
+    }
     glUseProgram(this->ID);
 }
 
@@ -155,7 +157,9 @@ void Shader::Unbind() const { glUseProgram(0); }
 void Shader::Destroy()
 {
     if (this->ID == 0)
+    {
         return;
+    }
     glDeleteProgram(this->ID);
     this->ID = 0;
 }

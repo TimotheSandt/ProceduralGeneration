@@ -53,7 +53,9 @@ template <typename Type> class RingBuffer
     {
         capacity = std::min(std::max(capacity, MIN_CAPACITY), MAX_CAPACITY);
         if (this->buffer != nullptr)
+        {
             delete[] this->buffer;
+        }
         this->buffer = new Type[capacity]();
         this->capacity = capacity;
         this->size = 0;
@@ -75,7 +77,9 @@ template <typename Type> class RingBuffer
     void Clear() noexcept
     {
         if (this->size == 0)
+        {
             return;
+        }
         for (size_t i = 0; i < this->size; ++i)
         {
             this->buffer[(this->index - i) % this->capacity] = Type();
@@ -98,7 +102,9 @@ template <typename Type> class RingBuffer
     {
         newCapacity = std::min(std::max(newCapacity, MIN_CAPACITY), MAX_CAPACITY);
         if (newCapacity == this->capacity)
+        {
             return;
+        }
 
         Type *newBuffer = new Type[newCapacity]();
         size_t copySize = std::min(this->size, newCapacity);
@@ -121,7 +127,9 @@ template <typename Type> class RingBuffer
     [[nodiscard]] Type Get(size_t i) const noexcept
     {
         if (this->size == 0)
+        {
             return Type();
+        }
         i = i % this->size;
         return this->buffer[(this->index - i + this->capacity) % this->capacity];
     };
@@ -129,7 +137,9 @@ template <typename Type> class RingBuffer
     [[nodiscard]] Type GetAverage() const noexcept
     {
         if (this->size == 0)
+        {
             return Type();
+        }
         if constexpr (std::is_same_v<Type, std::chrono::nanoseconds> || std::is_same_v<Type, std::chrono::microseconds> ||
                       std::is_same_v<Type, std::chrono::milliseconds> || std::is_same_v<Type, std::chrono::seconds> ||
                       std::is_same_v<Type, std::chrono::minutes> || std::is_same_v<Type, std::chrono::hours>)
@@ -154,7 +164,9 @@ template <typename Type> class RingBuffer
     [[nodiscard]] Type GetSum() const noexcept
     {
         if (this->size == 0)
+        {
             return Type();
+        }
 
         Type sum = this->Get(0);
         for (size_t i = 1; i < this->size; i++)
@@ -168,7 +180,10 @@ template <typename Type> class RingBuffer
     [[nodiscard]] Type GetMin() const noexcept
     {
         if (this->size == 0)
+        {
             return Type();
+        }
+
         Type min = this->Get(0);
         for (size_t i = 1; i < this->size; i++)
         {
@@ -184,7 +199,9 @@ template <typename Type> class RingBuffer
     [[nodiscard]] Type GetMax() const noexcept
     {
         if (this->size == 0)
+        {
             return Type();
+        }
         Type max = this->Get(0);
         for (size_t i = 1; i < this->size; i++)
         {

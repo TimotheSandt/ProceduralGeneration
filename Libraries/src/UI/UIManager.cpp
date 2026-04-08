@@ -76,7 +76,9 @@ void UIManager::Update(float dt, int w, int h)
 void UIManager::Render(int w, int h)
 {
     if (!active)
+    {
         return;
+    }
 
     // Ensure UI exists
     if (!rootContainer)
@@ -107,13 +109,21 @@ void UIManager::Render(int w, int h)
     glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
     glViewport(oldViewport[0], oldViewport[1], oldViewport[2], oldViewport[3]);
     if (oldDepthTest)
+    {
         glEnable(GL_DEPTH_TEST);
+    }
     else
+    {
         glDisable(GL_DEPTH_TEST);
+    }
     if (oldBlend)
+    {
         glEnable(GL_BLEND);
+    }
     else
+    {
         glDisable(GL_BLEND);
+    }
 }
 
 } // namespace UI

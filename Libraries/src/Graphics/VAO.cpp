@@ -16,7 +16,9 @@ VAO &VAO::operator=(VAO &&other) noexcept
 void VAO::Initialize()
 {
     if (this->ID != 0)
+    {
         return;
+    }
     glGenVertexArrays(1, &this->ID);
     GL_CHECK_ERROR_M("VAO gen");
 }
@@ -38,7 +40,9 @@ void VAO::Unbind() const { glBindVertexArray(0); }
 void VAO::Destroy()
 {
     if (this->ID == 0)
+    {
         return;
+    }
     glDeleteVertexArrays(1, &this->ID);
     GL_CHECK_ERROR_M("VAO delete");
     this->ID = 0;

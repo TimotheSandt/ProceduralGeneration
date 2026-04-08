@@ -8,13 +8,21 @@ Grid::Grid(float size_x, float size_z, int resolution_x, int resolution_z)
     : size_x(size_x), size_z(size_z), resolution_x(resolution_x), resolution_z(resolution_z)
 {
     if (size_x <= 0.0f)
+    {
         size_x = 1.0f;
+    }
     if (size_z <= 0.0f)
+    {
         size_z = 1.0f;
+    }
     if (resolution_x <= 2)
+    {
         resolution_x = 2;
+    }
     if (resolution_z <= 2)
+    {
         resolution_z = 2;
+    }
     this->GeneratePoints();
 }
 

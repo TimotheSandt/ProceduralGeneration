@@ -110,7 +110,9 @@ void UIHBoxBase::RecalculateChildBounds()
                     currentSpacing = actualSpacing + freeSpace / visibleChildrenCount;
                     xOffset = actualPadding.x + (freeSpace / visibleChildrenCount) / 2.0f;
                     if (visibleChildrenCount > 1)
+                    {
                         currentSpacing = freeSpace / (visibleChildrenCount - 1);
+                    }
                 }
                 break;
             default:

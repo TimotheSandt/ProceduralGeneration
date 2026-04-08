@@ -118,9 +118,13 @@ TextRenderer::~TextRenderer()
     }
 
     if (VAO)
+    {
         glDeleteVertexArrays(1, &VAO);
+    }
     if (VBO)
+    {
         glDeleteBuffers(1, &VBO);
+    }
 }
 
 bool TextRenderer::init(unsigned int width, unsigned int height)
@@ -288,7 +292,9 @@ glm::vec2 TextRenderer::calculateAnchorOffset(const std::string &text, float sca
 void TextRenderer::renderText(const std::string &text, float x, float y, float scale, const glm::vec3 &color, TextAnchor anchor)
 {
     if (fonts.empty() || activeFontName.empty())
+    {
         return;
+    }
 
     auto &fontData = fonts[activeFontName];
     float lineHeight = fontData.fontSize * scale;
@@ -323,7 +329,9 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
         }
 
         if (fontData.characters.find(c) == fontData.characters.end())
+        {
             continue;
+        }
 
         Character ch = fontData.characters[c];
 
@@ -376,7 +384,9 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
 float TextRenderer::measureTextWidth(const std::string &text, float scale)
 {
     if (fonts.empty() || activeFontName.empty())
+    {
         return 0.0f;
+    }
 
     auto &fontData = fonts[activeFontName];
     float width = 0.0f;
@@ -384,7 +394,9 @@ float TextRenderer::measureTextWidth(const std::string &text, float scale)
     for (char c : text)
     {
         if (c == '\n')
+        {
             break;
+        }
 
         if (fontData.characters.find(c) == fontData.characters.end())
         {
@@ -401,7 +413,9 @@ float TextRenderer::measureTextWidth(const std::string &text, float scale)
 glm::vec2 TextRenderer::measureText(const std::string &text, float scale)
 {
     if (fonts.empty() || activeFontName.empty())
+    {
         return {0, 0};
+    }
 
     auto &fontData = fonts[activeFontName];
     float maxWidth = 0.0f;
@@ -435,7 +449,9 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
 {
     std::vector<std::string> lines;
     if (text.empty())
+    {
         return lines;
+    }
 
     auto &fontData = fonts[activeFontName];
 
@@ -456,7 +472,9 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
             {
                 char c = segment[i];
                 if (c == ' ')
+                {
                     lastSpace = i;
+                }
 
                 if (fontData.characters.find(c) != fontData.characters.end())
                 {
@@ -472,7 +490,9 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
             }
 
             if (i == 0)
+            {
                 i = 1;
+            }
 
             if (i < segment.length() && lastSpace > 0)
             {
@@ -502,7 +522,9 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
         {
             char c = remaining[i];
             if (c == ' ')
+            {
                 lastSpace = i;
+            }
 
             if (fontData.characters.find(c) != fontData.characters.end())
             {
@@ -518,7 +540,9 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
         }
 
         if (i == 0)
+        {
             i = 1;
+        }
 
         if (i < remaining.length() && lastSpace > 0)
         {
@@ -561,7 +585,9 @@ void TextRenderer::applyHorizontalAlignment(TextLayout &layout, const TextLayout
 void TextRenderer::applyVerticalAlignment(TextLayout &layout, const TextLayoutParams &params)
 {
     if (params.maxHeight <= 0.0f)
+    {
         return;
+    }
 
     float offsetY = 0.0f;
 
@@ -587,7 +613,9 @@ void TextRenderer::applyVerticalAlignment(TextLayout &layout, const TextLayoutPa
 void TextRenderer::handleOverflow(TextLayout &layout, const TextLayoutParams &params)
 {
     if (params.overflow == TextOverflow::Visible)
+    {
         return;
+    }
 
     if (params.maxHeight > 0.0f)
     {

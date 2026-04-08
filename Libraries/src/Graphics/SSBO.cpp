@@ -39,7 +39,9 @@ bool SSBO::Initialize(size_t size, GLuint bindingPoint, Usage usage)
     glGenBuffers(1, &this->ID);
     GL_CHECK_ERROR();
     if (this->ID == 0)
+    {
         return false;
+    }
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
     GL_CHECK_ERROR();
@@ -56,7 +58,9 @@ bool SSBO::Initialize(size_t size, GLuint bindingPoint, Usage usage)
 void SSBO::Destroy()
 {
     if (this->ID == 0)
+    {
         return glDeleteBuffers(1, &this->ID);
+    }
     GL_CHECK_ERROR();
     this->ID = 0;
     this->bindingPoint = 0;
@@ -66,14 +70,18 @@ void SSBO::Destroy()
 void SSBO::Bind() const
 {
     if (this->ID == 0)
+    {
         return;
+    }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
 }
 
 void SSBO::BindToPoint() const
 {
     if (this->ID == 0)
+    {
         return;
+    }
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, this->bindingPoint, this->ID);
     GL_CHECK_ERROR_M("Failed to bind SSBO");
 }
@@ -83,7 +91,9 @@ void SSBO::Unbind() const { glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0); }
 void SSBO::UploadData(const void *data, size_t size, size_t offset)
 {
     if (this->ID == 0)
+    {
         return;
+    }
     ensureCapacity(offset + size);
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
@@ -97,7 +107,9 @@ void SSBO::UploadData(const void *data, size_t size, size_t offset)
 void SSBO::DownloadData(void *data, size_t size, size_t offset) const
 {
     if (this->ID == 0)
+    {
         return;
+    }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
     glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, data);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -146,7 +158,9 @@ void SSBO::ResizePreserveData(size_t newSize)
 void *SSBO::MapBuffer(GLenum access) const
 {
     if (this->ID == 0)
+    {
         return nullptr;
+    }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
     GL_CHECK_ERROR();
     void *ptr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, this->size, access);
@@ -157,7 +171,9 @@ void *SSBO::MapBuffer(GLenum access) const
 void SSBO::UnmapBuffer() const
 {
     if (this->ID == 0)
+    {
         return;
+    }
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
     GL_CHECK_ERROR();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);

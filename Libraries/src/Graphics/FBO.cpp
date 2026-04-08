@@ -33,9 +33,13 @@ void FBO::Swap(FBO &other) noexcept
 void FBO::Destroy()
 {
     if (ID != 0)
+    {
         glDeleteFramebuffers(1, &ID);
+    }
     if (depthBufferID != 0)
+    {
         glDeleteRenderbuffers(1, &depthBufferID);
+    }
 
     ID = 0;
     depthBufferID = 0;
@@ -84,7 +88,9 @@ void FBO::Init(int width, int height)
 void FBO::Bind() const
 {
     if (ID == 0)
+    {
         return;
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
     GL_CHECK_ERROR_M("FBO bind");
     glViewport(0, 0, width, height);

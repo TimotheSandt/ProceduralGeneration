@@ -33,7 +33,9 @@ EBO::~EBO() { this->Destroy(); }
 void EBO::Bind() const
 {
     if (this->ID == 0)
+    {
         return;
+    }
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ID);
 }
 
@@ -42,7 +44,9 @@ void EBO::Unbind() const { glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); }
 void EBO::Destroy()
 {
     if (this->ID == 0)
+    {
         return;
+    }
     glDeleteBuffers(1, &this->ID);
     GL_CHECK_ERROR_M("Failed to delete EBO");
     this->ID = 0;

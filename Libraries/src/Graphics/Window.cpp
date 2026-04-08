@@ -120,7 +120,9 @@ int Window::Init()
 void Window::Close()
 {
     if (!this->window)
+    {
         return;
+    }
 
     this->ClearCallbacks();
 
@@ -141,7 +143,9 @@ void Window::Close()
 bool Window::InitOpenGL()
 {
     if (isOpenGLInitialized)
+    {
         return isOpenGLInitialized;
+    }
 
     // Initialize GLFW
     if (!glfwInit())
@@ -174,7 +178,9 @@ bool Window::InitOpenGL()
 void Window::TerminateOpenGL()
 {
     if (!isOpenGLInitialized)
+    {
         return;
+    }
     glfwSetErrorCallback(nullptr);
     glfwTerminate();
     isOpenGLInitialized = false;
@@ -229,7 +235,9 @@ bool Window::NewFrame()
 void Window::SwapBuffers()
 {
     if (!this->window)
+    {
         return;
+    }
 
     if (this->parameters.enableUpscaling)
     {
@@ -328,7 +336,9 @@ void Window::ToggleBorderless()
 void Window::ActivateFullscreen()
 {
     if (this->parameters.windowState == WindowState::FULLSCREEN)
+    {
         return;
+    }
 
     if (!IsWindowHealthy())
     {
@@ -373,7 +383,9 @@ void Window::ActivateFullscreen()
 void Window::ActivateWindowed()
 {
     if (this->parameters.windowState == WindowState::WINDOWED)
+    {
         return;
+    }
 
     if (!IsWindowHealthy())
     {
@@ -403,7 +415,9 @@ void Window::ActivateWindowed()
 void Window::ActivateBorderless()
 {
     if (this->parameters.windowState == WindowState::BORDERLESS)
+    {
         return;
+    }
     if (!IsWindowHealthy())
     {
         LOG_WARNING("Window not healthy, skipping borderless toggle");
@@ -456,7 +470,9 @@ void Window::ActivateBorderless()
 void Window::SaveWindowedParameters()
 {
     if (!this->window)
+    {
         return;
+    }
 
     glfwGetWindowSize(this->window, &this->parameters.windowedWidth, &this->parameters.windowedHeight);
     GL_CHECK_ERROR_M("glfwGetWindowSize");
@@ -467,7 +483,9 @@ void Window::SaveWindowedParameters()
 void Window::PostWindowStateChange() const
 {
     if (!this->window)
+    {
         return;
+    }
     glfwMakeContextCurrent(this->window);
     GL_CHECK_ERROR_M("glfwMakeContextCurrent");
 
@@ -502,7 +520,9 @@ void Window::SetupCallbacks()
                                    {
                                        Window *windowObj = static_cast<Window *>(glfwGetWindowUserPointer(window));
                                        if (!windowObj)
+                                       {
                                            return;
+                                       }
                                        windowObj->CallbackFocus(window, focused);
                                    }
                                    catch (...)
@@ -518,7 +538,9 @@ void Window::SetupCallbacks()
                                   {
                                       Window *windowObj = static_cast<Window *>(glfwGetWindowUserPointer(window));
                                       if (!windowObj)
+                                      {
                                           return;
+                                      }
                                       windowObj->CallbackResize(window, width, height);
                                   }
                                   catch (...)
@@ -534,7 +556,9 @@ void Window::SetupCallbacks()
                                  {
                                      Window *windowObj = static_cast<Window *>(glfwGetWindowUserPointer(window));
                                      if (!windowObj)
+                                     {
                                          return;
+                                     }
                                      windowObj->CallbackPosition(window, x, y);
                                  }
                                  catch (...)

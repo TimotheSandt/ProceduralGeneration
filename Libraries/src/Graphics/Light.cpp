@@ -92,7 +92,9 @@ void LightManager::updateSSBO()
     for (size_t i = 0; i < this->lLight.size(); i++)
     {
         if (!this->LightChanged[i])
+        {
             continue;
+        }
         lght::LightBlock l = this->lLight[i];
         this->LightSSBO.UploadData(&l, sizeof(lght::LightBlock), i * sizeof(lght::LightBlock) + sizeof(Header));
         this->LightChanged[i] = false;
@@ -126,7 +128,9 @@ void LightManager::SetAmbientLight(glm::vec3 color, float strength)
 void LightManager::RemoveLight(size_t index)
 {
     if (index >= this->lLight.size())
+    {
         return;
+    }
 
     this->LightsChanged = true;
     this->LightChanged[index] = true;
@@ -163,7 +167,9 @@ void LightManager::ResetAmbientLight()
 void LightManager::SetLight(size_t index, lght::Light Light)
 {
     if (index >= this->lLight.size())
+    {
         throw std::out_of_range("Index out of range");
+    }
     this->lLight[index] = Light;
     this->LightChanged[index] = true;
 }
@@ -177,7 +183,9 @@ lght::Light &LightManager::operator[](size_t index)
 lght::Light &LightManager::GetLight(size_t index)
 {
     if (index >= this->lLight.size())
+    {
         throw std::out_of_range("Index out of range");
+    }
     return this->lLight[index];
 }
 

@@ -46,7 +46,9 @@ float Noise::WhiteNoise(float x, float y, float z, float w)
 float Noise::SmoothNoise(float x, float scale)
 {
     if (scale == 0.0f)
+    {
         return 0.0f;
+    }
 
     float tx = x * std::cos(0.5f);
 
@@ -66,7 +68,9 @@ float Noise::SmoothNoise(float x, float scale)
 float Noise::SmoothNoise(float x, float y, float scale)
 {
     if (scale == 0.0f)
+    {
         return 0.0f;
+    }
     rotate(x, y, 0.5f);
 
     float tx = x * std::cos(0.5f) - y * std::sin(0.5f);
@@ -101,7 +105,9 @@ float Noise::SmoothNoise(float x, float y, float scale)
 float Noise::SmoothNoise(float x, float y, float z, float scale)
 {
     if (scale == 0.0f)
+    {
         return 0.0f;
+    }
     rotate(x, y, z, 0.5f);
 
     float x0 = x * scale;
@@ -147,7 +153,9 @@ float Noise::SmoothNoise(float x, float y, float z, float scale)
 float Noise::SmoothNoise(float x, float y, float z, float w, float scale)
 {
     if (scale == 0.0f)
+    {
         return 0.0f;
+    }
     rotate(x, y, z, w, 0.5f);
 
     float x0 = x * scale;
