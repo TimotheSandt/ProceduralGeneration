@@ -1,5 +1,7 @@
 #include "UITheme.h"
 
+#include <utility>
+
 namespace UI
 {
 
@@ -15,16 +17,16 @@ std::unordered_map<std::string, std::shared_ptr<UITheme>> UITheme::themes = {
                                                         5.0f, 15.0f, 15.0f)))};
 
 UITheme::UITheme(std::string name, UIColors colors, float cornerRadius, float padding, float spacing)
-    : name(name), colors(colors), cornerRadius(cornerRadius), padding(padding), spacing(spacing)
+    : name(std::move(name)), colors(colors), cornerRadius(cornerRadius), padding(padding), spacing(spacing)
 {
 }
 
-void UITheme::CreateTheme(std::string name, UIColors colors, float cornerRadius, float padding, float spacing)
+void UITheme::CreateTheme(const std::string &name, UIColors colors, float cornerRadius, float padding, float spacing)
 {
     themes[name] = std::shared_ptr<UITheme>(new UITheme(name, colors, cornerRadius, padding, spacing));
 }
 
-std::weak_ptr<UITheme> UITheme::GetTheme(std::string themeName)
+std::weak_ptr<UITheme> UITheme::GetTheme(const std::string &themeName)
 {
     auto it = UITheme::themes.find(themeName);
     if (it != UITheme::themes.end())

@@ -12,7 +12,7 @@ class Texture
     Texture();
     Texture(void *data, int width, int height, const char *name, GLuint slot, GLenum format = GL_RGBA, GLenum pixelType = GL_UNSIGNED_BYTE,
             GLenum filter = GL_LINEAR);
-    Texture(std::string image, const char *name, GLuint slot, GLenum format = GL_RGBA, GLenum pixelType = GL_UNSIGNED_BYTE,
+    Texture(const std::string &image, const char *name, GLuint slot, GLenum format = GL_RGBA, GLenum pixelType = GL_UNSIGNED_BYTE,
             GLenum filter = GL_LINEAR);
     ~Texture();
 

@@ -4,6 +4,7 @@
 #endif
 #include <functional>
 #include <iostream>
+#include <utility>
 #include "Logger.h"
 
 #undef DELETE
@@ -464,18 +465,18 @@ void InputManager::UpdateInputEvent()
     this->inputEvent = event;
 }
 
-void InputManager::BindActionToInput(std::string action, InputAction inputAction)
+void InputManager::BindActionToInput(const std::string &action, InputAction inputAction)
 {
     if (IsActionBound(action))
     {
         LOG_WARNING("Action ", action, " already bound. Overwriting.");
     }
-    mapActionToInputAction[action] = inputAction;
+    mapActionToInputAction[action] = std::move(inputAction);
 }
 
 bool InputManager::IsCurrentInputEventEmpty() { return inputEvent.keys.empty() && inputEvent.mouseButtons.empty(); }
 
-bool InputManager::IsActionActive(std::string action)
+bool InputManager::IsActionActive(const std::string &action)
 {
     if (!IsActionBound(action))
     {

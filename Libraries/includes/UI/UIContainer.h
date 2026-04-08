@@ -93,7 +93,7 @@ class UIContainerBase : public UIComponentBase
     void DoSetChildrenAllowDeform(bool deform);
 
     // Children
-    void AddChild(std::shared_ptr<UIComponentBase> child);
+    void AddChild(const std::shared_ptr<UIComponentBase> &child);
 
   protected:
     DeferredValue<float> padding = 0.0f;
@@ -152,7 +152,7 @@ class UIContainer : public ChainableContainer<UIContainerBase, UIContainer>
 // ============ SwiftUI-style Factory Functions ============
 
 // Factory for Container
-inline std::shared_ptr<UIContainer> Container(Bounds bounds = Bounds(), std::vector<std::shared_ptr<UIComponentBase>> children = {})
+inline std::shared_ptr<UIContainer> Container(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<UIComponentBase>> &children = {})
 {
     auto container = std::make_shared<UIContainer>(bounds);
     container->SetColor(glm::vec4{0.0f, 0.0f, 0.0f, 0.0f}); // Transparent by default

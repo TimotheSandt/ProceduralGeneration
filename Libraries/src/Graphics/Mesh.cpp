@@ -1,14 +1,16 @@
 #include "Mesh.h"
 
+#include <utility>
+
 Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib)
 {
-    this->Initialize(vertices, indices, sizeAttrib);
+    this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib));
 }
 
 Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib, std::vector<GLfloat> instances,
            std::vector<GLuint> SizeAttribInstance)
 {
-    this->Initialize(vertices, indices, sizeAttrib, instances, SizeAttribInstance);
+    this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib), std::move(instances), std::move(SizeAttribInstance));
 }
 
 Mesh::Mesh(const Mesh &mesh) noexcept
@@ -74,14 +76,14 @@ void Mesh::Swap(Mesh &mesh) noexcept
 
 void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib)
 {
-    this->Initialize(vertices, indices, sizeAttrib, {}, {});
+    this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib), {}, {});
 }
 
 void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib,
                       std::vector<GLfloat> instances, std::vector<GLuint> SizeAttribInstance)
 {
-    this->vertices = vertices;
-    this->indices = indices;
+    this->vertices = std::move(vertices);
+    this->indices = std::move(indices);
     this->sizeAttrib = sizeAttrib;
     this->instances = instances;
     this->SizeAttribInstance = SizeAttribInstance;

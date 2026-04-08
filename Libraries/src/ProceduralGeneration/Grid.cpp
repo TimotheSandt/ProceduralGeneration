@@ -157,7 +157,7 @@ void Grid::GenerateMesh()
     this->mesh.UpdateUBO();
 }
 
-void Grid::TransformPoints(std::function<void(Vertex &, unsigned int)> func)
+void Grid::TransformPoints(const std::function<void(Vertex &, unsigned int)> &func)
 {
     for (unsigned int i = 0; i < points.size(); ++i)
     {

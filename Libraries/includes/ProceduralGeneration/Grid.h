@@ -31,7 +31,7 @@ class Grid
     void GenerateNormals();
     void GenerateMesh();
 
-    void TransformPoints(std::function<void(Vertex &, unsigned int)> func);
+    void TransformPoints(const std::function<void(Vertex &, unsigned int)> &func);
 
     void Render(Camera &camera);
 

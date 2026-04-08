@@ -1,5 +1,6 @@
 #include "Shader.h"
 #include <cstring>
+#include <utility>
 
 #define COMPILE_SUCCESS 0
 #define COMPILE_ERRORS 1
@@ -103,8 +104,8 @@ void Shader::SetShaderCode(std::string vertexCode, std::string fragmentCode)
     this->vertexShaderPath = nullptr;
     this->fragmentShaderPath = nullptr;
 
-    this->vertexSource = vertexCode;
-    this->fragmentSource = fragmentCode;
+    this->vertexSource = std::move(vertexCode);
+    this->fragmentSource = std::move(fragmentCode);
 
     this->CompileShader();
 }

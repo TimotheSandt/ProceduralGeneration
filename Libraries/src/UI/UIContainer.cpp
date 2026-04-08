@@ -14,7 +14,7 @@ UIContainerBase::UIContainerBase(Bounds bounds) : UIComponentBase(bounds)
     UpdateTheme();
 }
 
-void UIContainerBase::AddChild(std::shared_ptr<UIComponentBase> child)
+void UIContainerBase::AddChild(const std::shared_ptr<UIComponentBase> &child)
 {
     children.push_back(child);
     child->SetParent(std::static_pointer_cast<UIContainerBase>(shared_from_this()));

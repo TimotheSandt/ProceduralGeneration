@@ -22,7 +22,7 @@ class UIManager
     void Update(float dt, int w, int h);
     void Render(int w, int h);
 
-    void SetRootContainer(std::shared_ptr<UIContainer> root) { rootContainer = root; }
+    void SetRootContainer(std::shared_ptr<UIContainer> root) { rootContainer = std::move(root); }
     std::shared_ptr<UIContainer> GetRootContainer() { return rootContainer; }
 
     void SetActive(bool a) { active = a; }

@@ -50,7 +50,7 @@ class UIHBox : public ChainableHBox<UIHBoxBase, UIHBox>
 };
 
 // Factory for HBox
-inline std::shared_ptr<UIHBox> HBox(Bounds bounds = Bounds(), std::vector<std::shared_ptr<UIComponentBase>> children = {})
+inline std::shared_ptr<UIHBox> HBox(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<UIComponentBase>> &children = {})
 {
     auto hbox = std::make_shared<UIHBox>(bounds);
     for (auto &child : children)

@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 
 #include <memory>
+#include <utility>
 #include <vector>
 #include <string>
 #include <glm/glm.hpp>
@@ -273,18 +274,19 @@ class InputManager
     }
 
   public:
-    InputAction GetInputActionOfAction(std::string action) { return mapActionToInputAction[action]; }
+    InputAction GetInputActionOfAction(const std::string &action) { return mapActionToInputAction[action]; }
 
-    static void BindActionToInput(std::string action, InputAction inputAction);
-    template <typename... Args> static void BindActionToInput(std::string action, Args... args)
+    static void BindActionToInput(const std::string &action, InputAction inputAction);
+    template <typename... Args> static void BindActionToInput(const std::string &action, Args... args)
     {
         InputAction inputAction = GetInputAction(InputAction(), args...);
-        BindActionToInput(action, inputAction);
+        BindActionToInput(action, std::move(inputAction));
     }
 
-    static void UnbindAction(std::string action) { mapActionToInputAction.erase(action); }
-    static bool IsActionBound(std::string action) { return mapActionToInputAction.find(action) != mapActionToInputAction.end(); }
-    bool IsActionActive(std::string action);
+    static void UnbindAction(const std::string &action) { mapActionToInputAction.erase(action); }
+
+    static bool IsActionBound(const std::string &action) { return mapActionToInputAction.find(action) != mapActionToInputAction.end(); }
+    bool IsActionActive(const std::string &action);
 
 #pragma endregion Actions
 

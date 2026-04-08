@@ -55,8 +55,8 @@ class UITheme
     float GetSpacing() const { return spacing; }
 
   public:
-    static std::weak_ptr<UITheme> GetTheme(std::string themeName);
-    static void CreateTheme(std::string name, UIColors colors, float cornerRadius, float padding, float spacing);
+    static std::weak_ptr<UITheme> GetTheme(const std::string &themeName);
+    static void CreateTheme(const std::string &name, UIColors colors, float cornerRadius, float padding, float spacing);
 
   private:
     std::string name;

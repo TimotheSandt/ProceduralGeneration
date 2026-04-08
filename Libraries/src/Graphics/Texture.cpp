@@ -50,7 +50,7 @@ Texture Texture::Copy() const
     return texture;
 }
 
-Texture::Texture(std::string image, const char *name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter)
+Texture::Texture(const std::string &image, const char *name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter)
     : slot(slot), format(format), pixelType(pixelType), Width(0), Height(0), UniformName(name)
 {
     stbi_set_flip_vertically_on_load(true);

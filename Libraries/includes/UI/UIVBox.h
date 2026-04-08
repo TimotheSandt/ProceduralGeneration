@@ -50,7 +50,7 @@ class UIVBox : public ChainableVBox<UIVBoxBase, UIVBox>
 };
 
 // Factory for VBox
-inline std::shared_ptr<UIVBox> VBox(Bounds bounds = Bounds(), std::vector<std::shared_ptr<UIComponentBase>> children = {})
+inline std::shared_ptr<UIVBox> VBox(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<UIComponentBase>> &children = {})
 {
     auto vbox = std::make_shared<UIVBox>(bounds);
     for (auto &child : children)

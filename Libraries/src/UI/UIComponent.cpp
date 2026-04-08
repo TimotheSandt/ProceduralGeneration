@@ -1,4 +1,6 @@
 #include "UIComponent.h"
+
+#include <utility>
 #include "UIContainer.h"
 
 #include "utilities.h"
@@ -113,7 +115,7 @@ void UIComponentBase::DoSetColor(glm::vec4 c)
 
 void UIComponentBase::DoSetTheme(std::weak_ptr<UITheme> t)
 {
-    theme = t;
+    theme = std::move(t);
     UpdateTheme();
     MarkAppearanceDirty();
 }

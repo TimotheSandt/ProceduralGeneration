@@ -30,11 +30,11 @@ template <typename T> class DeferredValue
 {
   public:
     DeferredValue() : value(T()), newValue(std::nullopt) {}
-    DeferredValue(T initialValue) : value(initialValue), newValue(std::nullopt) {}
+    DeferredValue(T initialValue) : value(std::move(initialValue)), newValue(std::nullopt) {}
 
     const T &Get() const { return value; }
 
-    void Set(T v)
+    void Set(const T &v)
     {
         if (!DeferredValueDetail::IsEqual(value, v))
         {

@@ -30,7 +30,7 @@ class Profiler
     Profiler &operator=(Profiler &&) = delete;
 
   public:
-    static void Profile(std::string name, std::function<void()> func)
+    static void Profile(const std::string &name, const std::function<void()> &func)
     {
         auto start = std::chrono::high_resolution_clock::now();
         func();
@@ -73,7 +73,7 @@ class Profiler
         return std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
     }
 
-    static void ProfileGPU(std::string name, std::function<void()> func)
+    static void ProfileGPU(const std::string &name, const std::function<void()> &func)
     {
         std::array<GLuint, 2> queries;
         glGenQueries(2, queries.data());
@@ -132,13 +132,13 @@ class Profiler
         }
     }
 
-    static std::chrono::nanoseconds GetLastTime(std::string name) { return getTimer(name).Get(0); }
-    static std::chrono::nanoseconds GetAverageTime(std::string name) { return getTimer(name).GetAverage(); }
-    static std::chrono::nanoseconds GetMaxTime(std::string name) { return getTimer(name).GetMax(); }
-    static std::chrono::nanoseconds GetMinTime(std::string name) { return getTimer(name).GetMin(); }
+    static std::chrono::nanoseconds GetLastTime(const std::string &name) { return getTimer(name).Get(0); }
+    static std::chrono::nanoseconds GetAverageTime(const std::string &name) { return getTimer(name).GetAverage(); }
+    static std::chrono::nanoseconds GetMaxTime(const std::string &name) { return getTimer(name).GetMax(); }
+    static std::chrono::nanoseconds GetMinTime(const std::string &name) { return getTimer(name).GetMin(); }
 
   private:
-    static void ProcessQueries(std::string name)
+    static void ProcessQueries(const std::string &name)
     {
         while (!getQueries(name).empty())
         {
@@ -175,7 +175,7 @@ class Profiler
         }
     }
 
-    static void AddTime(std::string name, std::chrono::nanoseconds time)
+    static void AddTime(const std::string &name, std::chrono::nanoseconds time)
     {
         std::lock_guard<std::mutex> lock(getProfilerMutex());
         getTimer(name).Push(time);
@@ -187,7 +187,7 @@ class Profiler
         }
     }
 
-    static void AddQuery(std::string name, std::array<GLuint, 2> queries)
+    static void AddQuery(const std::string &name, std::array<GLuint, 2> queries)
     {
         std::lock_guard<std::mutex> lock(getQueryMutex());
         if (getQueries(name).size() >= MAX_QUERIES)
@@ -199,7 +199,7 @@ class Profiler
         getQueryData()[name].lastUpdate = std::chrono::high_resolution_clock::now();
     }
 
-    static void PopQuery(std::string name)
+    static void PopQuery(const std::string &name)
     {
         std::lock_guard<std::mutex> lock(getQueryMutex());
         getQueries(name).pop();
@@ -238,9 +238,9 @@ class Profiler
         return queryData;
     }
 
-    static RingBuffer<std::chrono::nanoseconds> &getTimer(std::string name) { return getProfilerData()[name].buffer; }
+    static RingBuffer<std::chrono::nanoseconds> &getTimer(const std::string &name) { return getProfilerData()[name].buffer; }
 
-    static std::queue<std::array<GLuint, 2>> &getQueries(std::string name) { return getQueryData()[name].queries; }
+    static std::queue<std::array<GLuint, 2>> &getQueries(const std::string &name) { return getQueryData()[name].queries; }
 
     static std::mutex &getProfilerMutex()
     {

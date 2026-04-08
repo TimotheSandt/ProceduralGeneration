@@ -4,6 +4,7 @@
 #include <memory>
 #include <array>
 #include <string>
+#include <utility>
 
 #include "InputManager.h"
 #include "Mesh.h"
@@ -79,7 +80,7 @@ class UIComponentBase : public std::enable_shared_from_this<UIComponentBase>
     // Hierarchy
     void SetParent(std::weak_ptr<UIContainerBase> p)
     {
-        parent = p;
+        parent = std::move(p);
         CalculatePixelSize();
         MarkSelfLayoutDirty();
     };
