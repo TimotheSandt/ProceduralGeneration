@@ -67,8 +67,11 @@ class OpenGLGeometryResource final : public IGeometryResource
     std::size_t GetInstanceCount() const noexcept override;
     void Bind() const override;
     void Unbind() const override;
+    void UpdateVertexData(const float *data, std::size_t floatCount, std::size_t offsetFloats) override;
+    void UpdateInstanceData(const float *data, std::size_t floatCount, std::size_t offsetFloats) override;
     void DrawIndexed() const override;
     void DrawIndexedInstanced() const override;
+    void DrawVertices(std::size_t vertexCount) const override;
 
   private:
     GLuint vertexArrayID = 0;
@@ -78,6 +81,10 @@ class OpenGLGeometryResource final : public IGeometryResource
     GeometryLayout layout;
     std::size_t indexCount = 0;
     std::size_t instanceCount = 0;
+    std::size_t vertexBufferFloatCount = 0;
+    std::size_t instanceBufferFloatCount = 0;
+    bool dynamicVertexData = false;
+    bool dynamicInstanceData = false;
     std::string debugName;
 };
 

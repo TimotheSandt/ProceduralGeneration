@@ -92,8 +92,11 @@ class FakeGeometryResource final : public IGeometryResource
     std::size_t GetInstanceCount() const noexcept override { return instanceCount; }
     void Bind() const override {}
     void Unbind() const override {}
+    void UpdateVertexData(const float *, std::size_t, std::size_t) override {}
+    void UpdateInstanceData(const float *, std::size_t, std::size_t) override {}
     void DrawIndexed() const override {}
     void DrawIndexedInstanced() const override {}
+    void DrawVertices(std::size_t) const override {}
 
   private:
     GeometryLayout layout;

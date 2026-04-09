@@ -8,13 +8,13 @@
 #include <memory>
 #include <glm/glm.hpp>
 #include <ft2build.h>
+#include "Graphics/Core/GraphicsResources.h"
+#include "Shader.h"
+#include "Texture.h"
 #include FT_FREETYPE_H
 
 namespace UI
 {
-
-// Forward declarations
-class Shader;
 
 // Ancrage du texte
 enum class TextAnchor : std::uint8_t
@@ -33,7 +33,7 @@ enum class TextAnchor : std::uint8_t
 // Représentation d'un caractère
 struct Character
 {
-    unsigned int textureID;
+    Texture texture;
     glm::ivec2 size;
     glm::ivec2 bearing;
     unsigned int advance;
@@ -152,9 +152,8 @@ class TextRenderer
     std::unordered_map<std::string, FontData> fonts;
     std::string activeFontName;
 
-    // OpenGL
-    unsigned int VAO, VBO;
-    std::unique_ptr<Shader> shader;
+    Shader shader;
+    std::unique_ptr<IGeometryResource> glyphGeometry;
     glm::mat4 projection;
     unsigned int screenWidth, screenHeight;
 
@@ -169,21 +168,6 @@ class TextRenderer
     void applyHorizontalAlignment(TextLayout &layout, const TextLayoutParams &params);
     void applyVerticalAlignment(TextLayout &layout, const TextLayoutParams &params);
     void handleOverflow(TextLayout &layout, const TextLayoutParams &params);
-};
-
-// Shader helper simple (vous pouvez utiliser votre classe Shader existante)
-class Shader
-{
-  public:
-    Shader(const char *vertexSource, const char *fragmentSource);
-    ~Shader();
-
-    void use();
-    void setMat4(const std::string &name, const glm::mat4 &mat);
-    void setVec3(const std::string &name, const glm::vec3 &vec);
-    void setInt(const std::string &name, int value);
-
-    unsigned int ID;
 };
 
 } // namespace UI

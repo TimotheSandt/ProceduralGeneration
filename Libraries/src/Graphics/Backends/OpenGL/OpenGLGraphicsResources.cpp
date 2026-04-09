@@ -451,9 +451,11 @@ void OpenGLBufferResource::Recreate(std::size_t newSize, bool preserveData)
 GLuint OpenGLBufferResource::GetBufferID() const noexcept { return bufferID; }
 
 OpenGLGeometryResource::OpenGLGeometryResource(GeometryCreateInfo createInfo)
-    : layout(std::move(createInfo.layout)), indexCount(createInfo.indexData.size()), debugName(std::move(createInfo.debugName))
+    : layout(std::move(createInfo.layout)), indexCount(createInfo.indexData.size()), vertexBufferFloatCount(createInfo.vertexData.size()),
+      instanceBufferFloatCount(createInfo.instanceData.size()), dynamicVertexData(createInfo.dynamicVertexData),
+      dynamicInstanceData(createInfo.dynamicInstanceData), debugName(std::move(createInfo.debugName))
 {
-    if (!HasActiveOpenGLContext() || createInfo.vertexData.empty() || createInfo.indexData.empty())
+    if (!HasActiveOpenGLContext() || createInfo.vertexData.empty())
     {
         return;
     }
@@ -464,12 +466,15 @@ OpenGLGeometryResource::OpenGLGeometryResource(GeometryCreateInfo createInfo)
     glGenBuffers(1, &vertexBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(createInfo.vertexData.size() * sizeof(float)), createInfo.vertexData.data(),
-                 GL_STATIC_DRAW);
+                 dynamicVertexData ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 
-    glGenBuffers(1, &indexBufferID);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(createInfo.indexData.size() * sizeof(std::uint32_t)),
-                 createInfo.indexData.data(), GL_STATIC_DRAW);
+    if (!createInfo.indexData.empty())
+    {
+        glGenBuffers(1, &indexBufferID);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(createInfo.indexData.size() * sizeof(std::uint32_t)),
+                     createInfo.indexData.data(), GL_STATIC_DRAW);
+    }
 
     std::uint32_t vertexStride = 0;
     for (const std::uint32_t size : layout.vertexAttributes)
@@ -491,7 +496,7 @@ OpenGLGeometryResource::OpenGLGeometryResource(GeometryCreateInfo createInfo)
         glGenBuffers(1, &instanceBufferID);
         glBindBuffer(GL_ARRAY_BUFFER, instanceBufferID);
         glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(createInfo.instanceData.size() * sizeof(float)),
-                     createInfo.instanceData.data(), GL_STATIC_DRAW);
+                     createInfo.instanceData.data(), dynamicInstanceData ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 
         std::uint32_t instanceStride = 0;
         for (const std::uint32_t size : layout.instanceAttributes)
@@ -567,9 +572,35 @@ void OpenGLGeometryResource::Bind() const
 
 void OpenGLGeometryResource::Unbind() const { glBindVertexArray(0); }
 
+void OpenGLGeometryResource::UpdateVertexData(const float *data, std::size_t floatCount, std::size_t offsetFloats)
+{
+    if (vertexBufferID == 0 || data == nullptr || floatCount == 0 || offsetFloats + floatCount > vertexBufferFloatCount)
+    {
+        return;
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
+    glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(offsetFloats * sizeof(float)), static_cast<GLsizeiptr>(floatCount * sizeof(float)),
+                    data);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void OpenGLGeometryResource::UpdateInstanceData(const float *data, std::size_t floatCount, std::size_t offsetFloats)
+{
+    if (instanceBufferID == 0 || data == nullptr || floatCount == 0 || offsetFloats + floatCount > instanceBufferFloatCount)
+    {
+        return;
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, instanceBufferID);
+    glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(offsetFloats * sizeof(float)), static_cast<GLsizeiptr>(floatCount * sizeof(float)),
+                    data);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 void OpenGLGeometryResource::DrawIndexed() const
 {
-    if (vertexArrayID != 0)
+    if (vertexArrayID != 0 && indexCount != 0)
     {
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indexCount), GL_UNSIGNED_INT, nullptr);
     }
@@ -577,10 +608,18 @@ void OpenGLGeometryResource::DrawIndexed() const
 
 void OpenGLGeometryResource::DrawIndexedInstanced() const
 {
-    if (vertexArrayID != 0)
+    if (vertexArrayID != 0 && indexCount != 0)
     {
         glDrawElementsInstanced(GL_TRIANGLES, static_cast<GLsizei>(indexCount), GL_UNSIGNED_INT, nullptr,
                                 static_cast<GLsizei>(instanceCount));
+    }
+}
+
+void OpenGLGeometryResource::DrawVertices(std::size_t vertexCount) const
+{
+    if (vertexArrayID != 0 && vertexCount != 0)
+    {
+        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertexCount));
     }
 }
 

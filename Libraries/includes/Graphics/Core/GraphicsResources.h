@@ -62,6 +62,8 @@ struct GeometryCreateInfo
     std::vector<float> vertexData;
     std::vector<std::uint32_t> indexData;
     std::vector<float> instanceData;
+    bool dynamicVertexData = false;
+    bool dynamicInstanceData = false;
     std::string debugName;
 };
 
@@ -132,8 +134,11 @@ class IGeometryResource : public IGraphicsResource
     virtual std::size_t GetInstanceCount() const noexcept = 0;
     virtual void Bind() const = 0;
     virtual void Unbind() const = 0;
+    virtual void UpdateVertexData(const float *data, std::size_t floatCount, std::size_t offsetFloats) = 0;
+    virtual void UpdateInstanceData(const float *data, std::size_t floatCount, std::size_t offsetFloats) = 0;
     virtual void DrawIndexed() const = 0;
     virtual void DrawIndexedInstanced() const = 0;
+    virtual void DrawVertices(std::size_t vertexCount) const = 0;
 };
 
 class IRenderTargetResource : public IGraphicsResource

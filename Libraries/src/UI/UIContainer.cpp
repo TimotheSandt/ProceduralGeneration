@@ -212,12 +212,13 @@ void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
     mesh.InitUniform2f("contentSize", glm::value_ptr(contentSize));
     mesh.InitUniform4f("color", glm::value_ptr(this->color.Get()));
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, fbo.GetTextureID());
+    fbo.GetTexture().Bind();
     GLint texSamplerLoc = 0;
     mesh.InitUniform1i("textureSampler", &texSamplerLoc);
 
     mesh.Draw();
+
+    fbo.GetTexture().Unbind();
 
     mesh.UnbindVAO();
     mesh.UnbindShader();
