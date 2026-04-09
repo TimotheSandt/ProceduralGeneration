@@ -1,13 +1,14 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 
 #include <glm/glm.hpp>
 
 namespace UI
 {
 
-enum class ValueType
+enum class ValueType : std::uint8_t
 {
     PIXEL,
     PERCENT
@@ -22,7 +23,7 @@ constexpr Value operator""_pct(unsigned long long value) { return Value(static_c
 
 constexpr Value operator""_px(unsigned long long value) { return Value(static_cast<double>(value), ValueType::PIXEL); }
 
-enum class Anchor
+enum class Anchor : std::uint8_t
 {
     TOP_LEFT,
     TOP_CENTER,

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <string>
+#include <cstdint>
 #include <unordered_map>
 #include <vector>
 #include <memory>
@@ -16,7 +17,7 @@ namespace UI
 class Shader;
 
 // Ancrage du texte
-enum class TextAnchor
+enum class TextAnchor : std::uint8_t
 {
     TopLeft,
     TopCenter,
@@ -39,7 +40,7 @@ struct Character
 };
 
 // Options de débordement
-enum class TextOverflow
+enum class TextOverflow : std::uint8_t
 {
     Visible,  // Texte visible même en dehors des limites
     Hidden,   // Coupé aux limites
@@ -48,7 +49,7 @@ enum class TextOverflow
 };
 
 // Alignement horizontal
-enum class TextAlign
+enum class TextAlign : std::uint8_t
 {
     Left,
     Center,
@@ -56,7 +57,7 @@ enum class TextAlign
 };
 
 // Alignement vertical
-enum class VerticalAlign
+enum class VerticalAlign : std::uint8_t
 {
     Top,
     Middle,

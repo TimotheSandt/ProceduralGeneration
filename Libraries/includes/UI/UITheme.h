@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <glm/glm.hpp>
 
 #include <unordered_map>
@@ -8,7 +9,7 @@
 namespace UI
 {
 
-enum class IdentifierKind
+enum class IdentifierKind : std::uint8_t
 {
     TRANSPARENT,
     BACKGROUND,
@@ -23,7 +24,7 @@ enum class IdentifierKind
     SUCCESS
 };
 
-enum class PresetTheme
+enum class PresetTheme : std::uint8_t
 {
     LIGHT,
     DARK,

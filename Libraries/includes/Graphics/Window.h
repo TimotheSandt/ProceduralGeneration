@@ -2,6 +2,7 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <cstdint>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -14,7 +15,7 @@
 #include "Profiler.h"
 #include "InputManager.h"
 
-enum WindowState
+enum WindowState : std::uint8_t
 {
     WINDOWED,
     BORDERLESS,

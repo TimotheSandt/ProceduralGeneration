@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <cstdint>
 #include <string>
 #include <mutex>
 #include <chrono>
@@ -11,7 +12,7 @@
 #include <stacktrace>
 #endif
 
-enum LogLevel
+enum LogLevel : std::int8_t
 {
 #ifdef DEBUG
     L_DEBUGGING = -1, // Mostly for testing variables when added, shouldn't be keep long even for debugging

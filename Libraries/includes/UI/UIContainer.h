@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include "UIComponent.h"
 #include "FBO.h"
 #include "Utilities.h"
@@ -6,26 +7,26 @@
 namespace UI
 {
 
-enum class HAlign
+enum class HAlign : std::uint8_t
 {
     LEFT,
     CENTER,
     RIGHT
 };
-enum class VAlign
+enum class VAlign : std::uint8_t
 {
     TOP,
     CENTER,
     BOTTOM
 };
-enum class OverflowMode
+enum class OverflowMode : std::uint8_t
 {
     WRAP,
     HIDDEN,
     SCROLL
 };
 
-enum class JustifyContent
+enum class JustifyContent : std::uint8_t
 {
     START,
     CENTER,

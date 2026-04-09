@@ -2,6 +2,7 @@
 
 #include "glm/glm.hpp"
 
+#include <cstdint>
 #include <vector>
 
 #include "SSBO.h"
@@ -9,7 +10,7 @@
 
 namespace lght
 {
-enum LightType
+enum LightType : std::uint8_t
 {
     NONE,
     AMBIENT,

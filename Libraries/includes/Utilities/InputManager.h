@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <cstdint>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -10,7 +11,7 @@
 #include <glm/glm.hpp>
 #include <unordered_map>
 
-enum class InputState
+enum class InputState : std::uint8_t
 {
     Release,    // Key not pressed
     Pressed,    // Key pressed
@@ -18,7 +19,7 @@ enum class InputState
     PressEnd,   // Key was just released
 };
 
-enum class MouseButton
+enum class MouseButton : std::uint8_t
 {
     LEFT,
     RIGHT,
@@ -37,7 +38,7 @@ struct MouseMoveData
     glm::vec2 scroll;
 };
 
-enum class KeyLayout
+enum class KeyLayout : std::uint8_t
 {
     UNDEFINED = 0,
     QWERTY,
@@ -46,7 +47,7 @@ enum class KeyLayout
     DVORAK
 };
 
-enum class KeyButton
+enum class KeyButton : std::uint8_t
 {
     // Alphabetic
     A,

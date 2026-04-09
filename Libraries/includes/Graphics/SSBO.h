@@ -5,6 +5,7 @@
 
 #include "Logger.h"
 
+#include <cstdint>
 #include <stdexcept>
 #include <vector>
 #include <cstring>
@@ -12,7 +13,7 @@
 class SSBO
 {
   public:
-    enum Usage
+    enum Usage : std::uint16_t
     {
         STATIC_DRAW = GL_STATIC_DRAW,
         DYNAMIC_DRAW = GL_DYNAMIC_DRAW,
