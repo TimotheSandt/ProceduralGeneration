@@ -62,6 +62,22 @@ class FakeTextureResource final : public ITextureResource
     std::string debugName;
 };
 
+class FakeRenderTargetResource final : public IRenderTargetResource
+{
+  public:
+    explicit FakeRenderTargetResource(RenderTargetCreateInfo createInfo) : desc(createInfo.desc), debugName(std::move(createInfo.debugName))
+    {
+    }
+
+    GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
+    std::string_view GetDebugName() const noexcept override { return debugName; }
+    const RenderTargetDesc &GetDescription() const noexcept override { return desc; }
+
+  private:
+    RenderTargetDesc desc;
+    std::string debugName;
+};
+
 class FakeRayTracingDevice final : public IGraphicsDevice
 {
   public:
@@ -84,6 +100,11 @@ class FakeRayTracingDevice final : public IGraphicsDevice
     std::unique_ptr<ITextureResource> CreateTexture(const TextureCreateInfo &createInfo) const override
     {
         return std::make_unique<FakeTextureResource>(createInfo);
+    }
+
+    std::unique_ptr<IRenderTargetResource> CreateRenderTarget(const RenderTargetCreateInfo &createInfo) const override
+    {
+        return std::make_unique<FakeRenderTargetResource>(createInfo);
     }
 
     std::unique_ptr<IAccelerationStructureResource> CreateAccelerationStructure(
@@ -145,6 +166,14 @@ TestSuite CreateGraphicsCoreSuite()
                 AssertEqual(textureDesc.format, TextureFormat::RGBA8, "Texture descriptions should default to RGBA8");
                 AssertEqual(textureDesc.mipLevels, 1u, "Texture descriptions should default to one mip level");
                 Assert(!textureDesc.renderTarget, "Texture descriptions should not default to render targets");
+            });
+
+    AddTest(suite, "render target description defaults to depth-backed rgba",
+            []
+            {
+                const RenderTargetDesc renderTargetDesc{};
+                AssertEqual(renderTargetDesc.colorFormat, TextureFormat::RGBA8, "Render targets should default to RGBA8 color");
+                Assert(renderTargetDesc.hasDepthBuffer, "Render targets should default to a depth buffer");
             });
 
     AddTest(suite, "buffer description starts immutable vertex oriented",
@@ -219,6 +248,20 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(texture->GetDescription().renderTarget, "Texture descriptors should preserve render-target intent");
             });
 
+    AddTest(suite, "opengl device creates render target resource descriptors",
+            []
+            {
+                const OpenGLGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
+                const std::unique_ptr<IRenderTargetResource> renderTarget = device->CreateRenderTarget(
+                    {.desc = {.extent = {640, 360}, .colorFormat = TextureFormat::RGBA8, .hasDepthBuffer = true}, .debugName = "scene_rt"});
+
+                Assert(renderTarget != nullptr, "OpenGL should create render target resources");
+                AssertEqual(renderTarget->GetAPI(), GraphicsAPI::OpenGL, "Render target resources should keep the OpenGL API tag");
+                AssertEqual(renderTarget->GetDescription().extent.width, 640u, "Render target width should be preserved");
+                Assert(renderTarget->GetDescription().hasDepthBuffer, "Render targets should preserve depth-buffer intent");
+            });
+
     AddTest(suite, "opengl device rejects unsupported shader stage sets",
             []
             {
@@ -260,16 +303,21 @@ TestSuite CreateGraphicsCoreSuite()
                                                              .allowUpdate = true,
                                                              .allowCompaction = true},
                                                     .debugName = "scene_tlas"});
+            const std::unique_ptr<IRenderTargetResource> renderTarget =
+                device.CreateRenderTarget({.desc = {.extent = {1920, 1080}, .colorFormat = TextureFormat::RGBA8, .hasDepthBuffer = true},
+                                           .debugName = "lighting_rt"});
 
             Assert(device.GetCapabilities().supportsAccelerationStructures,
                    "The fake device should simulate acceleration-structure support");
             Assert(device.GetCapabilities().supportsRayTracingPipelines, "The fake device should simulate ray tracing pipeline support");
             Assert(rayTracingProgram != nullptr, "The fake device should create a ray tracing shader program");
+            Assert(renderTarget != nullptr, "The fake device should create a render target resource");
             Assert(accelerationStructure != nullptr, "The fake device should create an acceleration structure resource");
             AssertEqual(rayTracingProgram->GetDescription().stages,
                         ShaderStageBit(ShaderStage::RayGeneration) | ShaderStageBit(ShaderStage::Miss) |
                             ShaderStageBit(ShaderStage::ClosestHit),
                         "The fake shader resource should preserve ray tracing shader stages");
+            AssertEqual(renderTarget->GetDescription().extent.height, 1080u, "The fake render target should preserve its output extent");
             AssertEqual(accelerationStructure->GetDescription().type, AccelerationStructureType::TopLevel,
                         "The fake acceleration structure should preserve the TLAS type");
             AssertEqual(accelerationStructure->GetDescription().instanceCount, 64u,

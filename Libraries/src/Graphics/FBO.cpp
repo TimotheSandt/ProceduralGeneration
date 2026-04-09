@@ -3,6 +3,8 @@
 #include <bit>
 
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
+#include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
+#include "Graphics/Core/GraphicsRuntime.h"
 #include "Logger.h"
 #include "utilities.h"
 
@@ -28,6 +30,7 @@ void FBO::Swap(FBO &other) noexcept
     std::swap(this->width, other.width);
     std::swap(this->height, other.height);
     std::swap(this->depthBufferID, other.depthBufferID);
+    std::swap(this->backendRenderTarget, other.backendRenderTarget);
     std::swap(this->screenQuadShader, other.screenQuadShader);
     std::swap(this->screenQuadVAO, other.screenQuadVAO);
     std::swap(this->TextureColor, other.TextureColor);
@@ -35,13 +38,20 @@ void FBO::Swap(FBO &other) noexcept
 
 void FBO::Destroy()
 {
-    if (ID != 0)
+    if (backendRenderTarget != nullptr)
     {
-        glDeleteFramebuffers(1, &ID);
+        backendRenderTarget.reset();
     }
-    if (depthBufferID != 0)
+    else
     {
-        glDeleteRenderbuffers(1, &depthBufferID);
+        if (ID != 0)
+        {
+            glDeleteFramebuffers(1, &ID);
+        }
+        if (depthBufferID != 0)
+        {
+            glDeleteRenderbuffers(1, &depthBufferID);
+        }
     }
 
     ID = 0;
@@ -57,8 +67,26 @@ void FBO::Init(int width, int height)
     this->width = width;
     this->height = height;
 
-    glGenFramebuffers(1, &ID);
-    GL_CHECK_ERROR_M("FBO gen");
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    {
+        std::unique_ptr<IRenderTargetResource> renderTarget =
+            device->CreateRenderTarget({.desc = {.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)},
+                                                 .colorFormat = TextureFormat::RGBA8,
+                                                 .hasDepthBuffer = true},
+                                        .debugName = "offscreen_render_target"});
+        if (auto *openGLRenderTarget = dynamic_cast<OpenGLRenderTargetResource *>(renderTarget.get()); openGLRenderTarget != nullptr)
+        {
+            this->ID = openGLRenderTarget->GetFramebufferID();
+            this->depthBufferID = openGLRenderTarget->GetDepthBufferID();
+            this->backendRenderTarget = std::move(renderTarget);
+        }
+    }
+
+    if (ID == 0)
+    {
+        glGenFramebuffers(1, &ID);
+        GL_CHECK_ERROR_M("FBO gen");
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
     GL_CHECK_ERROR_M("FBO bind init");
 
@@ -66,14 +94,17 @@ void FBO::Init(int width, int height)
 
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
     GL_CHECK_ERROR_M("FBO rebind init");
-    glGenRenderbuffers(1, &depthBufferID);
-    GL_CHECK_ERROR_M("FBO depth gen");
-    glBindRenderbuffer(GL_RENDERBUFFER, depthBufferID);
-    GL_CHECK_ERROR_M("FBO depth bind");
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
-    GL_CHECK_ERROR_M("FBO depth storage");
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBufferID);
-    GL_CHECK_ERROR_M("FBO depth attach");
+    if (depthBufferID == 0)
+    {
+        glGenRenderbuffers(1, &depthBufferID);
+        GL_CHECK_ERROR_M("FBO depth gen");
+        glBindRenderbuffer(GL_RENDERBUFFER, depthBufferID);
+        GL_CHECK_ERROR_M("FBO depth bind");
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
+        GL_CHECK_ERROR_M("FBO depth storage");
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBufferID);
+        GL_CHECK_ERROR_M("FBO depth attach");
+    }
 
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     GL_CHECK_ERROR_M("FBO status check");

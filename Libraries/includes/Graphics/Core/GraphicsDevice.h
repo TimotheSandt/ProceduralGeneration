@@ -22,6 +22,7 @@ class IGraphicsDevice
     virtual bool SupportsShaderStages(ShaderStageMask stages) const noexcept = 0;
     virtual std::unique_ptr<IShaderProgramResource> CreateShaderProgram(const ShaderProgramCreateInfo &createInfo) const = 0;
     virtual std::unique_ptr<ITextureResource> CreateTexture(const TextureCreateInfo &createInfo) const = 0;
+    virtual std::unique_ptr<IRenderTargetResource> CreateRenderTarget(const RenderTargetCreateInfo &createInfo) const = 0;
     virtual std::unique_ptr<IAccelerationStructureResource> CreateAccelerationStructure(
         const AccelerationStructureCreateInfo &createInfo) const = 0;
 };

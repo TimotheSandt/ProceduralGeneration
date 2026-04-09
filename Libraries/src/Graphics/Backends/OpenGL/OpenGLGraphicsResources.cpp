@@ -228,3 +228,54 @@ std::string_view OpenGLTextureResource::GetDebugName() const noexcept { return d
 const TextureDesc &OpenGLTextureResource::GetDescription() const noexcept { return desc; }
 
 GLuint OpenGLTextureResource::GetTextureID() const noexcept { return textureID; }
+
+OpenGLRenderTargetResource::OpenGLRenderTargetResource(RenderTargetCreateInfo createInfo)
+    : desc(createInfo.desc), debugName(std::move(createInfo.debugName))
+{
+    if (!HasActiveOpenGLContext() || desc.extent.width == 0 || desc.extent.height == 0)
+    {
+        return;
+    }
+
+    glGenFramebuffers(1, &framebufferID);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebufferID);
+
+    if (desc.hasDepthBuffer)
+    {
+        glGenRenderbuffers(1, &depthBufferID);
+        glBindRenderbuffer(GL_RENDERBUFFER, depthBufferID);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, static_cast<GLsizei>(desc.extent.width),
+                              static_cast<GLsizei>(desc.extent.height));
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBufferID);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+OpenGLRenderTargetResource::~OpenGLRenderTargetResource()
+{
+    if (!HasActiveOpenGLContext())
+    {
+        return;
+    }
+
+    if (depthBufferID != 0)
+    {
+        glDeleteRenderbuffers(1, &depthBufferID);
+    }
+    if (framebufferID != 0)
+    {
+        glDeleteFramebuffers(1, &framebufferID);
+    }
+}
+
+GraphicsAPI OpenGLRenderTargetResource::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
+
+std::string_view OpenGLRenderTargetResource::GetDebugName() const noexcept { return debugName; }
+
+const RenderTargetDesc &OpenGLRenderTargetResource::GetDescription() const noexcept { return desc; }
+
+GLuint OpenGLRenderTargetResource::GetFramebufferID() const noexcept { return framebufferID; }
+
+GLuint OpenGLRenderTargetResource::GetDepthBufferID() const noexcept { return depthBufferID; }

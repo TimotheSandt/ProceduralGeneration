@@ -39,6 +39,11 @@ std::unique_ptr<ITextureResource> OpenGLGraphicsDevice::CreateTexture(const Text
     return std::make_unique<OpenGLTextureResource>(createInfo);
 }
 
+std::unique_ptr<IRenderTargetResource> OpenGLGraphicsDevice::CreateRenderTarget(const RenderTargetCreateInfo &createInfo) const
+{
+    return std::make_unique<OpenGLRenderTargetResource>(createInfo);
+}
+
 std::unique_ptr<IAccelerationStructureResource> OpenGLGraphicsDevice::CreateAccelerationStructure(
     const AccelerationStructureCreateInfo &createInfo) const
 {

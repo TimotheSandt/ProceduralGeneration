@@ -37,3 +37,22 @@ class OpenGLTextureResource final : public ITextureResource
     TextureDesc desc;
     std::string debugName;
 };
+
+class OpenGLRenderTargetResource final : public IRenderTargetResource
+{
+  public:
+    explicit OpenGLRenderTargetResource(RenderTargetCreateInfo createInfo);
+    ~OpenGLRenderTargetResource() override;
+
+    GraphicsAPI GetAPI() const noexcept override;
+    std::string_view GetDebugName() const noexcept override;
+    const RenderTargetDesc &GetDescription() const noexcept override;
+    GLuint GetFramebufferID() const noexcept;
+    GLuint GetDepthBufferID() const noexcept;
+
+  private:
+    GLuint framebufferID = 0;
+    GLuint depthBufferID = 0;
+    RenderTargetDesc desc;
+    std::string debugName;
+};

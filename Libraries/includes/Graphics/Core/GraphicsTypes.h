@@ -106,6 +106,13 @@ struct TextureDesc
     bool renderTarget = false;
 };
 
+struct RenderTargetDesc
+{
+    Extent2D extent{};
+    TextureFormat colorFormat = TextureFormat::RGBA8;
+    bool hasDepthBuffer = true;
+};
+
 struct ShaderProgramDesc
 {
     ShaderStageMask stages = ShaderStageBit(ShaderStage::Vertex) | ShaderStageBit(ShaderStage::Fragment);

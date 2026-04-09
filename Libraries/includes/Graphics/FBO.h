@@ -8,6 +8,7 @@
 #include "EBO.h"
 #include "Shader.h"
 #include "Texture.h"
+#include "Graphics/Core/GraphicsResources.h"
 
 class FBO
 {
@@ -47,6 +48,7 @@ class FBO
   private:
     GLuint ID = 0;
     GLuint depthBufferID = 0;
+    std::unique_ptr<IRenderTargetResource> backendRenderTarget;
     Texture TextureColor;
     int width = 0, height = 0;
 

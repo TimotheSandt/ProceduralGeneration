@@ -30,6 +30,12 @@ struct TextureCreateInfo
     bool generateMipmaps = true;
 };
 
+struct RenderTargetCreateInfo
+{
+    RenderTargetDesc desc{};
+    std::string debugName;
+};
+
 struct AccelerationStructureCreateInfo
 {
     AccelerationStructureDesc desc{};
@@ -59,6 +65,14 @@ class ITextureResource : public IGraphicsResource
     ~ITextureResource() override = default;
 
     virtual const TextureDesc &GetDescription() const noexcept = 0;
+};
+
+class IRenderTargetResource : public IGraphicsResource
+{
+  public:
+    ~IRenderTargetResource() override = default;
+
+    virtual const RenderTargetDesc &GetDescription() const noexcept = 0;
 };
 
 class IAccelerationStructureResource : public IGraphicsResource
