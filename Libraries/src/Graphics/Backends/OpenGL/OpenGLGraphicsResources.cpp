@@ -629,6 +629,81 @@ std::string_view OpenGLTextureResource::GetDebugName() const noexcept { return d
 
 const TextureDesc &OpenGLTextureResource::GetDescription() const noexcept { return desc; }
 
+void OpenGLTextureResource::Bind(std::uint32_t slot) const
+{
+    if (textureID == 0)
+    {
+        return;
+    }
+
+    glActiveTexture(GL_TEXTURE0 + slot);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+}
+
+void OpenGLTextureResource::Unbind() const { glBindTexture(GL_TEXTURE_2D, 0); }
+
+void OpenGLTextureResource::Readback(std::vector<std::byte> &output) const
+{
+    if (textureID == 0)
+    {
+        output.clear();
+        return;
+    }
+
+    const GLenum format = ToOpenGLDataFormat(desc.format);
+    const GLenum dataType = ToOpenGLDataType(desc.format);
+    std::size_t bytesPerPixel = 4;
+    switch (desc.format)
+    {
+        case TextureFormat::R8:
+            bytesPerPixel = 1;
+            break;
+        case TextureFormat::Depth32Float:
+            bytesPerPixel = sizeof(float);
+            break;
+        case TextureFormat::Depth24Stencil8:
+        case TextureFormat::BGRA8:
+        case TextureFormat::RGBA8:
+        default:
+            bytesPerPixel = 4;
+            break;
+    }
+
+    output.resize(static_cast<std::size_t>(desc.extent.width) * static_cast<std::size_t>(desc.extent.height) * bytesPerPixel);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glGetTexImage(GL_TEXTURE_2D, 0, format, dataType, output.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void OpenGLTextureResource::Resize(std::uint32_t width, std::uint32_t height)
+{
+    if (textureID == 0)
+    {
+        return;
+    }
+
+    desc.extent = {width, height};
+    const GLint internalFormat = ToOpenGLInternalFormat(desc.format);
+    const GLenum dataFormat = ToOpenGLDataFormat(desc.format);
+    const GLenum dataType = ToOpenGLDataType(desc.format);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, static_cast<GLsizei>(width), static_cast<GLsizei>(height), 0, dataFormat, dataType,
+                 nullptr);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void OpenGLTextureResource::AttachToFramebuffer(std::uint32_t framebufferHandle) const
+{
+    if (textureID == 0)
+    {
+        return;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(framebufferHandle));
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureID, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 GLuint OpenGLTextureResource::GetTextureID() const noexcept { return textureID; }
 
 OpenGLRenderTargetResource::OpenGLRenderTargetResource(RenderTargetCreateInfo createInfo)

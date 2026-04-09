@@ -110,6 +110,11 @@ class FakeTextureResource final : public ITextureResource
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
     std::string_view GetDebugName() const noexcept override { return debugName; }
     const TextureDesc &GetDescription() const noexcept override { return desc; }
+    void Bind(std::uint32_t) const override {}
+    void Unbind() const override {}
+    void Readback(std::vector<std::byte> &output) const override { output.clear(); }
+    void Resize(std::uint32_t width, std::uint32_t height) override { desc.extent = {width, height}; }
+    void AttachToFramebuffer(std::uint32_t) const override {}
 
   private:
     TextureDesc desc;

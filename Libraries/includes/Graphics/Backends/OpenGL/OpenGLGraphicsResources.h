@@ -90,6 +90,11 @@ class OpenGLTextureResource final : public ITextureResource
     GraphicsAPI GetAPI() const noexcept override;
     std::string_view GetDebugName() const noexcept override;
     const TextureDesc &GetDescription() const noexcept override;
+    void Bind(std::uint32_t slot) const override;
+    void Unbind() const override;
+    void Readback(std::vector<std::byte> &output) const override;
+    void Resize(std::uint32_t width, std::uint32_t height) override;
+    void AttachToFramebuffer(std::uint32_t framebufferHandle) const override;
     GLuint GetTextureID() const noexcept;
 
   private:

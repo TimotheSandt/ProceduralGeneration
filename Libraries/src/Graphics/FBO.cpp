@@ -258,8 +258,7 @@ void FBO::RenderScreenQuad(int fWidth, int fHeight) const
     this->screenQuadShader.Bind();
     this->screenQuadGeometry->Bind();
 
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
-    GL_CHECK_ERROR_M("FBO screen draw");
+    this->screenQuadGeometry->DrawIndexed();
 
     this->screenQuadGeometry->Unbind();
     this->screenQuadShader.Unbind();

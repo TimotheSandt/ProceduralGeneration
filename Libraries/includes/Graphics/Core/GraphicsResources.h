@@ -115,6 +115,11 @@ class ITextureResource : public IGraphicsResource
     ~ITextureResource() override = default;
 
     virtual const TextureDesc &GetDescription() const noexcept = 0;
+    virtual void Bind(std::uint32_t slot) const = 0;
+    virtual void Unbind() const = 0;
+    virtual void Readback(std::vector<std::byte> &output) const = 0;
+    virtual void Resize(std::uint32_t width, std::uint32_t height) = 0;
+    virtual void AttachToFramebuffer(std::uint32_t framebufferHandle) const = 0;
 };
 
 class IGeometryResource : public IGraphicsResource

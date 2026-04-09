@@ -155,20 +155,6 @@ void Texture::SetTextureData(void *data, int width, int height, GLenum format, G
             this->backendResource.reset();
         }
     }
-
-    glGenTextures(1, &this->ID);
-    this->Bind();
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(filter));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(filter));
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(this->format), this->Width, this->Height, 0, this->format, pixelType, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    this->Unbind();
 }
 
 void *Texture::GetTextureData(int &width, int &height, GLenum &format, GLenum &pixelType) const
@@ -178,12 +164,18 @@ void *Texture::GetTextureData(int &width, int &height, GLenum &format, GLenum &p
     format = this->format;
     pixelType = this->pixelType;
 
-    this->Bind();
+    if (this->backendResource == nullptr)
+    {
+        return nullptr;
+    }
 
-    size_t dataSize = GetDataSize();
-    void *data = std::malloc(dataSize);
-    glGetTexImage(GL_TEXTURE_2D, 0, this->format, this->pixelType, data);
-    this->Unbind();
+    std::vector<std::byte> rawData;
+    this->backendResource->Readback(rawData);
+    void *data = std::malloc(rawData.size());
+    if (data != nullptr && !rawData.empty())
+    {
+        std::memcpy(data, rawData.data(), rawData.size());
+    }
     return data;
 }
 
@@ -258,55 +250,47 @@ void Texture::SetFramebufferTexture(const char *uniformName, GLuint slot, int wi
             this->backendResource = std::move(resource);
             if (this->ID != 0)
             {
-                glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->ID, 0);
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                this->backendResource->AttachToFramebuffer(FBO);
                 return;
             }
             this->backendResource.reset();
         }
     }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-
-    glGenTextures(1, &this->ID);
-    glBindTexture(GL_TEXTURE_2D, this->ID);
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(this->format), this->Width, this->Height, 0, this->format, this->pixelType, nullptr);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->ID, 0);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void Texture::ResizeFramebufferTexture(int width, int height)
 {
     this->Width = width;
     this->Height = height;
-    glBindTexture(GL_TEXTURE_2D, this->ID);
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(this->format), this->Width, this->Height, 0, this->format, GL_UNSIGNED_BYTE, nullptr);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    if (this->backendResource != nullptr)
+    {
+        this->backendResource->Resize(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
+    }
 }
 
 void Texture::texUnit(const Shader &shader) const
 {
     shader.Bind();
-    glUniform1i(glGetUniformLocation(shader.GetID(), this->UniformName), static_cast<GLint>(this->slot));
+    const GLint location = shader.GetUniformLocation(this->UniformName);
+    const GLint slotValue = static_cast<GLint>(this->slot);
+    shader.SetUniformInts(location, &slotValue, 1);
 }
 
 void Texture::Bind() const
 {
-    glActiveTexture(GL_TEXTURE0 + this->slot);
-    glBindTexture(GL_TEXTURE_2D, this->ID);
+    if (this->backendResource != nullptr)
+    {
+        this->backendResource->Bind(this->slot);
+    }
 }
 
-void Texture::Unbind() const { glBindTexture(GL_TEXTURE_2D, 0); }
+void Texture::Unbind() const
+{
+    if (this->backendResource != nullptr)
+    {
+        this->backendResource->Unbind();
+    }
+}
 
 void Texture::Destroy()
 {
@@ -317,10 +301,5 @@ void Texture::Destroy()
         return;
     }
 
-    if (this->ID == 0)
-    {
-        return;
-    }
-    glDeleteTextures(1, &this->ID);
     this->ID = 0;
 }
