@@ -6,6 +6,7 @@
 
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
+#include "Graphics/Core/GraphicsDiagnostics.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Logger.h"
 #include "utilities.h"
@@ -91,10 +92,10 @@ int Window::Init()
     }
 
     glfwGetWindowPos(this->window, &this->parameters.posX, &this->parameters.posY);
-    GL_CHECK_ERROR_M("glfwGetWindowPos");
+    GRAPHICS_CHECK_ERRORS_M("glfwGetWindowPos");
 
     glfwSetWindowUserPointer(this->window, this);
-    GL_CHECK_ERROR_M("glfwSetWindowUserPointer");
+    GRAPHICS_CHECK_ERRORS_M("glfwSetWindowUserPointer");
 
     this->SetupCallbacks();
 
@@ -186,7 +187,7 @@ void Window::SwapBuffers()
     }
 
     glfwSwapBuffers(this->window);
-    GL_CHECK_ERROR_M("glfwSwapBuffers");
+    GRAPHICS_CHECK_ERRORS_M("glfwSwapBuffers");
 }
 
 void Window::HandleInput()
@@ -310,7 +311,7 @@ void Window::ActivateFullscreen()
 
     // Switch to fullscreen
     glfwSetWindowMonitor(this->window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
-    GL_CHECK_ERROR_M("glfwSetWindowMonitor");
+    GRAPHICS_CHECK_ERRORS_M("glfwSetWindowMonitor");
 
     // Update internal parameters
     this->parameters.width = mode->width;
@@ -340,9 +341,9 @@ void Window::ActivateWindowed()
 
     glfwSetWindowMonitor(this->window, nullptr, this->parameters.windowedPosX, this->parameters.windowedPosY,
                          this->parameters.windowedWidth, this->parameters.windowedHeight, GLFW_DONT_CARE);
-    GL_CHECK_ERROR_M("glfwSetWindowMonitor");
+    GRAPHICS_CHECK_ERRORS_M("glfwSetWindowMonitor");
     glfwSetWindowAttrib(this->window, GLFW_DECORATED, GLFW_TRUE);
-    GL_CHECK_ERROR_M("glfwSetWindowAttrib");
+    GRAPHICS_CHECK_ERRORS_M("glfwSetWindowAttrib");
 
     // Update internal parameters
     this->parameters.width = this->parameters.windowedWidth;
@@ -395,9 +396,9 @@ void Window::ActivateBorderless()
 #endif
 
     glfwSetWindowAttrib(this->window, GLFW_DECORATED, GLFW_FALSE);
-    GL_CHECK_ERROR_M("glfwSetWindowAttrib");
+    GRAPHICS_CHECK_ERRORS_M("glfwSetWindowAttrib");
     glfwSetWindowMonitor(this->window, nullptr, 0, 0, width, height, GLFW_DONT_CARE);
-    GL_CHECK_ERROR_M("glfwSetWindowMonitor");
+    GRAPHICS_CHECK_ERRORS_M("glfwSetWindowMonitor");
 
     // Update internal parameters
     this->parameters.width = width;
@@ -416,9 +417,9 @@ void Window::SaveWindowedParameters()
     }
 
     glfwGetWindowSize(this->window, &this->parameters.windowedWidth, &this->parameters.windowedHeight);
-    GL_CHECK_ERROR_M("glfwGetWindowSize");
+    GRAPHICS_CHECK_ERRORS_M("glfwGetWindowSize");
     glfwGetWindowPos(this->window, &this->parameters.windowedPosX, &this->parameters.windowedPosY);
-    GL_CHECK_ERROR_M("glfwGetWindowPos");
+    GRAPHICS_CHECK_ERRORS_M("glfwGetWindowPos");
 }
 
 void Window::PostWindowStateChange() const

@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
+#include "Graphics/Core/GraphicsDiagnostics.h"
 #include "Logger.h"
 
 namespace OpenGLWindowContext
@@ -21,7 +22,7 @@ void EnsureContextCurrent(GLFWwindow *window) noexcept
     }
 
     glfwMakeContextCurrent(window);
-    GL_CHECK_ERROR_M("glfwMakeContextCurrent");
+    GRAPHICS_CHECK_ERRORS_M("glfwMakeContextCurrent");
 }
 
 bool Initialize(GLFWwindow *window, bool enableVsync, int width, int height)
@@ -33,12 +34,12 @@ bool Initialize(GLFWwindow *window, bool enableVsync, int width, int height)
         LOG_FATAL(-1, "Failed to initialize GLAD");
         return false;
     }
-    GL_CHECK_ERROR_M("gladLoadGL");
+    GRAPHICS_CHECK_ERRORS_M("gladLoadGL");
 
     OpenGLRenderState::SetViewport(0, 0, width, height);
 
     glfwSwapInterval(enableVsync ? 1 : 0);
-    GL_CHECK_ERROR_M("glfwSwapInterval");
+    GRAPHICS_CHECK_ERRORS_M("glfwSwapInterval");
 
     OpenGLRenderState::SetDepthTest(true);
 
@@ -55,7 +56,7 @@ void ApplyDefaultFramebufferState(GLFWwindow *window, bool enableVsync, const gl
     EnsureContextCurrent(window);
 
     glfwSwapInterval(enableVsync ? 1 : 0);
-    GL_CHECK_ERROR_M("glfwSwapInterval");
+    GRAPHICS_CHECK_ERRORS_M("glfwSwapInterval");
 
     OpenGLRenderState::SetDepthTest(true);
 
@@ -63,10 +64,10 @@ void ApplyDefaultFramebufferState(GLFWwindow *window, bool enableVsync, const gl
     OpenGLRenderState::Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glfwSwapBuffers(window);
-    GL_CHECK_ERROR_M("glfwSwapBuffers");
+    GRAPHICS_CHECK_ERRORS_M("glfwSwapBuffers");
 
     glfwFocusWindow(window);
-    GL_CHECK_ERROR_M("glfwFocusWindow");
+    GRAPHICS_CHECK_ERRORS_M("glfwFocusWindow");
 }
 
 } // namespace OpenGLWindowContext

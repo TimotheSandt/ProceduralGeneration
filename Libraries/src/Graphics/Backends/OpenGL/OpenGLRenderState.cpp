@@ -1,5 +1,6 @@
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 
+#include "Graphics/Core/GraphicsDiagnostics.h"
 #include "Logger.h"
 
 namespace OpenGLRenderState
@@ -8,25 +9,25 @@ namespace OpenGLRenderState
 void BindFramebuffer(GLenum target, GLuint framebuffer) noexcept
 {
     glBindFramebuffer(target, framebuffer);
-    GL_CHECK_ERROR_M("glBindFramebuffer");
+    GRAPHICS_CHECK_ERRORS_M("glBindFramebuffer");
 }
 
 void SetViewport(int x, int y, int width, int height) noexcept
 {
     glViewport(x, y, width, height);
-    GL_CHECK_ERROR_M("glViewport");
+    GRAPHICS_CHECK_ERRORS_M("glViewport");
 }
 
 void ClearColor(const glm::vec4 &color) noexcept
 {
     glClearColor(color.r, color.g, color.b, color.a);
-    GL_CHECK_ERROR_M("glClearColor");
+    GRAPHICS_CHECK_ERRORS_M("glClearColor");
 }
 
 void Clear(GLbitfield mask) noexcept
 {
     glClear(mask);
-    GL_CHECK_ERROR_M("glClear");
+    GRAPHICS_CHECK_ERRORS_M("glClear");
 }
 
 void ClearTransparentColorBuffer() noexcept
@@ -40,18 +41,18 @@ void SetDepthTest(bool enabled) noexcept
     if (enabled)
     {
         glEnable(GL_DEPTH_TEST);
-        GL_CHECK_ERROR_M("glEnable(GL_DEPTH_TEST)");
+        GRAPHICS_CHECK_ERRORS_M("glEnable(GL_DEPTH_TEST)");
         return;
     }
 
     glDisable(GL_DEPTH_TEST);
-    GL_CHECK_ERROR_M("glDisable(GL_DEPTH_TEST)");
+    GRAPHICS_CHECK_ERRORS_M("glDisable(GL_DEPTH_TEST)");
 }
 
 void SetWireframe(bool enabled) noexcept
 {
     glPolygonMode(GL_FRONT_AND_BACK, enabled ? GL_LINE : GL_FILL);
-    GL_CHECK_ERROR_M("glPolygonMode");
+    GRAPHICS_CHECK_ERRORS_M("glPolygonMode");
 }
 
 void SetBlend(bool enabled) noexcept
@@ -59,18 +60,18 @@ void SetBlend(bool enabled) noexcept
     if (enabled)
     {
         glEnable(GL_BLEND);
-        GL_CHECK_ERROR_M("glEnable(GL_BLEND)");
+        GRAPHICS_CHECK_ERRORS_M("glEnable(GL_BLEND)");
         return;
     }
 
     glDisable(GL_BLEND);
-    GL_CHECK_ERROR_M("glDisable(GL_BLEND)");
+    GRAPHICS_CHECK_ERRORS_M("glDisable(GL_BLEND)");
 }
 
 void SetAlphaBlend() noexcept
 {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    GL_CHECK_ERROR_M("glBlendFunc");
+    GRAPHICS_CHECK_ERRORS_M("glBlendFunc");
 }
 
 void SetScissorTest(bool enabled) noexcept
@@ -78,18 +79,18 @@ void SetScissorTest(bool enabled) noexcept
     if (enabled)
     {
         glEnable(GL_SCISSOR_TEST);
-        GL_CHECK_ERROR_M("glEnable(GL_SCISSOR_TEST)");
+        GRAPHICS_CHECK_ERRORS_M("glEnable(GL_SCISSOR_TEST)");
         return;
     }
 
     glDisable(GL_SCISSOR_TEST);
-    GL_CHECK_ERROR_M("glDisable(GL_SCISSOR_TEST)");
+    GRAPHICS_CHECK_ERRORS_M("glDisable(GL_SCISSOR_TEST)");
 }
 
 void SetScissor(GLint x, GLint y, GLsizei width, GLsizei height) noexcept
 {
     glScissor(x, y, width, height);
-    GL_CHECK_ERROR_M("glScissor");
+    GRAPHICS_CHECK_ERRORS_M("glScissor");
 }
 
 FramebufferState CaptureFramebufferState() noexcept
@@ -100,7 +101,7 @@ FramebufferState CaptureFramebufferState() noexcept
     state.depthTest = glIsEnabled(GL_DEPTH_TEST);
     state.blend = glIsEnabled(GL_BLEND);
     state.scissorTest = glIsEnabled(GL_SCISSOR_TEST);
-    GL_CHECK_ERROR_M("CaptureFramebufferState");
+    GRAPHICS_CHECK_ERRORS_M("CaptureFramebufferState");
     return state;
 }
 

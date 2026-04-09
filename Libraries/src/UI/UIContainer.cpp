@@ -1,5 +1,6 @@
 #include "UIContainer.h"
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
+#include "Graphics/Core/GraphicsDiagnostics.h"
 #include "Logger.h"
 #include "utilities.h"
 
@@ -84,7 +85,7 @@ void UIContainerBase::InitializedFBO()
 
         fbo.Init(static_cast<int>(contentSize.x), static_cast<int>(contentSize.y));
         fboInitialized = true;
-        GL_CHECK_ERROR_M("UIContainer FBO Init");
+        GRAPHICS_CHECK_ERRORS_M("UIContainer FBO Init");
 
         // Clear FBO to transparent immediately after init
         const OpenGLRenderState::FramebufferState previousState = OpenGLRenderState::CaptureFramebufferState();
@@ -133,7 +134,7 @@ void UIContainerBase::RenderChildren()
     SaveFBOState(oldFBO, viewport);
 
     fbo.Bind();
-    GL_CHECK_ERROR_M("RenderDirtyChildren Bind");
+    GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Bind");
 
     // Set viewport to FBO size
     OpenGLRenderState::SetViewport(0, 0, static_cast<GLsizei>(contentSize.x), static_cast<GLsizei>(contentSize.y));
@@ -182,7 +183,7 @@ void UIContainerBase::RenderChildren()
     }
 
     RestoreFBOState(oldFBO, viewport);
-    GL_CHECK_ERROR_M("RenderDirtyChildren Restore");
+    GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Restore");
 }
 
 void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
