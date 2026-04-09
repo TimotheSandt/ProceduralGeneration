@@ -5,26 +5,26 @@
 
 class EBO
 {
-public:
+  public:
     EBO() = default;
-    EBO(std::vector<GLuint>& indices);
+    EBO(std::vector<GLuint> &indices);
     ~EBO();
 
-    EBO(const EBO&) = delete;
-    EBO& operator=(const EBO&) = delete;
+    EBO(const EBO &) = delete;
+    EBO &operator=(const EBO &) = delete;
 
-    EBO(EBO&&) noexcept;
-    EBO& operator=(EBO&&) noexcept;
+    EBO(EBO &&) noexcept;
+    EBO &operator=(EBO &&) noexcept;
 
-    void Swap(EBO& other) noexcept;
+    void Swap(EBO &other) noexcept;
 
-    void Initialize(std::vector<GLuint>& indices);
+    void Initialize(std::vector<GLuint> &indices);
 
     void Bind() const;
     void Unbind() const;
     void Destroy();
-    void UploadData(const void* data, GLsizeiptr size);
+    void UploadData(const void *data, GLsizeiptr size);
 
-private:
+  private:
     GLuint ID = 0;
 };

@@ -5,24 +5,23 @@
 
 class VAO
 {
-public:
+  public:
     VAO() {};
     ~VAO() { this->Destroy(); };
 
-    VAO(const VAO&) = delete;
-    VAO& operator=(const VAO&) = delete;
+    VAO(const VAO &) = delete;
+    VAO &operator=(const VAO &) = delete;
 
-    VAO(VAO&& other) noexcept;
-    VAO& operator=(VAO&& other) noexcept;
+    VAO(VAO &&other) noexcept;
+    VAO &operator=(VAO &&other) noexcept;
 
     void Initialize();
 
-
-	void LinkAttrib(VBO& VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void* offset) const;
+    void LinkAttrib(VBO &VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void *offset) const;
     void Bind() const;
     void Unbind() const;
     void Destroy();
 
-private:
+  private:
     GLuint ID = 0;
 };

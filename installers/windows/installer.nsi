@@ -18,6 +18,7 @@ Section "Install"
   File "..\..\bin\release\ProceduralGeneration.exe"
   File /nonfatal "..\..\bin\release\*.dll"
   File /nonfatal "..\..\bin\release\*.lib"
+  File /nonfatal "..\..\bin\release\*.a"
   File /r "..\..\bin\release\res\*"
 
   WriteUninstaller "$INSTDIR\Uninstall${PRODUCT_NAME}.exe"

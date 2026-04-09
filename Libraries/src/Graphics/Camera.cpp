@@ -1,59 +1,65 @@
 #include "Camera.h"
 #include "InputManager.h"
 
-struct CameraUBO {
+struct CameraUBO
+{
     glm::vec3 position;
     float padding;
     glm::mat4 matrix;
 };
 
-Camera::Camera(int *width, int *height, glm::vec3 position)
-        : position(position), width(width), height(height) {
+Camera::Camera(int *width, int *height, glm::vec3 position) : position(position), width(width), height(height)
+{
     this->Initialize(width, height, position);
 }
 
-Camera::Camera(const Camera& other) noexcept {
-    this->Copy(other);
-}
+Camera::Camera(const Camera &other) noexcept { this->Copy(other); }
 
-Camera& Camera::operator=(const Camera& other) noexcept {
-    if (this != &other) {
+Camera &Camera::operator=(const Camera &other) noexcept
+{
+    if (this != &other)
+    {
         this->Destroy();
         this->Copy(other);
     }
     return *this;
 }
 
-Camera::Camera(Camera&& other) noexcept {
-    this->Swap(other);
-};
+Camera::Camera(Camera &&other) noexcept { this->Swap(other); };
 
-Camera& Camera::operator=(Camera&& other) noexcept {
-    if (this != &other) {
+Camera &Camera::operator=(Camera &&other) noexcept
+{
+    if (this != &other)
+    {
         this->Destroy();
         this->Swap(other);
     }
     return *this;
 }
 
+Camera::~Camera() { this->Destroy(); }
 
-Camera::~Camera() {
-    this->Destroy();
-}
-
-void Camera::Copy(const Camera& other) {
+void Camera::Copy(const Camera &other)
+{
     this->position = other.position;
     this->Orientation = other.Orientation;
     this->up = other.up;
     this->camMatrix = other.camMatrix;
+    this->width = other.width;
+    this->height = other.height;
+    this->FOV = other.FOV;
+    this->nearPlane = other.nearPlane;
+    this->farPlane = other.farPlane;
     this->speed = other.speed;
     this->sensitivity = other.sensitivity;
+    this->firstClick = other.firstClick;
     this->isWireframe = other.isWireframe;
     this->InitializeUBO();
     this->UpdateUBO();
 }
 
-void Camera::Swap(Camera& other) noexcept {
+void Camera::Swap(Camera &other) noexcept
+{
     std::swap(this->position, other.position);
     std::swap(this->Orientation, other.Orientation);
     std::swap(this->up, other.up);
@@ -66,12 +72,10 @@ void Camera::Swap(Camera& other) noexcept {
     std::swap(this->bUBO, other.bUBO);
 }
 
-void Camera::Destroy() {
-    this->bUBO.Destroy();
-}
+void Camera::Destroy() { this->bUBO.Destroy(); }
 
-
-void Camera::Initialize(int *width, int *height, glm::vec3 position) {
+void Camera::Initialize(int *width, int *height, glm::vec3 position)
+{
     this->position = position;
     this->width = width;
     this->height = height;
@@ -79,7 +83,8 @@ void Camera::Initialize(int *width, int *height, glm::vec3 position) {
     this->InitializeInputs();
 }
 
-void Camera::InitializeInputs() {
+void Camera::InitializeInputs()
+{
     InputManager::BindActionToInput("Camera::MoveForward", KeyButton::Z);
     InputManager::BindActionToInput("Camera::MoveBackward", KeyButton::S);
     InputManager::BindActionToInput("Camera::MoveLeft", KeyButton::Q);
@@ -92,112 +97,135 @@ void Camera::InitializeInputs() {
     InputManager::BindActionToInput("Camera::ToggleWireframe", KeyButton::W);
 }
 
-void Camera::UpdateMatrix() {
+void Camera::UpdateMatrix()
+{
     glm::mat4 view = glm::mat4(1.0f);
     glm::mat4 projection = glm::mat4(1.0f);
 
     view = glm::lookAt(this->position, this->position + this->Orientation, this->up);
-    projection = glm::perspective(glm::radians(this->FOV), (float)(*this->width) / *this->height, this->nearPlane, this->farPlane);
+    projection = glm::perspective(glm::radians(this->FOV), static_cast<float>(*this->width) / static_cast<float>(*this->height),
+                                  this->nearPlane, this->farPlane);
 
     this->camMatrix = projection * view;
 
     this->UpdateUBO();
 }
 
-void Camera::UpdateMatrix(float FOVdeg, float nearPlane, float farPlane) {
+void Camera::UpdateMatrix(float FOVdeg, float nearPlane, float farPlane)
+{
     this->FOV = FOVdeg;
     this->nearPlane = nearPlane;
     this->farPlane = farPlane;
     this->UpdateMatrix();
 }
 
-void Camera::Inputs(GLFWwindow* window, float ElapseTime) {
+void Camera::Inputs(GLFWwindow *window, float ElapseTime)
+{
     float speed = this->speed * ElapseTime;
 
-    InputManager& inputManager = InputManager::GetInstance(window);
+    InputManager &inputManager = InputManager::GetInstance(window);
 
-    if (inputManager.IsActionActive("Camera::MoveForward")) {
+    if (inputManager.IsActionActive("Camera::MoveForward"))
+    {
         this->position += speed * this->Orientation;
     }
-    if (inputManager.IsActionActive("Camera::MoveBackward")) {
+    if (inputManager.IsActionActive("Camera::MoveBackward"))
+    {
         this->position -= speed * this->Orientation;
     }
-    if (inputManager.IsActionActive("Camera::MoveLeft")) {
+    if (inputManager.IsActionActive("Camera::MoveLeft"))
+    {
         this->position -= glm::normalize(glm::cross(this->Orientation, this->up)) * speed;
     }
-    if (inputManager.IsActionActive("Camera::MoveRight")) {
+    if (inputManager.IsActionActive("Camera::MoveRight"))
+    {
         this->position += glm::normalize(glm::cross(this->Orientation, this->up)) * speed;
     }
-    if (inputManager.IsActionActive("Camera::MoveUp")) {
+    if (inputManager.IsActionActive("Camera::MoveUp"))
+    {
         this->position += this->up * speed;
     }
-    if (inputManager.IsActionActive("Camera::MoveDown")) {
+    if (inputManager.IsActionActive("Camera::MoveDown"))
+    {
         this->position -= this->up * speed;
     }
 
-    if (inputManager.IsActionActive("Camera::SpeedDown")) {
+    if (inputManager.IsActionActive("Camera::SpeedDown"))
+    {
         this->speed = 1.0f;
-    } else if (inputManager.IsActionActive("Camera::SpeedUp")) {
+    }
+    else if (inputManager.IsActionActive("Camera::SpeedUp"))
+    {
         this->speed = 25.0f;
-    } else {
+    }
+    else
+    {
         this->speed = 6.0f;
     }
 
-    if (inputManager.IsActionActive("Camera::Rotate")) {
+    if (inputManager.IsActionActive("Camera::Rotate"))
+    {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
-        if (firstClick) {
-            glfwSetCursorPos(window, (*this->width / 2), (*this->height / 2));
+        if (firstClick)
+        {
+            const double centerX = static_cast<double>(*this->width) / 2.0;
+            const double centerY = static_cast<double>(*this->height) / 2.0;
+            glfwSetCursorPos(window, centerX, centerY);
             firstClick = false;
         }
 
         double mouseX, mouseY;
         glfwGetCursorPos(window, &mouseX, &mouseY);
 
-        float rotX = this->sensitivity * (float)(mouseX - (*this->width / 2)) / (float)(*this->width);
-        float rotY = this->sensitivity * (float)(mouseY - (*this->height / 2)) / (float)(*this->height);
+        const double centerX = static_cast<double>(*this->width) / 2.0;
+        const double centerY = static_cast<double>(*this->height) / 2.0;
+        float rotX = this->sensitivity * static_cast<float>(mouseX - centerX) / static_cast<float>(*this->width);
+        float rotY = this->sensitivity * static_cast<float>(mouseY - centerY) / static_cast<float>(*this->height);
 
-        glm::vec3 newOrientation = glm::rotate(this->Orientation, glm::radians(-rotY), glm::normalize(glm::cross(this->Orientation, this->up)));
+        glm::vec3 newOrientation =
+            glm::rotate(this->Orientation, glm::radians(-rotY), glm::normalize(glm::cross(this->Orientation, this->up)));
 
-        if (!(glm::angle(newOrientation, this->up) <= glm::radians(10.0f)) or !(glm::angle(newOrientation, -this->up) <= glm::radians(10.0f))) {
+        if (!(glm::angle(newOrientation, this->up) <= glm::radians(10.0f)) or
+            !(glm::angle(newOrientation, -this->up) <= glm::radians(10.0f)))
+        {
             this->Orientation = newOrientation;
         }
 
         this->Orientation = glm::rotate(this->Orientation, glm::radians(-rotX), this->up);
 
-        glfwSetCursorPos(window, (*this->width / 2), (*this->height / 2));
+        glfwSetCursorPos(window, centerX, centerY);
     }
-    else {
+    else
+    {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         firstClick = true;
     }
 
 #if defined(_DEBUG) || defined(DEBUG)
-    if (inputManager.IsActionActive("Camera::ToggleWireframe")) {
+    if (inputManager.IsActionActive("Camera::ToggleWireframe"))
+    {
         SetWireframe(true);
-    } else {
+    }
+    else
+    {
         SetWireframe(false);
     }
 #endif
 }
 
-void Camera::InitializeUBO() {
+void Camera::InitializeUBO()
+{
     this->bUBO.initialize(sizeof(CameraUBO), CAMERA_BINDING_POINT, GL_DYNAMIC_DRAW);
     this->UpdateUBO();
 }
 
-void Camera::UpdateUBO() {
-    CameraUBO data = { this->position, 0, this->camMatrix };
+void Camera::UpdateUBO()
+{
+    CameraUBO data = {this->position, 0, this->camMatrix};
     this->bUBO.uploadData(&data, sizeof(CameraUBO));
 }
 
-void Camera::BindUBO() const {
-    this->bUBO.BindToBindingPoint();
-}
+void Camera::BindUBO() const { this->bUBO.BindToBindingPoint(); }
 
-
-
-
-void Camera::ToggleWireframe() {
-    SetWireframe(!this->isWireframe);
-}
+void Camera::ToggleWireframe() { SetWireframe(!this->isWireframe); }

@@ -9,23 +9,22 @@
 #include <sstream>
 #include <cerrno>
 
-std::string get_file_contents(const char* filename);
+std::string get_file_contents(const char *filename);
 
 class Shader
 {
-public:
+  public:
     Shader() = default;
-    Shader(const char* vertexPath, const char* fragmentPath);
+    Shader(const char *vertexPath, const char *fragmentPath);
     ~Shader();
-    
-    Shader(const Shader& shader) noexcept;
-    Shader& operator=(const Shader&) noexcept;
 
-    Shader(Shader&&) noexcept;
-    Shader& operator=(Shader&&) noexcept;
+    Shader(const Shader &shader);
+    Shader &operator=(const Shader &);
 
+    Shader(Shader &&) noexcept;
+    Shader &operator=(Shader &&) noexcept;
 
-    void SetShader(const char* vertexPath, const char* fragmentPath);
+    void SetShader(const char *vertexPath, const char *fragmentPath);
     void SetShaderCode(std::string vertexCode, std::string fragmentCode);
     void CompileShader();
 
@@ -36,15 +35,15 @@ public:
     GLuint GetID() const { return this->ID; }
     bool IsCompiled() const { return this->ID != 0; }
 
-private:
+  private:
     GLuint ID = 0;
 
-    const char* vertexShaderPath;
-    const char* fragmentShaderPath;
+    const char *vertexShaderPath;
+    const char *fragmentShaderPath;
     std::string vertexSource;
     std::string fragmentSource;
 
-private:
-    void Swap(Shader& other) noexcept;
-	bool compileErrors(unsigned int shader, const char* type) const;
+  private:
+    void Swap(Shader &other) noexcept;
+    bool compileErrors(unsigned int shader, const char *type) const;
 };

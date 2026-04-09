@@ -1,22 +1,25 @@
 #include "Texture.h"
 
-Texture::Texture() 
-    : ID(0), slot(0), format(GL_RGBA), pixelType(GL_UNSIGNED_BYTE), Width(0), Height(0), UniformName("")
-{ }
+Texture::Texture() : ID(0), slot(0), format(GL_RGBA), pixelType(GL_UNSIGNED_BYTE), Width(0), Height(0), UniformName("") {}
 
-Texture::Texture(Texture&& other) noexcept : ID(0), slot(0), format(GL_RGBA), pixelType(GL_UNSIGNED_BYTE), Width(0), Height(0), UniformName("") {
+Texture::Texture(Texture &&other) noexcept
+    : ID(0), slot(0), format(GL_RGBA), pixelType(GL_UNSIGNED_BYTE), Width(0), Height(0), UniformName("")
+{
     this->Swap(other);
 }
 
-Texture& Texture::operator=(Texture&& other) noexcept {
-    if (this != &other) {
+Texture &Texture::operator=(Texture &&other) noexcept
+{
+    if (this != &other)
+    {
         this->Destroy();
         this->Swap(other);
     }
     return *this;
 }
 
-void Texture::Swap(Texture& other) noexcept {
+void Texture::Swap(Texture &other) noexcept
+{
     std::swap(this->ID, other.ID);
     std::swap(this->slot, other.slot);
     std::swap(this->format, other.format);
@@ -26,26 +29,36 @@ void Texture::Swap(Texture& other) noexcept {
     std::swap(this->UniformName, other.UniformName);
 }
 
-void Texture::Copy(Texture& texture) {
-    void* data = texture.GetTextureData(this->Width, this->Height, this->format, this->pixelType);
-    this->SetTextureData(data, this->Width, this->Height, this->format, this->pixelType);
+void Texture::Copy(const Texture &texture)
+{
+    int width = 0;
+    int height = 0;
+    GLenum format = GL_RGBA;
+    GLenum pixelType = GL_UNSIGNED_BYTE;
+    void *data = texture.GetTextureData(width, height, format, pixelType);
+    this->SetTextureData(data, width, height, format, pixelType);
+    std::free(data);
 }
 
-Texture Texture::Copy() const {
+Texture Texture::Copy() const
+{
     int w, h;
     GLenum f, p;
-    void* data = this->GetTextureData(w, h, f, p);
+    void *data = this->GetTextureData(w, h, f, p);
     Texture texture(data, w, h, this->UniformName, this->slot, f, p);
+    std::free(data);
     return texture;
 }
 
-Texture::Texture(std::string image, const char* name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter) 
-        : slot(slot), format(format), pixelType(pixelType), Width(0), Height(0), UniformName(name) {
+Texture::Texture(const std::string &image, const char *name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter)
+    : slot(slot), format(format), pixelType(pixelType), Width(0), Height(0), UniformName(name)
+{
     stbi_set_flip_vertically_on_load(true);
     int numColCh;
     bool isLoaded = true;
-    unsigned char* bytes = stbi_load(image.c_str(), &this->Width, &this->Height, &numColCh, 0);
-    if (!bytes) {
+    unsigned char *bytes = stbi_load(image.c_str(), &this->Width, &this->Height, &numColCh, 0);
+    if (!bytes)
+    {
         LOG_ERROR(1, "Failed to load image: ", stbi_failure_reason());
         isLoaded = false;
 
@@ -53,10 +66,10 @@ Texture::Texture(std::string image, const char* name, GLuint slot, GLenum format
         this->Height = 2;
         numColCh = 4;
         static unsigned char bytesDefault[] = {
-            238, 130, 238, 255,   // Violet pixel
-            0, 0, 0, 255,   // Black pixel
-            0, 0, 0, 255,   // Black pixel
-            238, 130, 238, 255    // Violet pixel
+            238, 130, 238, 255, // Violet pixel
+            0,   0,   0,   255, // Black pixel
+            0,   0,   0,   255, // Black pixel
+            238, 130, 238, 255  // Violet pixel
         };
         bytes = bytesDefault;
         this->format = GL_RGBA;
@@ -66,22 +79,22 @@ Texture::Texture(std::string image, const char* name, GLuint slot, GLenum format
     this->SetTextureData(bytes, this->Width, this->Height, this->format, pixelType, filter);
 
     if (isLoaded)
+    {
         stbi_image_free(bytes);
+    }
 }
 
-Texture::Texture(void* data, int width, int height, const char* name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter) 
-        : slot(slot), format(format), pixelType(pixelType), Width(width), Height(height), UniformName(name) {
+Texture::Texture(void *data, int width, int height, const char *name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter)
+    : slot(slot), format(format), pixelType(pixelType), Width(width), Height(height), UniformName(name)
+{
     this->SetTextureData(data, width, height, this->format, pixelType, filter);
 }
 
+Texture::~Texture() { this->Destroy(); }
 
-
-Texture::~Texture() {
+void Texture::SetTextureData(void *data, int width, int height, GLenum format, GLenum pixelType, GLenum filter)
+{
     this->Destroy();
-}
-
-
-void Texture::SetTextureData(void* data, int width, int height, GLenum format, GLenum pixelType, GLenum filter) {
     this->Width = width;
     this->Height = height;
     this->format = format;
@@ -89,21 +102,21 @@ void Texture::SetTextureData(void* data, int width, int height, GLenum format, G
 
     glGenTextures(1, &this->ID);
     this->Bind();
-    
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
 
-    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(filter));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(filter));
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, this->format, this->Width, this->Height, 0, this->format, pixelType, data);
+    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(this->format), this->Width, this->Height, 0, this->format, pixelType, data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     this->Unbind();
 }
 
-void* Texture::GetTextureData(int& width, int& height, GLenum& format, GLenum& pixelType) const {
+void *Texture::GetTextureData(int &width, int &height, GLenum &format, GLenum &pixelType) const
+{
     width = this->Width;
     height = this->Height;
     format = this->format;
@@ -112,15 +125,16 @@ void* Texture::GetTextureData(int& width, int& height, GLenum& format, GLenum& p
     this->Bind();
 
     size_t dataSize = GetDataSize();
-    void *data = malloc(dataSize);
-
-    glReadPixels(0, 0, this->Width, this->Height, this->format, this->pixelType, data);
-    
+    void *data = std::malloc(dataSize);
+    glGetTexImage(GL_TEXTURE_2D, 0, this->format, this->pixelType, data);
+    this->Unbind();
     return data;
 }
 
-size_t Texture::GetPixelTypeSize(GLenum pixelType) const {
-    switch(pixelType) {
+size_t Texture::GetPixelTypeSize(GLenum pixelType) const
+{
+    switch (pixelType)
+    {
         case GL_UNSIGNED_BYTE:
         case GL_BYTE:
             return 1;
@@ -139,8 +153,10 @@ size_t Texture::GetPixelTypeSize(GLenum pixelType) const {
     }
 }
 
-size_t Texture::GetComponentCount(GLenum format) const {
-    switch(format) {
+size_t Texture::GetComponentCount(GLenum format) const
+{
+    switch (format)
+    {
         case GL_RED:
         case GL_DEPTH_COMPONENT:
             return 1;
@@ -157,11 +173,11 @@ size_t Texture::GetComponentCount(GLenum format) const {
     }
 }
 
-size_t Texture::GetDataSize() const {
-    return Width * Height * GetComponentCount(format) * GetPixelTypeSize(pixelType);
-}
+size_t Texture::GetDataSize() const { return Width * Height * GetComponentCount(format) * GetPixelTypeSize(pixelType); }
 
-void Texture::SetFramebufferTexture(const char* uniformName, GLuint slot, int width, int height, GLuint FBO) {
+void Texture::SetFramebufferTexture(const char *uniformName, GLuint slot, int width, int height, GLuint FBO)
+{
+    this->Destroy();
     this->slot = slot;
     this->UniformName = uniformName;
     this->Width = width;
@@ -173,11 +189,11 @@ void Texture::SetFramebufferTexture(const char* uniformName, GLuint slot, int wi
 
     glGenTextures(1, &this->ID);
     glBindTexture(GL_TEXTURE_2D, this->ID);
-    glTexImage2D(GL_TEXTURE_2D, 0, this->format, this->Width, this->Height, 0, this->format, this->pixelType, NULL);
-    
+    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(this->format), this->Width, this->Height, 0, this->format, this->pixelType, nullptr);
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
@@ -187,29 +203,35 @@ void Texture::SetFramebufferTexture(const char* uniformName, GLuint slot, int wi
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void Texture::ResizeFramebufferTexture(int width, int height) {
+void Texture::ResizeFramebufferTexture(int width, int height)
+{
     this->Width = width;
     this->Height = height;
     glBindTexture(GL_TEXTURE_2D, this->ID);
-    glTexImage2D(GL_TEXTURE_2D, 0, this->format, this->Width, this->Height, 0, this->format, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(this->format), this->Width, this->Height, 0, this->format, GL_UNSIGNED_BYTE, nullptr);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void Texture::texUnit(const Shader &shader) const {
+void Texture::texUnit(const Shader &shader) const
+{
     shader.Bind();
-    glUniform1i(glGetUniformLocation(shader.GetID(), this->UniformName), this->slot);
+    glUniform1i(glGetUniformLocation(shader.GetID(), this->UniformName), static_cast<GLint>(this->slot));
 }
 
-void Texture::Bind() const {
+void Texture::Bind() const
+{
     glActiveTexture(GL_TEXTURE0 + this->slot);
     glBindTexture(GL_TEXTURE_2D, this->ID);
 }
 
-void Texture::Unbind() const {
-    glBindTexture(GL_TEXTURE_2D, 0);
-}
+void Texture::Unbind() const { glBindTexture(GL_TEXTURE_2D, 0); }
 
-void Texture::Destroy() {
-    if (this->ID == 0) return;
+void Texture::Destroy()
+{
+    if (this->ID == 0)
+    {
+        return;
+    }
     glDeleteTextures(1, &this->ID);
     this->ID = 0;
 }

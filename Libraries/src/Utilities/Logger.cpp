@@ -9,13 +9,25 @@
 #include <algorithm>
 
 #ifdef _WIN32
-    #include <windows.h>
-    #include <io.h>
+#include <windows.h>
+#include <io.h>
+#include <process.h>
 #else
-    #include <sys/ioctl.h>
-    #include <unistd.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 #endif
 
+namespace
+{
+int GetCurrentProcessIdForLog()
+{
+#ifdef _WIN32
+    return _getpid();
+#else
+    return getpid();
+#endif
+}
+} // namespace
 
 std::vector<Logger::LogMessage> Logger::logs;
 std::mutex Logger::logMutex;
@@ -28,53 +40,56 @@ LogLevel Logger::lLevelPrinted = LogLevel::L_DEBUGGING;
 LogLevel Logger::lLevelPrinted = LogLevel::L_INFO;
 #endif
 
-
-
-void Logger::Initialize(const std::string& sFilename) {
+void Logger::Initialize(const std::string &sFilename)
+{
     std::lock_guard<std::mutex> lock(logMutex);
-    
+
     std::string filename = sFilename;
-    if (filename.empty()) {
-        
+    if (filename.empty())
+    {
+
         // Generate timestamped filename
         auto now = std::chrono::system_clock::now();
         auto time_t = std::chrono::system_clock::to_time_t(now);
-        
+
         std::stringstream ss;
         ss << GetUserDataPath();
         ss << "logs/log_" << std::put_time(std::localtime(&time_t), "%Y-%m-%d") << ".log";
         filename = ss.str();
         std::filesystem::create_directories(std::filesystem::path(filename).parent_path());
-    } else {
+    }
+    else
+    {
         // Ensure directory exists for provided filename
         std::filesystem::path filepath(filename);
-        if (filepath.has_parent_path()) {
+        if (filepath.has_parent_path())
+        {
             std::filesystem::create_directories(filepath.parent_path());
         }
     }
-    
+
     // Close existing file
-    if (logFile && logFile->is_open()) {
-        *logFile << "\n=== Logger Session Ended: " 
-                 << FormatTimestamp(std::chrono::system_clock::now()) << " ===\n";
+    if (logFile && logFile->is_open())
+    {
+        *logFile << "\n=== Logger Session Ended: " << FormatTimestamp(std::chrono::system_clock::now()) << " ===\n";
         logFile->close();
         isLoggingToFile = false;
     }
-    
+
     // Open new file
     logFile = std::make_unique<std::ofstream>(filename, std::ios::out | std::ios::app);
-    
-    if (!logFile->is_open()) {
+
+    if (!logFile->is_open())
+    {
         std::cerr << "Failed to open log file: " << filename << std::endl;
         isLoggingToFile = false;
         return;
     }
-    
+
     // Write session header
     auto now = std::chrono::system_clock::now();
-    *logFile << "\n=== Logger Session Started: " 
-             << FormatTimestamp(now) << " ===" << std::endl;
-    *logFile << "Process ID: " << getpid() << std::endl;
+    *logFile << "\n=== Logger Session Started: " << FormatTimestamp(now) << " ===" << std::endl;
+    *logFile << "Process ID: " << GetCurrentProcessIdForLog() << std::endl;
     *logFile << "Working Directory: " << std::filesystem::current_path() << std::endl;
     *logFile << std::endl;
     logFile->flush();
@@ -84,215 +99,262 @@ void Logger::Initialize(const std::string& sFilename) {
 #endif
 }
 
-
-void Logger::Clear() { 
+void Logger::Clear()
+{
     std::lock_guard<std::mutex> lock(logMutex);
     logs.clear();
     lastFlushedIndex = 0;
 }
 
-void Logger::Print() {
+void Logger::Print()
+{
     std::lock_guard<std::mutex> lock(logMutex);
-    for (const LogMessage& log : logs) {
+    for (const LogMessage &log : logs)
+    {
         PrintLog(log);
     }
 }
 
-void Logger::SetMinimumLevel(LogLevel level) {
+void Logger::SetMinimumLevel(LogLevel level)
+{
     std::lock_guard<std::mutex> lock(logMutex);
     lLevelPrinted = level;
 }
 
-LogLevel Logger::GetMinimumLevel() {
+LogLevel Logger::GetMinimumLevel()
+{
     std::lock_guard<std::mutex> lock(logMutex);
     return lLevelPrinted;
 }
 
-void Logger::FlushToFile() {
-    if (!isLoggingToFile) return;
+void Logger::FlushToFile() noexcept
+{
+    try
+    {
+        if (!isLoggingToFile)
+        {
+            return;
+        }
+
+        bool flushFailed = false;
+        bool wroteLogs = false;
+        std::lock_guard<std::mutex> lock(logMutex);
+
+        if (!logFile || !logFile->is_open())
+        {
+            std::cerr << "Logger file is not available for flushing" << std::endl;
+            return;
+        }
+
+        if (lastFlushedIndex >= logs.size())
+        {
+            return;
+        }
+
+        for (size_t i = lastFlushedIndex; i < logs.size(); ++i)
+        {
+            const LogMessage &log = logs[i];
 
 #ifdef DEBUG
-    size_t sizeLogs = logs.size();
-    LOG_DEBUGGING("=== FlushToFile Debug Info ===");
-    LOG_DEBUGGING("Total logs: ", sizeLogs);
-    LOG_DEBUGGING("Last flushed index: ", lastFlushedIndex);
-    LOG_DEBUGGING("Logs to write: ", (sizeLogs - lastFlushedIndex));
+            if (log.level == L_DEBUGGING)
+            {
+                continue;
+            }
 #endif
 
-    std::lock_guard<std::mutex> lock(logMutex);
-    
-    if (!logFile) {
-        LOG_ERROR(-1, "logFile is null!");
-        return;
-    }
-    
-    if (!logFile->is_open()) {
-        LOG_ERROR(-1, "logFile is not open!");
-        return;
-    }
-    
-    // Check if there are new logs to write
-    if (lastFlushedIndex >= logs.size()) {
-        LOG_DEBUGGING("No new logs to write");
-        return;
-    }
-    
-    // Write logs that haven't been written yet
-    size_t logsWritten = 0;
-    for (size_t i = lastFlushedIndex; i < logs.size(); ++i) {
-        const LogMessage& log = logs[i];
+            *logFile << "[" << FormatTimestamp(log.time) << "] ";
+            *logFile << "[" << LevelToString(log.level) << "] ";
 
 #ifdef DEBUG
-        if (log.level == L_DEBUGGING) {
-            continue;
+            if (!log.stackTrace.empty())
+            {
+                *logFile << log.stackTrace << " ";
+            }
+#endif
+
+#ifdef DEBUG
+            *logFile << log.file << ":" << log.line << ": ";
+#endif
+
+            *logFile << log.message;
+
+            if (log.errorCode != 0)
+            {
+                *logFile << " (Error: " << log.errorCode << ")";
+            }
+
+            *logFile << std::endl;
+            wroteLogs = true;
+        }
+        lastFlushedIndex = logs.size();
+
+        logFile->flush();
+        flushFailed = logFile->fail();
+#ifdef DEBUG
+        if (flushFailed)
+        {
+            std::cerr << "ERROR: Failed to write to log file!" << std::endl;
+        }
+        else if (wroteLogs)
+        {
+            std::cout << "\033[32m";
+            std::cout << "Successfully flushed logs to file";
+            std::cout << "\033[0m" << std::endl;
         }
 #endif
-        
-        *logFile << "[" << FormatTimestamp(log.time) << "] ";
-        *logFile << "[" << LevelToString(log.level) << "] ";
-        
-#ifdef DEBUG
-        *logFile << log.file << ":" << log.line << ": ";
-#endif
-        
-        *logFile << log.message;
-        
-        if (log.errorCode != 0) {
-            *logFile << " (Error: " << log.errorCode << ")";
-        }
-        
-        *logFile << std::endl;
-        logsWritten++;
     }
-    lastFlushedIndex = logs.size();
-    
-    logFile->flush();
-#ifdef DEBUG
-    if (logFile->fail()) {
-        std::cout << "\033[31m";
-        std::cout << "ERROR: Failed to write to log file!";
-        std::cout << "\033[0m" << std::endl;
-    } else {
-        std::cout << "\033[32m";
-        std::cout << "Successfully flushed logs to file";
-        std::cout << "\033[0m" << std::endl;
+    catch (...)
+    {
+        std::fputs("Logger::FlushToFile failed\n", stderr);
     }
-#endif
 }
 
-size_t getTerminalWidth() {
+size_t getTerminalWidth()
+{
 #ifdef _WIN32
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     int columns;
-    
-    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
+
+    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
+    {
         columns = csbi.srWindow.Right - csbi.srWindow.Left + 1;
         return columns > 0 ? columns : 80;
     }
     return 80; // Défaut si échec
 #else
     struct winsize w;
-    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0 && w.ws_col > 0) {
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == 0 && w.ws_col > 0)
+    {
         return w.ws_col;
     }
     return 80; // Défaut si échec
 #endif
 }
 
-size_t Logger::CalculateLogLength(const LogMessage& log) {
+size_t Logger::CalculateLogLength(const LogMessage &log)
+{
     size_t length = 4;
-    length += FormatTimestamp(log.time).size() + 2;  // +2 for "[]"
-    if (log.repetition > 1) {
-        length += std::to_string(log.repetition).size() + 2;  // +2 for "[]"
+    length += FormatTimestamp(log.time).size() + 2; // +2 for "[]"
+    if (log.repetition > 1)
+    {
+        length += std::to_string(log.repetition).size() + 2; // +2 for "[]"
     }
-    length += LevelToString(log.level).size() + 2;  // +2 for "[]"
+    length += LevelToString(log.level).size() + 2; // +2 for "[]"
 #ifdef DEBUG
-    length += log.file.size() + 1;  // +1 for ":"
-    length += std::to_string(log.line).size();  // +1 for ":"
+    if (!log.stackTrace.empty())
+    {
+        length += log.stackTrace.size() + 1; // +1 for " "
+    }
+#endif
+#ifdef DEBUG
+    length += log.file.size() + 1;             // +1 for ":"
+    length += std::to_string(log.line).size(); // +1 for ":"
 #endif
     length += log.message.size();
     return length;
 }
 
-
-size_t Logger::CalculateNumberOfLines(const LogMessage& log) {
+size_t Logger::CalculateNumberOfLines(const LogMessage &log)
+{
     size_t terminalWidth = getTerminalWidth();
-    if (terminalWidth == 0) return 1;
-    
+    if (terminalWidth == 0)
+    {
+        return 1;
+    }
+
     // Calculer la longueur du préfixe (tout sauf le message)
     size_t prefixLength = 4;
     prefixLength += FormatTimestamp(log.time).size() + 2;
-    if (log.repetition > 1) {
+    if (log.repetition > 1)
+    {
         prefixLength += std::to_string(log.repetition).size() + 2;
     }
     prefixLength += LevelToString(log.level).size() + 2;
 #ifdef DEBUG
+    if (!log.stackTrace.empty())
+    {
+        prefixLength += log.stackTrace.size() + 1;
+    }
+#endif
+#ifdef DEBUG
     prefixLength += log.file.size() + 1;
     prefixLength += std::to_string(log.line).size();
 #endif
-    
+
     // Diviser le message par les \n
     std::vector<std::string> messageLines;
     std::stringstream ss(log.message);
     std::string line;
-    
-    while (std::getline(ss, line)) {
+
+    while (std::getline(ss, line))
+    {
         messageLines.push_back(line);
     }
-    
+
     // Si pas de \n dans le message, ajouter le message complet
-    if (messageLines.empty()) {
+    if (messageLines.empty())
+    {
         messageLines.push_back(log.message);
     }
-    
+
     size_t totalLines = 0;
-    
-    for (size_t i = 0; i < messageLines.size(); i++) {
+
+    for (size_t i = 0; i < messageLines.size(); i++)
+    {
         size_t lineLength;
-        
-        if (i == 0) {
+
+        if (i == 0)
+        {
             // Première ligne : préfixe + contenu
             lineLength = prefixLength + messageLines[i].size();
-        } else {
+        }
+        else
+        {
             // Lignes suivantes : seulement le contenu (avec indentation possible)
             lineLength = messageLines[i].size();
         }
-        
+
         // Calculer combien de lignes cette partie prend
-        if (lineLength == 0) {
+        if (lineLength == 0)
+        {
             totalLines++; // Ligne vide
-        } else {
+        }
+        else
+        {
             totalLines += (lineLength + terminalWidth - 1) / terminalWidth;
         }
     }
-    
+
     return totalLines > 0 ? totalLines : 1;
 }
 
-
-
-void Logger::AddLog(LogMessage&& log) {
+void Logger::AddLog(LogMessage &&log)
+{
     std::lock_guard<std::mutex> lock(logMutex);
 
     auto timeLimit = std::chrono::system_clock::now() - std::chrono::seconds(3);
-    
+
     bool isDuplicate = false;
     size_t duplicateIndex = 0;
     size_t dstUp = 0;
-    
+
     // Chercher en partant de la fin, sécurisé contre les vecteurs vides
-    if (!logs.empty()) {
-        for (size_t i = logs.size(); i > 0; i--) {
-            size_t idx = i - 1;  // Index réel
-            
-            if (logs[idx].time < timeLimit) {
-                break;  // Trop ancien, arrêter la recherche
+    if (!logs.empty())
+    {
+        for (size_t i = logs.size(); i > 0; i--)
+        {
+            size_t idx = i - 1; // Index réel
+
+            if (logs[idx].time < timeLimit)
+            {
+                break; // Trop ancien, arrêter la recherche
             }
-            
+
             dstUp += CalculateNumberOfLines(logs[idx]);
-            
-            if (logs[idx] == log) {
-                logs[idx].repetition++;  // Modifier l'original dans le vecteur
+
+            if (logs[idx] == log)
+            {
+                logs[idx].repetition++; // Modifier l'original dans le vecteur
                 duplicateIndex = idx;
                 isDuplicate = true;
                 break;
@@ -300,61 +362,75 @@ void Logger::AddLog(LogMessage&& log) {
         }
     }
 
-    if (isDuplicate) {        
+    if (isDuplicate)
+    {
         // Remonter à la ligne du duplicate
         std::cout << "\033[" << dstUp << "F";
-        
-        const auto& duplicateLog = logs[duplicateIndex];
-        bool needFullRewrite = std::to_string(duplicateLog.repetition).size() != 
-                              std::to_string(duplicateLog.repetition - 1).size() ||
-                              duplicateLog.repetition == 2;
-        
-        if (needFullRewrite) {
+
+        const auto &duplicateLog = logs[duplicateIndex];
+        bool needFullRewrite = std::to_string(duplicateLog.repetition).size() != std::to_string(duplicateLog.repetition - 1).size() ||
+                               duplicateLog.repetition == 2;
+
+        if (needFullRewrite)
+        {
             PrintLog(duplicateLog);
-        } else {
+        }
+        else
+        {
             // Mise à jour partielle du compteur de répétition
             std::string timestamp = FormatTimestamp(duplicateLog.time);
-            int prefixLen = timestamp.size() + 4; // timestamp + "] ["
+            size_t prefixLen = timestamp.size() + 4; // timestamp + "] ["
             std::cout << "\033[" << prefixLen << "C";
             std::cout << duplicateLog.repetition;
         }
-        
+
         // Redescendre à la position originale
         std::cout << "\033[" << dstUp - (needFullRewrite ? 1 : 0) << "E";
-    } else {
+    }
+    else
+    {
         logs.push_back(std::move(log));
         PrintLog(logs.back());
-        
-        if (logs.back().level == L_FATAL) {
+
+        if (logs.back().level == L_FATAL)
+        {
             std::exit(1);
         }
     }
 }
 
-
-std::string Logger::FormatTimestamp(const std::chrono::time_point<std::chrono::system_clock>& timestamp) {
+std::string Logger::FormatTimestamp(const std::chrono::time_point<std::chrono::system_clock> &timestamp)
+{
     auto time_t = std::chrono::system_clock::to_time_t(timestamp);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        timestamp.time_since_epoch()) % 1000;
-    
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(timestamp.time_since_epoch()) % 1000;
+
     std::stringstream ss;
     ss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S");
     ss << '.' << std::setfill('0') << std::setw(3) << ms.count();
     return ss.str();
-} 
+}
 
-
-void Logger::PrintLog(const LogMessage& log) {
-    if (log.level < lLevelPrinted) return;
+void Logger::PrintLog(const LogMessage &log)
+{
+    if (log.level < lLevelPrinted)
+    {
+        return;
+    }
 
     std::cout << "[" << FormatTimestamp(log.time) << "] ";
-    if (log.repetition > 1) {
+    if (log.repetition > 1)
+    {
         std::cout << "[" << log.repetition << "x] ";
     }
     ChangeColor(log.level);
     std::cout << "[" << LevelToString(log.level) << "]";
-    
-    #ifdef DEBUG
+
+#ifdef DEBUG
+    if (!log.stackTrace.empty() && (log.level == L_DEBUGGING || log.level >= L_WARNING))
+    {
+        ResetColor();
+        std::cout << " " << log.stackTrace;
+    }
     ResetColor();
     std::cout << " " << log.file << ":" << log.line << " ";
     ChangeColor(log.level);
@@ -362,11 +438,12 @@ void Logger::PrintLog(const LogMessage& log) {
         std::cerr << log.message;
     else
         std::cout << log.message;
-    #else
+#else
     std::cout << " " << log.message;
-    #endif
+#endif
 
-    if (log.errorCode != 0) {
+    if (log.errorCode != 0)
+    {
         std::cerr << " (Error: " << log.errorCode << ")";
     }
 
@@ -374,50 +451,131 @@ void Logger::PrintLog(const LogMessage& log) {
     std::cout << std::endl;
 }
 
-std::string Logger::LevelToString(LogLevel level) {
-    switch (level) {
+std::string Logger::LevelToString(LogLevel level)
+{
+    switch (level)
+    {
 #ifdef DEBUG
-        case LogLevel::L_DEBUGGING: return "DEBUGGING";
+        case LogLevel::L_DEBUGGING:
+            return "DEBUGGING";
 #endif
-        case LogLevel::L_DEBUG: return "DEBUG";
-        case LogLevel::L_TRACE: return "TRACE";
-        case LogLevel::L_INFO: return "INFO";
-        case LogLevel::L_WARNING: return "WARNING";
-        case LogLevel::L_ERROR: return "ERROR";
-        case LogLevel::L_FATAL: return "FATAL";
-        default: return "UNKNOWN";
+        case LogLevel::L_DEBUG:
+            return "DEBUG";
+        case LogLevel::L_TRACE:
+            return "TRACE";
+        case LogLevel::L_INFO:
+            return "INFO";
+        case LogLevel::L_WARNING:
+            return "WARNING";
+        case LogLevel::L_ERROR:
+            return "ERROR";
+        case LogLevel::L_FATAL:
+            return "FATAL";
+        default:
+            return "UNKNOWN";
     }
 }
 
-
-std::string Logger::GetDefaultColor() { 
+std::string Logger::GetDefaultColor()
+{
     return "39;49"; // Default color: text and background are white
 }
 
-std::string Logger::GetColorLevel(LogLevel level) {
-    switch (level) {
+std::string Logger::GetColorLevel(LogLevel level)
+{
+    switch (level)
+    {
 #ifdef DEBUG
-        case LogLevel::L_DEBUGGING: return "95;49";
+        case LogLevel::L_DEBUGGING:
+            return "95;49";
 #endif
-        case LogLevel::L_DEBUG:     return "90;49";
-        case LogLevel::L_TRACE:     return GetDefaultColor();
-        case LogLevel::L_INFO:      return "36;49";
-        case LogLevel::L_WARNING:   return "33;49";
-        case LogLevel::L_ERROR:     return "31;49";
-        case LogLevel::L_FATAL:     return "97;41";
-        default:                    return GetDefaultColor();
+        case LogLevel::L_DEBUG:
+            return "90;49";
+        case LogLevel::L_TRACE:
+            return GetDefaultColor();
+        case LogLevel::L_INFO:
+            return "36;49";
+        case LogLevel::L_WARNING:
+            return "33;49";
+        case LogLevel::L_ERROR:
+            return "31;49";
+        case LogLevel::L_FATAL:
+            return "97;41";
+        default:
+            return GetDefaultColor();
     }
 }
 
-void Logger::ChangeColor(LogLevel level) {
-    std::cout << "\033[" << GetColorLevel(level) << "m";
-}
+void Logger::ChangeColor(LogLevel level) { std::cout << "\033[" << GetColorLevel(level) << "m"; }
 
-void Logger::ChangeColor(const std::string& color) {
-    std::cout << "\033[" << color << "m";
-}
+void Logger::ChangeColor(const std::string &color) { std::cout << "\033[" << color << "m"; }
 
-void Logger::ResetColor() {
-    std::cout << "\033[" << GetDefaultColor() << "m";
-}
+void Logger::ResetColor() { std::cout << "\033[" << GetDefaultColor() << "m"; }
 
+#ifdef DEBUG
+std::string Logger::CaptureStackTrace()
+{
+    std::ostringstream ss;
+
+    // Obtenir la stack trace actuelle
+    // On capture tout et on filtrera manuellement
+    auto trace = std::stacktrace::current();
+
+    std::vector<std::string> frames;
+    for (const auto &entry : trace)
+    {
+        std::string desc = entry.description();
+
+        // Fallback si vide
+        if (desc.empty())
+        {
+            std::ostringstream oss;
+            oss << entry;
+            desc = oss.str();
+        }
+
+        // Filtrer les fonctions internes du Logger
+        // On vérifie si ça contient "Logger::"
+        if (desc.find("Logger::") != std::string::npos)
+        {
+            continue;
+        }
+
+        // Detecter le point d'entrée "main" ou les fonctions de démarrage système pour arrêter
+        // On vérifie si c'est main, WinMain, ou des trucs de démarrage comme register_frame_ctor
+        if (desc.find("main") != std::string::npos || desc.find("WinMain") != std::string::npos)
+        {
+            frames.push_back("main"); // On normalise le nom
+            break;                    // On s'arrête ici, on ne veut pas ce qu'il y a avant main
+        }
+
+        // Si on tombe sur des fonctions de démarrage connues qui ne contiennent pas "main"
+        if (desc.find("register_frame_ctor") != std::string::npos || desc.find("__tmainCRTStartup") != std::string::npos ||
+            desc.find("BaseThreadInitThunk") != std::string::npos)
+        {
+            break; // On s'arrête AVANT d'ajouter cette frame
+        }
+
+        frames.push_back(desc);
+    }
+
+    // Le format demandé est main > Game > ... > function
+    // stacktrace::current() renvoie function -> caller -> ... -> main
+    // Donc on doit inverser l'ordre
+    std::reverse(frames.begin(), frames.end());
+
+    // Construire la chaîne
+    bool first = true;
+    for (size_t i = 0; i < frames.size(); ++i)
+    {
+        if (!first)
+        {
+            ss << " > ";
+        }
+        ss << frames[i];
+        first = false;
+    }
+
+    return ss.str();
+}
+#endif

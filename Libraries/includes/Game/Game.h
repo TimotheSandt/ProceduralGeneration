@@ -5,15 +5,13 @@
 #include "World.h"
 #include "Camera.h"
 #include "Window.h"
-// #include "UIManager.h"
-#include "UI/TextRenderer.h"
+#include "UIManager.h"
+#include "TextRenderer.h"
 #include "InputManager.h"
-
-
 
 class Game
 {
-public:
+  public:
     Game();
     ~Game();
 
@@ -22,15 +20,15 @@ public:
 
     void run();
 
-private:
+  private:
     void processInput();
     void update();
     void render();
 
-
-private:
+  private:
     Window window;
     Camera camera;
     std::unique_ptr<World> world = nullptr;
     std::unique_ptr<UI::TextRenderer> textRenderer;
+    bool stopped = false;
 };

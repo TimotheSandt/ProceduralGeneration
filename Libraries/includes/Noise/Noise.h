@@ -5,7 +5,7 @@
 
 class Noise
 {
-public:
+  public:
     Noise();
     Noise(uint64_t seed);
     ~Noise() = default;
@@ -33,7 +33,7 @@ public:
     float PerlinNoise(float x, float y, float scale, int octaves, float persistence, float lacunarity);
     float PerlinNoise(float x, float y, float z, float scale, int octaves, float persistence, float lacunarity);
     float PerlinNoise(float x, float y, float z, float w, float scale, int octaves, float persistence, float lacunarity);
-    
-private:
+
+  private:
     uint64_t seed;
 };

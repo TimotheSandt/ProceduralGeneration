@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <vector>
 #include <glm/glm.hpp>
 #include <array>
@@ -17,10 +16,10 @@ struct Vertex
 
 class Grid
 {
-public:
+  public:
     Grid();
     Grid(float size_x, float size_z, int resolution_x, int resolution_z);
-    Grid(const Grid& other);
+    Grid(const Grid &other);
     ~Grid();
 
     void Destroy();
@@ -32,21 +31,20 @@ public:
     void GenerateNormals();
     void GenerateMesh();
 
-    void TransformPoints(std::function<void(Vertex&, unsigned int)> func);
+    void TransformPoints(const std::function<void(Vertex &, unsigned int)> &func);
 
-    void Render(Camera& camera);
+    void Render(Camera &camera);
 
     unsigned int GetResolutionX() { return this->resolution_x; }
     unsigned int GetResolutionY() { return this->resolution_z; }
     std::vector<Vertex> GetPoints() { return this->points; }
     std::vector<std::array<unsigned int, 3>> GetTriangles() { return this->triangles; }
-    Mesh& GetMesh() { return this->mesh; }
-
+    Mesh &GetMesh() { return this->mesh; }
 
     unsigned int GetPointCount() { return this->points.size(); }
     unsigned int GetTriangleCount() { return this->triangles.size(); }
 
-private:
+  private:
     float size_x;
     float size_z;
     unsigned int resolution_x;
