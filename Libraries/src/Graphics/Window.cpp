@@ -4,6 +4,7 @@
 #include <windows.h>
 #endif
 
+#include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
 #include "Logger.h"
 #include "utilities.h"
 
@@ -75,27 +76,11 @@ int Window::Init()
         return -1;
     }
 
-    // Make the window's context current
-    glfwMakeContextCurrent(this->window);
-
-    // Initialize GLAD to load all OpenGL function pointers
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    if (!OpenGLWindowContext::Initialize(this->window, this->parameters.vsync, this->parameters.width, this->parameters.height))
     {
-        LOG_FATAL(-1, "Failed to initialize GLAD");
         this->Close();
         return -1;
     }
-    GL_CHECK_ERROR_M("gladLoadGL");
-
-    // Define the viewport dimensions
-    glViewport(0, 0, this->parameters.width, this->parameters.height);
-    GL_CHECK_ERROR_M("glViewport");
-
-    glfwSwapInterval(this->parameters.vsync ? 1 : 0);
-    GL_CHECK_ERROR_M("glfwSwapInterval");
-
-    glEnable(GL_DEPTH_TEST);
-    GL_CHECK_ERROR_M("glEnable");
 
     glfwGetWindowPos(this->window, &this->parameters.posX, &this->parameters.posY);
     GL_CHECK_ERROR_M("glfwGetWindowPos");
@@ -436,24 +421,8 @@ void Window::PostWindowStateChange() const
     {
         return;
     }
-    glfwMakeContextCurrent(this->window);
-    GL_CHECK_ERROR_M("glfwMakeContextCurrent");
 
-    glfwSwapInterval(this->parameters.vsync ? 1 : 0);
-    GL_CHECK_ERROR_M("glfwSwapInterval");
-
-    glEnable(GL_DEPTH_TEST);
-
-    glClearColor(this->parameters.clearColor.r, this->parameters.clearColor.g, this->parameters.clearColor.b,
-                 this->parameters.clearColor.a);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    GL_CHECK_ERROR_M("glClear");
-
-    glfwSwapBuffers(this->window);
-    GL_CHECK_ERROR_M("glfwSwapBuffers");
-
-    glfwFocusWindow(this->window);
-    GL_CHECK_ERROR_M("glfwFocusWindow");
+    OpenGLWindowContext::ApplyDefaultFramebufferState(this->window, this->parameters.vsync, this->parameters.clearColor);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
