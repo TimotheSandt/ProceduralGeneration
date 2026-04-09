@@ -1,4 +1,4 @@
-#include "Shader.h"
+#include "ShaderProgram.h"
 
 #include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
 #include "Graphics/Core/GraphicsRuntime.h"
@@ -26,37 +26,43 @@ std::string get_file_contents(const char *filename)
     throw(errno);
 }
 
-Shader::Shader(const char *vertexFile, const char *fragmentFile) : vertexShaderPath(vertexFile), fragmentShaderPath(fragmentFile)
+ShaderProgram::ShaderProgram(const char *vertexFile, const char *fragmentFile) : vertexShaderPath(vertexFile), fragmentShaderPath(fragmentFile)
 {
     this->SetShader(vertexFile, fragmentFile);
 }
 
-Shader::~Shader() { this->Destroy(); }
+ShaderProgram::~ShaderProgram() { this->Destroy(); }
 
-Shader::Shader(const Shader &shader) { this->SetShader(shader.vertexShaderPath, shader.fragmentShaderPath); }
-
-Shader &Shader::operator=(const Shader &shader)
+ShaderProgram::ShaderProgram(const ShaderProgram &shaderProgram)
 {
-    if (this != &shader)
+    this->SetShader(shaderProgram.vertexShaderPath, shaderProgram.fragmentShaderPath);
+}
+
+ShaderProgram &ShaderProgram::operator=(const ShaderProgram &shaderProgram)
+{
+    if (this != &shaderProgram)
     {
-        this->SetShader(shader.vertexShaderPath, shader.fragmentShaderPath);
+        this->SetShader(shaderProgram.vertexShaderPath, shaderProgram.fragmentShaderPath);
     }
     return *this;
 }
 
-Shader::Shader(Shader &&shader) noexcept : ID(0), vertexShaderPath(nullptr), fragmentShaderPath(nullptr) { this->Swap(shader); }
-
-Shader &Shader::operator=(Shader &&shader) noexcept
+ShaderProgram::ShaderProgram(ShaderProgram &&shaderProgram) noexcept : ID(0), vertexShaderPath(nullptr), fragmentShaderPath(nullptr)
 {
-    if (this != &shader)
+    this->Swap(shaderProgram);
+}
+
+ShaderProgram &ShaderProgram::operator=(ShaderProgram &&shaderProgram) noexcept
+{
+    if (this != &shaderProgram)
     {
         this->Destroy();
-        this->Swap(shader);
+        this->Swap(shaderProgram);
     }
     return *this;
 }
 
-void Shader::Swap(Shader &other) noexcept
+void ShaderProgram::Swap(ShaderProgram &other) noexcept
 {
     std::swap(this->ID, other.ID);
     std::swap(this->backendResource, other.backendResource);
@@ -66,7 +72,7 @@ void Shader::Swap(Shader &other) noexcept
     std::swap(this->fragmentSource, other.fragmentSource);
 }
 
-void Shader::SetShader(const char *vertexPath, const char *fragmentPath)
+void ShaderProgram::SetShader(const char *vertexPath, const char *fragmentPath)
 {
     this->vertexShaderPath = vertexPath;
     this->fragmentShaderPath = fragmentPath;
@@ -104,7 +110,7 @@ void Shader::SetShader(const char *vertexPath, const char *fragmentPath)
     this->CompileShader();
 }
 
-void Shader::SetShaderCode(std::string vertexCode, std::string fragmentCode)
+void ShaderProgram::SetShaderCode(std::string vertexCode, std::string fragmentCode)
 {
     this->vertexShaderPath = nullptr;
     this->fragmentShaderPath = nullptr;
@@ -115,7 +121,7 @@ void Shader::SetShaderCode(std::string vertexCode, std::string fragmentCode)
     this->CompileShader();
 }
 
-void Shader::CompileShader()
+void ShaderProgram::CompileShader()
 {
     this->Destroy();
 
@@ -141,7 +147,7 @@ void Shader::CompileShader()
     }
 }
 
-void Shader::Bind() const
+void ShaderProgram::Bind() const
 {
     if (this->backendResource == nullptr)
     {
@@ -150,7 +156,7 @@ void Shader::Bind() const
     this->backendResource->Bind();
 }
 
-void Shader::Unbind() const
+void ShaderProgram::Unbind() const
 {
     if (this->backendResource != nullptr)
     {
@@ -158,7 +164,7 @@ void Shader::Unbind() const
     }
 }
 
-void Shader::Destroy()
+void ShaderProgram::Destroy()
 {
     if (this->backendResource != nullptr)
     {
@@ -170,7 +176,7 @@ void Shader::Destroy()
     this->ID = 0;
 }
 
-int Shader::GetUniformLocation(const std::string &uniform) const
+int ShaderProgram::GetUniformLocation(const std::string &uniform) const
 {
     if (this->backendResource == nullptr)
     {
@@ -179,7 +185,7 @@ int Shader::GetUniformLocation(const std::string &uniform) const
     return this->backendResource->GetUniformLocation(uniform);
 }
 
-void Shader::SetUniformFloats(int location, const float *data, std::size_t componentCount) const
+void ShaderProgram::SetUniformFloats(int location, const float *data, std::size_t componentCount) const
 {
     if (this->backendResource == nullptr)
     {
@@ -188,7 +194,7 @@ void Shader::SetUniformFloats(int location, const float *data, std::size_t compo
     this->backendResource->SetFloatUniform(location, data, componentCount);
 }
 
-void Shader::SetUniformInts(int location, const int *data, std::size_t componentCount) const
+void ShaderProgram::SetUniformInts(int location, const int *data, std::size_t componentCount) const
 {
     if (this->backendResource == nullptr)
     {
@@ -197,7 +203,7 @@ void Shader::SetUniformInts(int location, const int *data, std::size_t component
     this->backendResource->SetIntUniform(location, data, componentCount);
 }
 
-void Shader::SetUniformMatrix4(int location, const float *data) const
+void ShaderProgram::SetUniformMatrix4(int location, const float *data) const
 {
     if (this->backendResource == nullptr)
     {

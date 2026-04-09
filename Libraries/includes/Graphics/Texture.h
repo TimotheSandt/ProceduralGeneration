@@ -3,7 +3,7 @@
 #include <stb_image.h>
 
 #include "Graphics/Core/GraphicsResources.h"
-#include "Shader.h"
+#include "ShaderProgram.h"
 
 #include <cstdint>
 
@@ -52,7 +52,7 @@ class Texture
     void SetFramebufferTexture(const char *uniformName, std::uint32_t slot, int width, int height, std::uint32_t renderTargetHandle);
     void ResizeFramebufferTexture(int width, int height);
 
-    void texUnit(const Shader &shader) const;
+    void texUnit(const ShaderProgram &shaderProgram) const;
     void Bind() const;
     void Unbind() const;
     void Destroy();

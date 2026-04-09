@@ -63,7 +63,7 @@ TextRenderer::~TextRenderer()
     }
 
     glyphGeometry.reset();
-    shader.Destroy();
+    shaderProgram.Destroy();
 }
 
 bool TextRenderer::init(unsigned int width, unsigned int height)
@@ -77,11 +77,11 @@ bool TextRenderer::init(unsigned int width, unsigned int height)
         return false;
     }
 
-    shader.SetShaderCode(VERTEX_SHADER, FRAGMENT_SHADER);
+    shaderProgram.SetShaderCode(VERTEX_SHADER, FRAGMENT_SHADER);
     projection = glm::ortho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height));
     setupRenderData();
 
-    return shader.IsCompiled() && glyphGeometry != nullptr;
+    return shaderProgram.IsCompiled() && glyphGeometry != nullptr;
 }
 
 void TextRenderer::setupRenderData()
@@ -209,7 +209,7 @@ glm::vec2 TextRenderer::calculateAnchorOffset(const std::string &text, float sca
 
 void TextRenderer::renderText(const std::string &text, float x, float y, float scale, const glm::vec3 &color, TextAnchor anchor)
 {
-    if (fonts.empty() || activeFontName.empty() || glyphGeometry == nullptr || !shader.IsCompiled())
+    if (fonts.empty() || activeFontName.empty() || glyphGeometry == nullptr || !shaderProgram.IsCompiled())
     {
         return;
     }
@@ -221,11 +221,11 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
     const float startX = x + anchorOffset.x;
     const float startY = y + anchorOffset.y;
 
-    shader.Bind();
-    shader.SetUniformMatrix4(shader.GetUniformLocation("projection"), &projection[0][0]);
-    shader.SetUniformFloats(shader.GetUniformLocation("textColor"), &color[0], 3);
+    shaderProgram.Bind();
+    shaderProgram.SetUniformMatrix4(shaderProgram.GetUniformLocation("projection"), &projection[0][0]);
+    shaderProgram.SetUniformFloats(shaderProgram.GetUniformLocation("textColor"), &color[0], 3);
     const int textureSlot = 0;
-    shader.SetUniformInts(shader.GetUniformLocation("text"), &textureSlot, 1);
+    shaderProgram.SetUniformInts(shaderProgram.GetUniformLocation("text"), &textureSlot, 1);
 
     glyphGeometry->Bind();
     OpenGLRenderState::SetBlend(true);
@@ -272,7 +272,7 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
     }
 
     glyphGeometry->Unbind();
-    shader.Unbind();
+    shaderProgram.Unbind();
     OpenGLRenderState::SetBlend(false);
 }
 

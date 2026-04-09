@@ -9,7 +9,7 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/vector_angle.hpp>
 
-#include "FBO.h"
+#include "RenderTarget.h"
 
 #include "FPSCounter.h"
 #include "Profiler.h"
@@ -133,10 +133,10 @@ class Window
     void ActivateBorderless();
 
     // Resolution Scaling methods
-    void InitFBOs();
-    void BindRenderFBO() const;
-    void UnbindRenderFBO() const;
-    void UpdateFBOResotution();
+    void InitRenderTargets();
+    void BindSceneRenderTarget() const;
+    void PresentRenderTarget() const;
+    void UpdateRenderTargetResolution();
 
     // Callbacks
     void SetupCallbacks();
@@ -151,8 +151,8 @@ class Window
   private:
     GLFWwindow *window = nullptr;
 
-    FBO FBORendering;
-    FBO FBOUpscaled;
+    RenderTarget sceneRenderTarget;
+    RenderTarget upscaledRenderTarget;
 
     WindowParameters parameters;
 

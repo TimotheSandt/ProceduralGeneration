@@ -1,24 +1,24 @@
 #pragma once
 
 #include "Graphics/Core/GraphicsResources.h"
-#include "Shader.h"
+#include "ShaderProgram.h"
 #include "Texture.h"
 
 #include <cstdint>
 
-class FBO
+class RenderTarget
 {
   public:
-    FBO() = default;
-    FBO(int width, int height);
+    RenderTarget() = default;
+    RenderTarget(int width, int height);
 
-    FBO(const FBO &) = delete;
-    FBO &operator=(const FBO &) = delete;
+    RenderTarget(const RenderTarget &) = delete;
+    RenderTarget &operator=(const RenderTarget &) = delete;
 
-    FBO(FBO &&) noexcept;
-    FBO &operator=(FBO &&) noexcept;
+    RenderTarget(RenderTarget &&) noexcept;
+    RenderTarget &operator=(RenderTarget &&) noexcept;
 
-    ~FBO();
+    ~RenderTarget();
 
     void Init(int width, int height);
     void Resize(int newWidth, int newHeight);
@@ -26,28 +26,28 @@ class FBO
     void Bind() const;
     void Unbind() const;
 
-    void BlitFBO(FBO &oFBO) const;
+    void BlitToRenderTarget(RenderTarget &destination) const;
     void BlitToScreen(int sWidth, int sHeight) const;
     void RenderScreenQuad() const;
     void RenderScreenQuad(int fWidth, int fHeight) const;
 
     std::uint32_t GetID() const { return ID; }
-    Texture &GetTexture() { return TextureColor; }
-    std::uint32_t GetTextureID() const { return TextureColor.GetID(); }
+    Texture &GetTexture() { return colorTexture; }
+    std::uint32_t GetTextureID() const { return colorTexture.GetID(); }
     int GetWidth() const { return width; }
     int GetHeight() const { return height; }
 
   private:
-    void Swap(FBO &other) noexcept;
+    void Swap(RenderTarget &other) noexcept;
     void Setup();
 
   private:
     std::uint32_t ID = 0;
     std::uint32_t depthBufferID = 0;
     std::unique_ptr<IRenderTargetResource> backendRenderTarget;
-    Texture TextureColor;
+    Texture colorTexture;
     int width = 0, height = 0;
 
     std::unique_ptr<IGeometryResource> screenQuadGeometry;
-    Shader screenQuadShader;
+    ShaderProgram screenQuadShaderProgram;
 };

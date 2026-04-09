@@ -11,7 +11,7 @@ void Window::SetRenderScale(float scale)
     }
 
     parameters.renderScale = scale;
-    this->UpdateFBOResotution();
+    this->UpdateRenderTargetResolution();
 
     // Enable upscaling automatically if scale is not 1.0
     if (scale != 1.0f)
@@ -31,39 +31,38 @@ void Window::EnableUpscaling(bool enable)
     }
     else
     {
-        this->UpdateFBOResotution();
+        this->UpdateRenderTargetResolution();
     }
 
     LOG_DEBUGGING("Upscaling ", (enable ? "enabled" : "disabled"));
 }
 
-void Window::UpdateFBOResotution()
+void Window::UpdateRenderTargetResolution()
 {
     parameters.renderWidth = static_cast<int>(static_cast<float>(parameters.width) * parameters.renderScale);
     parameters.renderHeight = static_cast<int>(static_cast<float>(parameters.height) * parameters.renderScale);
-    FBORendering.Resize(parameters.renderWidth, parameters.renderHeight);
-    FBOUpscaled.Resize(parameters.width, parameters.height);
+    sceneRenderTarget.Resize(parameters.renderWidth, parameters.renderHeight);
+    upscaledRenderTarget.Resize(parameters.width, parameters.height);
 }
 
-void Window::InitFBOs()
+void Window::InitRenderTargets()
 {
-    FBOUpscaled.Destroy();
-    FBORendering.Destroy();
+    upscaledRenderTarget.Destroy();
+    sceneRenderTarget.Destroy();
 
-    FBOUpscaled.Init(parameters.width, parameters.height);
-    FBORendering.Init(parameters.renderWidth, parameters.renderHeight);
+    upscaledRenderTarget.Init(parameters.width, parameters.height);
+    sceneRenderTarget.Init(parameters.renderWidth, parameters.renderHeight);
 }
 
-void Window::BindRenderFBO() const { FBORendering.Bind(); }
-void Window::UnbindRenderFBO() const
+void Window::BindSceneRenderTarget() const { sceneRenderTarget.Bind(); }
+void Window::PresentRenderTarget() const
 {
     OpenGLRenderState::SetViewport(0, 0, parameters.width, parameters.height);
 
-    FBORendering.Unbind();
-    FBORendering.RenderScreenQuad(parameters.width, parameters.height);
-    // fboRendering.BlitToScreen(parameters.width, parameters.height);
-
-    // fboUpscaled.BlitFBO(fboRendering);
-    // fboUpscaled.BlitToScreen(parameters.width, parameters.height);
-    // fboUpscaled.Unbind();
+    sceneRenderTarget.Unbind();
+    sceneRenderTarget.RenderScreenQuad(parameters.width, parameters.height);
+    // sceneRenderTarget.BlitToScreen(parameters.width, parameters.height);
+    // upscaledRenderTarget.BlitToRenderTarget(sceneRenderTarget);
+    // upscaledRenderTarget.BlitToScreen(parameters.width, parameters.height);
+    // upscaledRenderTarget.Unbind();
 }

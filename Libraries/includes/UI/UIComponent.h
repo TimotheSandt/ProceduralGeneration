@@ -35,7 +35,7 @@ class UIComponentBase : public std::enable_shared_from_this<UIComponentBase>
     // Three-tier dirty system
     bool dirtyAppearance = true;   // Color/visibility - zone clear only
     bool dirtyChildLayout = false; // Child size/position - cascade/full clear
-    bool dirtySelfLayout = true;   // Own size - full FBO reset
+    bool dirtySelfLayout = true;   // Own size - full render target reset
 
     std::weak_ptr<UITheme> theme;
     DeferredValue<IdentifierKind> kind;

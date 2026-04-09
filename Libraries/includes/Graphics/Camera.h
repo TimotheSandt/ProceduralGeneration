@@ -10,7 +10,7 @@
 #include <glm/gtx/vector_angle.hpp>
 
 #include "Buffer.h"
-#include "Shader.h"
+#include "ShaderProgram.h"
 
 class Camera
 {

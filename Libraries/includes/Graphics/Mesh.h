@@ -12,7 +12,7 @@
 #include "Buffer.h"
 #include "Graphics/Core/GraphicsResources.h"
 #include "Texture.h"
-#include "Shader.h"
+#include "ShaderProgram.h"
 #include "Camera.h"
 
 class Mesh
@@ -38,9 +38,9 @@ class Mesh
 
     void AddTexture(Texture texture);
     void AddTexture(const char *image, const char *name, TextureFormat format, TexturePixelType pixelType);
-    void SetShader(Shader &shader) { this->shader = std::move(shader); }
-    void SetShaderCopy(const Shader &shader) { this->shader = Shader(shader); }
-    void SetShader(const char *vertexPath, const char *fragmentPath) { this->shader.SetShader(vertexPath, fragmentPath); }
+    void SetShader(ShaderProgram &shaderProgram) { this->shaderProgram = std::move(shaderProgram); }
+    void SetShaderCopy(const ShaderProgram &shaderProgram) { this->shaderProgram = ShaderProgram(shaderProgram); }
+    void SetShader(const char *vertexPath, const char *fragmentPath) { this->shaderProgram.SetShader(vertexPath, fragmentPath); }
     void SetPosition(glm::vec3 position) { this->position = position; }
     void SetScale(glm::vec3 scale) { this->scale = scale; }
     void SetRotation(glm::vec3 rotation) { this->rotation = rotation; }
@@ -61,8 +61,8 @@ class Mesh
     void Draw(bool wireframe = false) const;
 
     // Bind/Unbind for custom rendering (UI)
-    void BindShader() { shader.Bind(); }
-    void UnbindShader() { shader.Unbind(); }
+    void BindShader() { shaderProgram.Bind(); }
+    void UnbindShader() { shaderProgram.Unbind(); }
     void BindVAO()
     {
         if (geometry != nullptr)
@@ -77,7 +77,7 @@ class Mesh
             geometry->Unbind();
         }
     }
-    bool IsShaderCompiled() const { return shader.IsCompiled(); }
+    bool IsShaderCompiled() const { return shaderProgram.IsCompiled(); }
 
     glm::vec3 &GetPosition() { return this->position; }
     glm::vec3 &GetScale() { return this->scale; }
@@ -88,7 +88,7 @@ class Mesh
     std::vector<std::uint32_t> indices;
     std::vector<std::uint32_t> sizeAttrib;
     std::vector<Texture> textures;
-    Shader shader;
+    ShaderProgram shaderProgram;
 
     glm::vec3 position = glm::vec3(0.0f);
     glm::vec3 scale = glm::vec3(1.0f);
@@ -107,9 +107,9 @@ class Mesh
         std::array<uint8_t, 64> data; // Up to mat4
         size_t size;
         int location;
-        std::uint32_t shaderID;
+        std::uint32_t shaderProgramID;
 
-        UniformCache() : data({0}), size(0), location(-2), shaderID(0) {}
+        UniformCache() : data({0}), size(0), location(-2), shaderProgramID(0) {}
     };
     std::unique_ptr<std::unordered_map<std::string, UniformCache>> uniformCache;
     std::unordered_map<std::string, UniformCache> &GetOrCreateUniformCache();

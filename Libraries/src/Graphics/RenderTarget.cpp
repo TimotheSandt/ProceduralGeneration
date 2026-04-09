@@ -1,4 +1,4 @@
-#include "FBO.h"
+#include "RenderTarget.h"
 
 #include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
@@ -6,11 +6,11 @@
 #include "Logger.h"
 #include "utilities.h"
 
-FBO::FBO(int width, int height) { this->Init(width, height); }
+RenderTarget::RenderTarget(int width, int height) { this->Init(width, height); }
 
-FBO::FBO(FBO &&other) noexcept { this->Swap(other); }
+RenderTarget::RenderTarget(RenderTarget &&other) noexcept { this->Swap(other); }
 
-FBO &FBO::operator=(FBO &&other) noexcept
+RenderTarget &RenderTarget::operator=(RenderTarget &&other) noexcept
 {
     if (this != &other)
     {
@@ -20,21 +20,21 @@ FBO &FBO::operator=(FBO &&other) noexcept
     return *this;
 }
 
-FBO::~FBO() { this->Destroy(); }
+RenderTarget::~RenderTarget() { this->Destroy(); }
 
-void FBO::Swap(FBO &other) noexcept
+void RenderTarget::Swap(RenderTarget &other) noexcept
 {
     std::swap(this->ID, other.ID);
     std::swap(this->width, other.width);
     std::swap(this->height, other.height);
     std::swap(this->depthBufferID, other.depthBufferID);
     std::swap(this->backendRenderTarget, other.backendRenderTarget);
-    std::swap(this->screenQuadShader, other.screenQuadShader);
+    std::swap(this->screenQuadShaderProgram, other.screenQuadShaderProgram);
     std::swap(this->screenQuadGeometry, other.screenQuadGeometry);
-    std::swap(this->TextureColor, other.TextureColor);
+    std::swap(this->colorTexture, other.colorTexture);
 }
 
-void FBO::Destroy()
+void RenderTarget::Destroy()
 {
     if (backendRenderTarget != nullptr)
     {
@@ -45,11 +45,11 @@ void FBO::Destroy()
     depthBufferID = 0;
 
     this->screenQuadGeometry.reset();
-    this->screenQuadShader.Destroy();
-    TextureColor.Destroy();
+    this->screenQuadShaderProgram.Destroy();
+    colorTexture.Destroy();
 }
 
-void FBO::Init(int width, int height)
+void RenderTarget::Init(int width, int height)
 {
     this->width = width;
     this->height = height;
@@ -77,11 +77,11 @@ void FBO::Init(int width, int height)
 
     backendRenderTarget->Bind();
 
-    TextureColor.SetFramebufferTexture("screenTexture", 0, width, height, this->ID);
+    colorTexture.SetFramebufferTexture("screenTexture", 0, width, height, this->ID);
 
     if (!backendRenderTarget->IsComplete())
     {
-        LOG_ERROR(1, "FBO incomplete");
+        LOG_ERROR(1, "RenderTarget incomplete");
         return;
     }
 
@@ -90,7 +90,7 @@ void FBO::Init(int width, int height)
     this->Setup();
 }
 
-void FBO::Bind() const
+void RenderTarget::Bind() const
 {
     if (backendRenderTarget == nullptr)
     {
@@ -100,7 +100,7 @@ void FBO::Bind() const
     OpenGLRenderState::SetViewport(0, 0, width, height);
 }
 
-void FBO::Unbind() const
+void RenderTarget::Unbind() const
 {
     if (backendRenderTarget != nullptr)
     {
@@ -108,7 +108,7 @@ void FBO::Unbind() const
     }
 }
 
-void FBO::Resize(int newWidth, int newHeight)
+void RenderTarget::Resize(int newWidth, int newHeight)
 {
     if (width == newWidth && height == newHeight)
     {
@@ -118,45 +118,46 @@ void FBO::Resize(int newWidth, int newHeight)
     width = newWidth;
     height = newHeight;
 
-    TextureColor.ResizeFramebufferTexture(width, height);
+    colorTexture.ResizeFramebufferTexture(width, height);
     if (backendRenderTarget != nullptr)
     {
         backendRenderTarget->Resize(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
         if (!backendRenderTarget->IsComplete())
         {
-            LOG_ERROR(1, "FBO incomplete after resize");
+            LOG_ERROR(1, "RenderTarget incomplete after resize");
         }
     }
 
     Unbind();
 }
 
-void FBO::BlitFBO(FBO &oFBO) const
+void RenderTarget::BlitToRenderTarget(RenderTarget &source) const
 {
-    const std::uint32_t oID = oFBO.GetID();
-    int oWidth = oFBO.GetWidth();
-    int oHeight = oFBO.GetHeight();
+    const std::uint32_t sourceID = source.GetID();
+    const int sourceWidth = source.GetWidth();
+    const int sourceHeight = source.GetHeight();
 
-    if (oID == 0 || ID == 0)
+    if (sourceID == 0 || ID == 0)
     {
-        LOG_ERROR(1, "Invalid FBO IDs");
+        LOG_ERROR(1, "Invalid render target IDs");
         return;
     }
 
-    if (backendRenderTarget != nullptr && oFBO.backendRenderTarget != nullptr)
+    if (backendRenderTarget != nullptr && source.backendRenderTarget != nullptr)
     {
-        oFBO.backendRenderTarget->BlitTo(*backendRenderTarget, static_cast<std::uint32_t>(oWidth), static_cast<std::uint32_t>(oHeight),
-                                         static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
+        source.backendRenderTarget->BlitTo(*backendRenderTarget, static_cast<std::uint32_t>(sourceWidth),
+                                           static_cast<std::uint32_t>(sourceHeight), static_cast<std::uint32_t>(width),
+                                           static_cast<std::uint32_t>(height));
     }
 
     this->Unbind();
 }
 
-void FBO::BlitToScreen(int sWidth, int sHeight) const
+void RenderTarget::BlitToScreen(int sWidth, int sHeight) const
 {
     if (ID == 0)
     {
-        LOG_ERROR(1, "Invalid FBO ID");
+        LOG_ERROR(1, "Invalid render target ID");
         return;
     }
 
@@ -169,7 +170,7 @@ void FBO::BlitToScreen(int sWidth, int sHeight) const
     this->Unbind();
 }
 
-void FBO::Setup()
+void RenderTarget::Setup()
 {
     if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
     {
@@ -179,23 +180,23 @@ void FBO::Setup()
             -1.0f, 1.0f, 0.0f, 1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f,
         };
         createInfo.indexData = {0, 1, 3, 1, 2, 3};
-        createInfo.debugName = "fbo_screen_quad";
+        createInfo.debugName = "render_target_screen_quad";
         this->screenQuadGeometry = device->CreateGeometry(createInfo);
     }
 
     if (this->screenQuadGeometry == nullptr)
     {
-        LOG_ERROR(1, "Failed to create backend screen quad geometry for FBO rendering");
+        LOG_ERROR(1, "Failed to create backend screen quad geometry for RenderTarget rendering");
         return;
     }
 
-    this->screenQuadShader.SetShader(GET_RESOURCE_PATH("shader/upscaling/upscale.vert"),
-                                     GET_RESOURCE_PATH("shader/upscaling/upscale.frag"));
+    this->screenQuadShaderProgram.SetShader(GET_RESOURCE_PATH("shader/upscaling/upscale.vert"),
+                                            GET_RESOURCE_PATH("shader/upscaling/upscale.frag"));
 }
 
-void FBO::RenderScreenQuad() const { RenderScreenQuad(width, height); }
+void RenderTarget::RenderScreenQuad() const { RenderScreenQuad(width, height); }
 
-void FBO::RenderScreenQuad(int fWidth, int fHeight) const
+void RenderTarget::RenderScreenQuad(int fWidth, int fHeight) const
 {
     if (this->screenQuadGeometry == nullptr)
     {
@@ -208,17 +209,17 @@ void FBO::RenderScreenQuad(int fWidth, int fHeight) const
     OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, 0);
     OpenGLRenderState::SetDepthTest(false);
 
-    TextureColor.texUnit(this->screenQuadShader);
-    TextureColor.Bind();
+    colorTexture.texUnit(this->screenQuadShaderProgram);
+    colorTexture.Bind();
 
-    this->screenQuadShader.Bind();
+    this->screenQuadShaderProgram.Bind();
     this->screenQuadGeometry->Bind();
 
     this->screenQuadGeometry->DrawIndexed();
 
     this->screenQuadGeometry->Unbind();
-    this->screenQuadShader.Unbind();
-    TextureColor.Unbind();
+    this->screenQuadShaderProgram.Unbind();
+    colorTexture.Unbind();
 
     OpenGLRenderState::SetDepthTest(true);
 }

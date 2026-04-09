@@ -12,18 +12,18 @@
 
 std::string get_file_contents(const char *filename);
 
-class Shader
+class ShaderProgram
 {
   public:
-    Shader() = default;
-    Shader(const char *vertexPath, const char *fragmentPath);
-    ~Shader();
+    ShaderProgram() = default;
+    ShaderProgram(const char *vertexPath, const char *fragmentPath);
+    ~ShaderProgram();
 
-    Shader(const Shader &shader);
-    Shader &operator=(const Shader &);
+    ShaderProgram(const ShaderProgram &shaderProgram);
+    ShaderProgram &operator=(const ShaderProgram &);
 
-    Shader(Shader &&) noexcept;
-    Shader &operator=(Shader &&) noexcept;
+    ShaderProgram(ShaderProgram &&) noexcept;
+    ShaderProgram &operator=(ShaderProgram &&) noexcept;
 
     void SetShader(const char *vertexPath, const char *fragmentPath);
     void SetShaderCode(std::string vertexCode, std::string fragmentCode);
@@ -50,5 +50,5 @@ class Shader
     std::string fragmentSource;
 
   private:
-    void Swap(Shader &other) noexcept;
+    void Swap(ShaderProgram &other) noexcept;
 };

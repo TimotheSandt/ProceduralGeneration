@@ -61,8 +61,8 @@ Window &Window::operator=(Window &&other) noexcept
 void Window::Swap(Window &other) noexcept
 {
     std::swap(this->window, other.window);
-    std::swap(this->FBORendering, other.FBORendering);
-    std::swap(this->FBOUpscaled, other.FBOUpscaled);
+    std::swap(this->sceneRenderTarget, other.sceneRenderTarget);
+    std::swap(this->upscaledRenderTarget, other.upscaledRenderTarget);
     std::swap(this->parameters, other.parameters);
     std::swap(this->inputManager, other.inputManager);
     std::swap(this->fpsCounter, other.fpsCounter);
@@ -77,7 +77,7 @@ int Window::Init()
         return -1;
     }
 
-    // Create a window of size 800x800 and called "OpenGL"
+    // Create a window for the active graphics runtime.
     this->window = glfwCreateWindow(this->parameters.width, this->parameters.height, this->parameters.title.c_str(), nullptr, nullptr);
     if (!this->window)
     {
@@ -100,7 +100,7 @@ int Window::Init()
     this->SetupCallbacks();
 
     this->ChangeWindowState(this->parameters.windowState);
-    this->InitFBOs();
+    this->InitRenderTargets();
 
     this->inputManager = &InputManager::GetInstance(this->window);
 
@@ -116,8 +116,8 @@ void Window::Close()
 
     this->ClearCallbacks();
 
-    this->FBORendering.Destroy();
-    this->FBOUpscaled.Destroy();
+    this->sceneRenderTarget.Destroy();
+    this->upscaledRenderTarget.Destroy();
 
     InputManager::RemoveInstance(this->window);
     this->inputManager = nullptr;
@@ -153,7 +153,7 @@ bool Window::NewFrame()
 
     if (this->parameters.enableUpscaling)
     {
-        this->BindRenderFBO();
+        this->BindSceneRenderTarget();
     }
 
     if (this->parameters.trueEveryms == 0)
@@ -183,7 +183,7 @@ void Window::SwapBuffers()
 
     if (this->parameters.enableUpscaling)
     {
-        Profiler::ProfileGPU("Upscale", &Window::UnbindRenderFBO, this);
+        Profiler::ProfileGPU("Upscale", &Window::PresentRenderTarget, this);
     }
 
     glfwSwapBuffers(this->window);
@@ -501,7 +501,7 @@ void Window::CallbackResize(GLFWwindow *window, int width, int height)
     this->parameters.width = width;
     this->parameters.height = height;
 
-    UpdateFBOResotution();
+    UpdateRenderTargetResolution();
 
     OpenGLRenderState::SetViewport(0, 0, this->parameters.width, this->parameters.height);
 }

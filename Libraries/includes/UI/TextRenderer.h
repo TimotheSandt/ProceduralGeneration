@@ -9,7 +9,7 @@
 #include <glm/glm.hpp>
 #include <ft2build.h>
 #include "Graphics/Core/GraphicsResources.h"
-#include "Shader.h"
+#include "ShaderProgram.h"
 #include "Texture.h"
 #include FT_FREETYPE_H
 
@@ -152,7 +152,7 @@ class TextRenderer
     std::unordered_map<std::string, FontData> fonts;
     std::string activeFontName;
 
-    Shader shader;
+    ShaderProgram shaderProgram;
     std::unique_ptr<IGeometryResource> glyphGeometry;
     glm::mat4 projection;
     unsigned int screenWidth, screenHeight;

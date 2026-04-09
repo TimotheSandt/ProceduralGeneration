@@ -1,6 +1,6 @@
 #include "suites/Suites.h"
 
-#include "Graphics/Shader.h"
+#include "Graphics/ShaderProgram.h"
 
 #include <filesystem>
 #include <fstream>
@@ -13,7 +13,7 @@ namespace tests
 
 TestSuite CreateShaderSuite()
 {
-    TestSuite suite{"Shader"};
+    TestSuite suite{"ShaderProgram"};
 
     AddTest(suite, "get_file_contents reads a file",
             []
@@ -21,7 +21,7 @@ TestSuite CreateShaderSuite()
                 const fs::path tempFile = fs::temp_directory_path() / "proceduralgeneration_shader_read.glsl";
                 std::ofstream(tempFile.string()) << "void main() {}";
                 AssertEqual(get_file_contents(tempFile.string().c_str()), std::string("void main() {}"),
-                            "Shader file contents should match");
+                            "Shader program file contents should match");
                 std::error_code ec;
                 fs::remove(tempFile, ec);
             });
@@ -38,24 +38,24 @@ TestSuite CreateShaderSuite()
                 {
                     thrown = true;
                 }
-                Assert(thrown, "Reading a missing shader file should throw");
+                Assert(thrown, "Reading a missing shader program file should throw");
             });
 
     AddTest(suite, "default shader starts empty",
             []
             {
-                Shader shader;
-                AssertEqual(shader.GetID(), static_cast<std::uint32_t>(0), "Default shader id should be zero");
-                Assert(!shader.IsCompiled(), "Default shader should not be compiled");
+                ShaderProgram shaderProgram;
+                AssertEqual(shaderProgram.GetID(), static_cast<std::uint32_t>(0), "Default shader program id should be zero");
+                Assert(!shaderProgram.IsCompiled(), "Default shader program should not be compiled");
             });
 
     AddTest(suite, "moving default shader preserves zero id",
             []
             {
-                Shader source;
-                Shader moved(std::move(source));
-                AssertEqual(moved.GetID(), static_cast<std::uint32_t>(0), "Moved default shader should still have zero id");
-                Assert(!moved.IsCompiled(), "Moved default shader should remain uncompiled");
+                ShaderProgram source;
+                ShaderProgram moved(std::move(source));
+                AssertEqual(moved.GetID(), static_cast<std::uint32_t>(0), "Moved default shader program should still have zero id");
+                Assert(!moved.IsCompiled(), "Moved default shader program should remain uncompiled");
             });
 
     return suite;

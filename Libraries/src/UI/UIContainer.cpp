@@ -29,7 +29,7 @@ void UIContainerBase::Initialize()
     {
         child->Initialize();
     }
-    InitializedFBO();
+    InitializeRenderTarget();
     RecalculateChildBounds();
 }
 
@@ -68,29 +68,29 @@ void UIContainerBase::Update()
     if (dirtySelfLayout || dirtyChildLayout)
     {
         RecalculateChildBounds();
-        InitializedFBO();
+        InitializeRenderTarget();
     }
 }
 
-// FBO helper functions
-void UIContainerBase::InitializedFBO()
+// Render target helper functions
+void UIContainerBase::InitializeRenderTarget()
 {
     if (contentSize.x <= 0 || contentSize.y <= 0)
     {
         return;
     }
 
-    if (fbo.GetWidth() != static_cast<int>(contentSize.x) || fbo.GetHeight() != static_cast<int>(contentSize.y))
+    if (renderTarget.GetWidth() != static_cast<int>(contentSize.x) || renderTarget.GetHeight() != static_cast<int>(contentSize.y))
     {
 
-        fbo.Init(static_cast<int>(contentSize.x), static_cast<int>(contentSize.y));
+        renderTarget.Init(static_cast<int>(contentSize.x), static_cast<int>(contentSize.y));
         fboInitialized = true;
-        GRAPHICS_CHECK_ERRORS_M("UIContainer FBO Init");
+        GRAPHICS_CHECK_ERRORS_M("UIContainer RenderTarget Init");
 
-        // Clear FBO to transparent immediately after init
+        // Clear render target to transparent immediately after init
         const OpenGLRenderState::FramebufferState previousState = OpenGLRenderState::CaptureFramebufferState();
 
-        fbo.Bind();
+        renderTarget.Bind();
         OpenGLRenderState::ClearTransparentColorBuffer();
         OpenGLRenderState::RestoreFramebufferState(previousState);
 
@@ -99,19 +99,19 @@ void UIContainerBase::InitializedFBO()
     }
 }
 
-void SaveFBOState(int &oldFBO, int viewport[4])
+void SaveRenderTargetState(int &oldFramebuffer, int viewport[4])
 {
     const OpenGLRenderState::FramebufferState state = OpenGLRenderState::CaptureFramebufferState();
-    oldFBO = state.framebuffer;
+    oldFramebuffer = state.framebuffer;
     for (int i = 0; i < 4; ++i)
     {
         viewport[i] = state.viewport[i];
     }
 }
 
-void RestoreFBOState(int oldFBO, int viewport[4])
+void RestoreRenderTargetState(int oldFramebuffer, int viewport[4])
 {
-    OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, static_cast<std::uint32_t>(oldFBO));
+    OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, static_cast<std::uint32_t>(oldFramebuffer));
     OpenGLRenderState::SetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 }
 
@@ -129,14 +129,14 @@ void UIContainerBase::ClearZone(glm::vec4 bounds)
 
 void UIContainerBase::RenderChildren()
 {
-    int oldFBO;
+    int oldFramebuffer;
     int viewport[4];
-    SaveFBOState(oldFBO, viewport);
+    SaveRenderTargetState(oldFramebuffer, viewport);
 
-    fbo.Bind();
+    renderTarget.Bind();
     GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Bind");
 
-    // Set viewport to FBO size
+    // Set viewport to render target size
     OpenGLRenderState::SetViewport(0, 0, static_cast<GLsizei>(contentSize.x), static_cast<GLsizei>(contentSize.y));
 
     // Determine dirty level: layout vs appearance only
@@ -157,7 +157,7 @@ void UIContainerBase::RenderChildren()
 
     if (hasLayoutDirty)
     {
-        // Layout changed: clear entire FBO and re-render all
+        // Layout changed: clear the full render target and re-render all
         OpenGLRenderState::ClearTransparentColorBuffer();
 
         for (auto &child : children)
@@ -182,7 +182,7 @@ void UIContainerBase::RenderChildren()
         }
     }
 
-    RestoreFBOState(oldFBO, viewport);
+    RestoreRenderTargetState(oldFramebuffer, viewport);
     GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Restore");
 }
 
@@ -202,7 +202,7 @@ void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
     // offset already includes anchor offset from cachedBoundsInParent
     RenderChildren();
 
-    // Draw the FBO texture
+    // Draw the render target texture
     mesh.BindShader();
     mesh.BindVAO();
 
@@ -213,13 +213,13 @@ void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
     mesh.InitUniform2f("contentSize", glm::value_ptr(contentSize));
     mesh.InitUniform4f("color", glm::value_ptr(this->color.Get()));
 
-    fbo.GetTexture().Bind();
+    renderTarget.GetTexture().Bind();
     int texSamplerLoc = 0;
     mesh.InitUniform1i("textureSampler", &texSamplerLoc);
 
     mesh.Draw();
 
-    fbo.GetTexture().Unbind();
+    renderTarget.GetTexture().Unbind();
 
     mesh.UnbindVAO();
     mesh.UnbindShader();

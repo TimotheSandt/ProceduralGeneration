@@ -207,7 +207,7 @@ size_t Texture::GetComponentCount(TextureFormat format) const
 
 size_t Texture::GetDataSize() const { return Width * Height * GetComponentCount(format) * GetPixelTypeSize(pixelType); }
 
-void Texture::SetFramebufferTexture(const char *uniformName, std::uint32_t slot, int width, int height, std::uint32_t FBO)
+void Texture::SetFramebufferTexture(const char *uniformName, std::uint32_t slot, int width, int height, std::uint32_t renderTargetHandle)
 {
     this->Destroy();
     this->slot = slot;
@@ -234,7 +234,7 @@ void Texture::SetFramebufferTexture(const char *uniformName, std::uint32_t slot,
             this->backendResource = std::move(resource);
             if (this->ID != 0)
             {
-                this->backendResource->AttachToFramebuffer(FBO);
+                this->backendResource->AttachToFramebuffer(renderTargetHandle);
                 return;
             }
             this->backendResource.reset();
@@ -252,12 +252,12 @@ void Texture::ResizeFramebufferTexture(int width, int height)
     }
 }
 
-void Texture::texUnit(const Shader &shader) const
+void Texture::texUnit(const ShaderProgram &shaderProgram) const
 {
-    shader.Bind();
-    const int location = shader.GetUniformLocation(this->UniformName);
+    shaderProgram.Bind();
+    const int location = shaderProgram.GetUniformLocation(this->UniformName);
     const int slotValue = static_cast<int>(this->slot);
-    shader.SetUniformInts(location, &slotValue, 1);
+    shaderProgram.SetUniformInts(location, &slotValue, 1);
 }
 
 void Texture::Bind() const

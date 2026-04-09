@@ -23,7 +23,7 @@ Mesh::Mesh(const Mesh &mesh)
     {
         this->textures.push_back(texture.Copy());
     }
-    this->shader = Shader(mesh.shader);
+    this->shaderProgram = ShaderProgram(mesh.shaderProgram);
     this->position = mesh.position;
     this->scale = mesh.scale;
     this->rotation = mesh.rotation;
@@ -41,7 +41,7 @@ Mesh &Mesh::operator=(const Mesh &mesh)
     {
         this->textures.push_back(texture.Copy());
     }
-    this->shader = Shader(mesh.shader);
+    this->shaderProgram = ShaderProgram(mesh.shaderProgram);
     this->position = mesh.position;
     this->scale = mesh.scale;
     this->rotation = mesh.rotation;
@@ -50,7 +50,8 @@ Mesh &Mesh::operator=(const Mesh &mesh)
 
 Mesh::Mesh(Mesh &&mesh) noexcept
     : vertices(std::move(mesh.vertices)), indices(std::move(mesh.indices)), sizeAttrib(std::move(mesh.sizeAttrib)),
-      textures(std::move(mesh.textures)), shader(std::move(mesh.shader)), position(std::move(mesh.position)), scale(std::move(mesh.scale)),
+      textures(std::move(mesh.textures)), shaderProgram(std::move(mesh.shaderProgram)), position(std::move(mesh.position)),
+      scale(std::move(mesh.scale)),
       rotation(std::move(mesh.rotation)), instancing(mesh.instancing), instances(std::move(mesh.instances)),
       sizeAttribInstance(std::move(mesh.sizeAttribInstance)), geometry(std::move(mesh.geometry)), modelBuffer(std::move(mesh.modelBuffer)),
       uniformCache(std::move(mesh.uniformCache))
@@ -79,7 +80,7 @@ void Mesh::Swap(Mesh &mesh) noexcept
     std::swap(this->instancing, mesh.instancing);
     std::swap(this->geometry, mesh.geometry);
     std::swap(this->modelBuffer, mesh.modelBuffer);
-    std::swap(this->shader, mesh.shader);
+    std::swap(this->shaderProgram, mesh.shaderProgram);
     std::swap(this->position, mesh.position);
     std::swap(this->scale, mesh.scale);
     std::swap(this->rotation, mesh.rotation);
@@ -133,7 +134,7 @@ void Mesh::Destroy()
 {
     this->geometry.reset();
     this->modelBuffer.Destroy();
-    this->shader.Destroy();
+    this->shaderProgram.Destroy();
     for (std::size_t i = 0; i < this->textures.size(); i++)
     {
         this->textures[i].Destroy();
@@ -152,19 +153,19 @@ void Mesh::AddTexture(const char *image, const char *name, TextureFormat format,
 
 void Mesh::Render(Camera &camera)
 {
-    if (!this->shader.IsCompiled())
+    if (!this->shaderProgram.IsCompiled())
     {
-        LOG_WARNING("Shader not compiled");
+        LOG_WARNING("ShaderProgram not compiled");
         return;
     }
-    this->shader.Bind();
+    this->shaderProgram.Bind();
     if (this->geometry != nullptr)
     {
         this->geometry->Bind();
     }
     for (std::size_t i = 0; i < this->textures.size(); i++)
     {
-        this->textures[i].texUnit(this->shader);
+        this->textures[i].texUnit(this->shaderProgram);
 
         this->textures[i].Bind();
     }
@@ -183,7 +184,7 @@ void Mesh::Render(Camera &camera)
     {
         this->geometry->Unbind();
     }
-    this->shader.Unbind();
+    this->shaderProgram.Unbind();
     this->modelBuffer.Unbind();
     for (std::size_t i = 0; i < this->textures.size(); i++)
     {
