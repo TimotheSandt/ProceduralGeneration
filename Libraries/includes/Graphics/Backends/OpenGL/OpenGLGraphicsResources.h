@@ -25,12 +25,15 @@ class OpenGLTextureResource final : public ITextureResource
 {
   public:
     explicit OpenGLTextureResource(TextureCreateInfo createInfo);
+    ~OpenGLTextureResource() override;
 
     GraphicsAPI GetAPI() const noexcept override;
     std::string_view GetDebugName() const noexcept override;
     const TextureDesc &GetDescription() const noexcept override;
+    GLuint GetTextureID() const noexcept;
 
   private:
+    GLuint textureID = 0;
     TextureDesc desc;
     std::string debugName;
 };

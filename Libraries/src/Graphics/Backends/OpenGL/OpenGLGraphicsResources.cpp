@@ -30,6 +30,59 @@ GLenum ToOpenGLShaderType(ShaderStage stage)
     }
 }
 
+GLint ToOpenGLInternalFormat(TextureFormat format)
+{
+    switch (format)
+    {
+        case TextureFormat::BGRA8:
+        case TextureFormat::RGBA8:
+            return GL_RGBA8;
+        case TextureFormat::Depth24Stencil8:
+            return GL_DEPTH24_STENCIL8;
+        case TextureFormat::Depth32Float:
+            return GL_DEPTH_COMPONENT32F;
+        case TextureFormat::R8:
+            return GL_R8;
+        default:
+            return GL_RGBA8;
+    }
+}
+
+GLenum ToOpenGLDataFormat(TextureFormat format)
+{
+    switch (format)
+    {
+        case TextureFormat::BGRA8:
+            return GL_BGRA;
+        case TextureFormat::RGBA8:
+            return GL_RGBA;
+        case TextureFormat::Depth24Stencil8:
+            return GL_DEPTH_STENCIL;
+        case TextureFormat::Depth32Float:
+            return GL_DEPTH_COMPONENT;
+        case TextureFormat::R8:
+            return GL_RED;
+        default:
+            return GL_RGBA;
+    }
+}
+
+GLenum ToOpenGLDataType(TextureFormat format)
+{
+    switch (format)
+    {
+        case TextureFormat::Depth24Stencil8:
+            return GL_UNSIGNED_INT_24_8;
+        case TextureFormat::Depth32Float:
+            return GL_FLOAT;
+        case TextureFormat::BGRA8:
+        case TextureFormat::RGBA8:
+        case TextureFormat::R8:
+        default:
+            return GL_UNSIGNED_BYTE;
+    }
+}
+
 bool CheckShaderCompile(GLuint shaderID, ShaderStage stage)
 {
     GLint compileStatus = GL_FALSE;
@@ -132,6 +185,40 @@ GLuint OpenGLShaderProgramResource::GetProgramID() const noexcept { return progr
 OpenGLTextureResource::OpenGLTextureResource(TextureCreateInfo createInfo)
     : desc(createInfo.desc), debugName(std::move(createInfo.debugName))
 {
+    if (!HasActiveOpenGLContext() || desc.extent.width == 0 || desc.extent.height == 0)
+    {
+        return;
+    }
+
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    const GLint internalFormat = ToOpenGLInternalFormat(desc.format);
+    const GLenum dataFormat = ToOpenGLDataFormat(desc.format);
+    const GLenum dataType = ToOpenGLDataType(desc.format);
+    const void *initialData = createInfo.initialData.empty() ? nullptr : createInfo.initialData.data();
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, desc.renderTarget ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, desc.renderTarget ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, desc.renderTarget ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, static_cast<GLsizei>(desc.extent.width), static_cast<GLsizei>(desc.extent.height), 0,
+                 dataFormat, dataType, initialData);
+
+    if (createInfo.generateMipmaps && !desc.renderTarget && initialData != nullptr)
+    {
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+OpenGLTextureResource::~OpenGLTextureResource()
+{
+    if (textureID != 0 && HasActiveOpenGLContext())
+    {
+        glDeleteTextures(1, &textureID);
+    }
 }
 
 GraphicsAPI OpenGLTextureResource::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
@@ -139,3 +226,5 @@ GraphicsAPI OpenGLTextureResource::GetAPI() const noexcept { return GraphicsAPI:
 std::string_view OpenGLTextureResource::GetDebugName() const noexcept { return debugName; }
 
 const TextureDesc &OpenGLTextureResource::GetDescription() const noexcept { return desc; }
+
+GLuint OpenGLTextureResource::GetTextureID() const noexcept { return textureID; }

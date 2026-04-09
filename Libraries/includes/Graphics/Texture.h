@@ -4,6 +4,7 @@
 
 #include <stb_image.h>
 
+#include "Graphics/Core/GraphicsResources.h"
 #include "Shader.h"
 
 class Texture
@@ -51,9 +52,11 @@ class Texture
     void Swap(Texture &other) noexcept;
     size_t GetPixelTypeSize(GLenum pixelType) const;
     size_t GetComponentCount(GLenum format) const;
+    TextureFormat ToTextureFormat(GLenum format) const;
 
   private:
     GLuint ID = 0;
+    std::unique_ptr<ITextureResource> backendResource;
     GLuint slot;
     GLenum format;
     GLenum pixelType;

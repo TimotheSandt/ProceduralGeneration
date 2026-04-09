@@ -1,5 +1,10 @@
 #include "Texture.h"
 
+#include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
+#include "Graphics/Core/GraphicsRuntime.h"
+
+#include <cstring>
+
 Texture::Texture() : ID(0), slot(0), format(GL_RGBA), pixelType(GL_UNSIGNED_BYTE), Width(0), Height(0), UniformName("") {}
 
 Texture::Texture(Texture &&other) noexcept
@@ -21,6 +26,7 @@ Texture &Texture::operator=(Texture &&other) noexcept
 void Texture::Swap(Texture &other) noexcept
 {
     std::swap(this->ID, other.ID);
+    std::swap(this->backendResource, other.backendResource);
     std::swap(this->slot, other.slot);
     std::swap(this->format, other.format);
     std::swap(this->pixelType, other.pixelType);
@@ -92,6 +98,24 @@ Texture::Texture(void *data, int width, int height, const char *name, GLuint slo
 
 Texture::~Texture() { this->Destroy(); }
 
+TextureFormat Texture::ToTextureFormat(GLenum textureFormat) const
+{
+    switch (textureFormat)
+    {
+        case GL_BGRA:
+            return TextureFormat::BGRA8;
+        case GL_DEPTH_STENCIL:
+            return TextureFormat::Depth24Stencil8;
+        case GL_DEPTH_COMPONENT:
+            return TextureFormat::Depth32Float;
+        case GL_RED:
+            return TextureFormat::R8;
+        case GL_RGBA:
+        default:
+            return TextureFormat::RGBA8;
+    }
+}
+
 void Texture::SetTextureData(void *data, int width, int height, GLenum format, GLenum pixelType, GLenum filter)
 {
     this->Destroy();
@@ -99,6 +123,38 @@ void Texture::SetTextureData(void *data, int width, int height, GLenum format, G
     this->Height = height;
     this->format = format;
     this->pixelType = pixelType;
+
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    {
+        TextureCreateInfo createInfo;
+        createInfo.desc.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
+        createInfo.desc.format = ToTextureFormat(format);
+        createInfo.desc.mipLevels = 1;
+        createInfo.desc.renderTarget = false;
+        createInfo.debugName = this->UniformName;
+        createInfo.generateMipmaps = true;
+
+        const size_t dataSize = data != nullptr ? static_cast<size_t>(width) * static_cast<size_t>(height) * GetComponentCount(format) *
+                                                      GetPixelTypeSize(pixelType)
+                                                : 0;
+        if (dataSize > 0)
+        {
+            createInfo.initialData.resize(dataSize);
+            std::memcpy(createInfo.initialData.data(), data, dataSize);
+        }
+
+        std::unique_ptr<ITextureResource> resource = device->CreateTexture(createInfo);
+        if (auto *openGLResource = dynamic_cast<OpenGLTextureResource *>(resource.get()); openGLResource != nullptr)
+        {
+            this->ID = openGLResource->GetTextureID();
+            this->backendResource = std::move(resource);
+            if (this->ID != 0)
+            {
+                return;
+            }
+            this->backendResource.reset();
+        }
+    }
 
     glGenTextures(1, &this->ID);
     this->Bind();
@@ -228,6 +284,13 @@ void Texture::Unbind() const { glBindTexture(GL_TEXTURE_2D, 0); }
 
 void Texture::Destroy()
 {
+    if (this->backendResource != nullptr)
+    {
+        this->backendResource.reset();
+        this->ID = 0;
+        return;
+    }
+
     if (this->ID == 0)
     {
         return;

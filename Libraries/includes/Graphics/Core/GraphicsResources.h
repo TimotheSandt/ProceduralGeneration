@@ -26,6 +26,8 @@ struct TextureCreateInfo
 {
     TextureDesc desc{};
     std::string debugName;
+    std::vector<std::byte> initialData;
+    bool generateMipmaps = true;
 };
 
 struct AccelerationStructureCreateInfo
