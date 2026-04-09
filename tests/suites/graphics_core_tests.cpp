@@ -76,6 +76,40 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(!device->SupportsShaderStages(1u << 31u), "OpenGL devices should reject unknown shader stage bits");
             });
 
+    AddTest(suite, "opengl device creates shader and texture resource descriptors",
+            []
+            {
+                const OpenGLGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
+
+                const std::unique_ptr<IShaderProgramResource> shaderProgram = device->CreateShaderProgram(
+                    {.desc = {.stages = ShaderStageBit(ShaderStage::Vertex) | ShaderStageBit(ShaderStage::Fragment)},
+                     .debugName = "ui_shader"});
+                const std::unique_ptr<ITextureResource> texture = device->CreateTexture(
+                    {.desc = {.extent = {256, 256}, .format = TextureFormat::RGBA8, .mipLevels = 1, .renderTarget = true},
+                     .debugName = "ui_target"});
+
+                Assert(shaderProgram != nullptr, "OpenGL should create shader program resources for supported shader stages");
+                Assert(texture != nullptr, "OpenGL should create texture resources");
+                AssertEqual(shaderProgram->GetAPI(), GraphicsAPI::OpenGL, "Shader resources should keep the OpenGL API tag");
+                AssertEqual(shaderProgram->GetDebugName(), std::string_view("ui_shader"), "Shader debug names should be preserved");
+                AssertEqual(texture->GetDescription().extent.width, 256u, "Texture width should be preserved in the resource descriptor");
+                Assert(texture->GetDescription().renderTarget, "Texture descriptors should preserve render-target intent");
+            });
+
+    AddTest(suite, "opengl device rejects unsupported shader stage sets",
+            []
+            {
+                const OpenGLGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
+                ShaderProgramCreateInfo createInfo{};
+                createInfo.desc.stages = 1u << 31u;
+                createInfo.debugName = "invalid_shader";
+
+                Assert(device->CreateShaderProgram(createInfo) == nullptr,
+                       "OpenGL should reject shader programs with unsupported stage masks");
+            });
+
     AddTest(suite, "vulkan backend capabilities reflect explicit pipeline expectations",
             []
             {

@@ -1,4 +1,5 @@
 #include "Graphics/Backends/OpenGL/OpenGLGraphicsDevice.h"
+#include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
 
 namespace
 {
@@ -21,4 +22,19 @@ const GraphicsCapabilities &OpenGLGraphicsDevice::GetCapabilities() const noexce
 bool OpenGLGraphicsDevice::SupportsShaderStages(ShaderStageMask stages) const noexcept
 {
     return (stages & OpenGLSupportedStages) == stages;
+}
+
+std::unique_ptr<IShaderProgramResource> OpenGLGraphicsDevice::CreateShaderProgram(const ShaderProgramCreateInfo &createInfo) const
+{
+    if (!SupportsShaderStages(createInfo.desc.stages))
+    {
+        return nullptr;
+    }
+
+    return std::make_unique<OpenGLShaderProgramResource>(createInfo);
+}
+
+std::unique_ptr<ITextureResource> OpenGLGraphicsDevice::CreateTexture(const TextureCreateInfo &createInfo) const
+{
+    return std::make_unique<OpenGLTextureResource>(createInfo);
 }
