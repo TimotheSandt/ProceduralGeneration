@@ -126,7 +126,7 @@ void Grid::GenerateNormals()
 void Grid::GenerateMesh()
 {
 
-    std::vector<GLfloat> vertices;
+    std::vector<float> vertices;
     vertices.reserve(this->points.size() * 3);
     for (const auto &vec : this->points)
     {
@@ -143,7 +143,7 @@ void Grid::GenerateMesh()
         vertices.push_back(vec.Color.z);
     }
 
-    std::vector<GLuint> indices;
+    std::vector<std::uint32_t> indices;
     indices.reserve(this->triangles.size() * 3);
     for (const auto &triangle : this->triangles)
     {

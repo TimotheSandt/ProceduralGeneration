@@ -145,7 +145,7 @@ Character TextRenderer::loadCharacter(FT_Face face, char c)
     Character character;
     character.texture =
         Texture(face->glyph->bitmap.buffer, static_cast<int>(face->glyph->bitmap.width), static_cast<int>(face->glyph->bitmap.rows), "text", 0,
-                GL_RED, GL_UNSIGNED_BYTE, GL_LINEAR);
+                TextureFormat::R8, TexturePixelType::UnsignedByte, TextureFilterMode::Linear);
     character.size = {face->glyph->bitmap.width, face->glyph->bitmap.rows};
     character.bearing = {face->glyph->bitmap_left, face->glyph->bitmap_top};
     character.advance = static_cast<unsigned int>(face->glyph->advance.x);

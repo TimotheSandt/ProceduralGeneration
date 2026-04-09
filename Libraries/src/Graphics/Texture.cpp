@@ -5,10 +5,13 @@
 
 #include <cstring>
 
-Texture::Texture() : ID(0), slot(0), format(GL_RGBA), pixelType(GL_UNSIGNED_BYTE), Width(0), Height(0), UniformName("") {}
+Texture::Texture()
+    : ID(0), slot(0), format(TextureFormat::RGBA8), pixelType(TexturePixelType::UnsignedByte), Width(0), Height(0), UniformName("")
+{
+}
 
 Texture::Texture(Texture &&other) noexcept
-    : ID(0), slot(0), format(GL_RGBA), pixelType(GL_UNSIGNED_BYTE), Width(0), Height(0), UniformName("")
+    : ID(0), slot(0), format(TextureFormat::RGBA8), pixelType(TexturePixelType::UnsignedByte), Width(0), Height(0), UniformName("")
 {
     this->Swap(other);
 }
@@ -39,8 +42,8 @@ void Texture::Copy(const Texture &texture)
 {
     int width = 0;
     int height = 0;
-    GLenum format = GL_RGBA;
-    GLenum pixelType = GL_UNSIGNED_BYTE;
+    TextureFormat format = TextureFormat::RGBA8;
+    TexturePixelType pixelType = TexturePixelType::UnsignedByte;
     void *data = texture.GetTextureData(width, height, format, pixelType);
     this->SetTextureData(data, width, height, format, pixelType);
     std::free(data);
@@ -49,14 +52,16 @@ void Texture::Copy(const Texture &texture)
 Texture Texture::Copy() const
 {
     int w, h;
-    GLenum f, p;
+    TextureFormat f;
+    TexturePixelType p;
     void *data = this->GetTextureData(w, h, f, p);
     Texture texture(data, w, h, this->UniformName, this->slot, f, p);
     std::free(data);
     return texture;
 }
 
-Texture::Texture(const std::string &image, const char *name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter)
+Texture::Texture(const std::string &image, const char *name, std::uint32_t slot, TextureFormat format, TexturePixelType pixelType,
+                 TextureFilterMode filter)
     : slot(slot), format(format), pixelType(pixelType), Width(0), Height(0), UniformName(name)
 {
     stbi_set_flip_vertically_on_load(true);
@@ -78,8 +83,8 @@ Texture::Texture(const std::string &image, const char *name, GLuint slot, GLenum
             238, 130, 238, 255  // Violet pixel
         };
         bytes = bytesDefault;
-        this->format = GL_RGBA;
-        this->pixelType = GL_UNSIGNED_BYTE;
+        this->format = TextureFormat::RGBA8;
+        this->pixelType = TexturePixelType::UnsignedByte;
     }
 
     this->SetTextureData(bytes, this->Width, this->Height, this->format, pixelType, filter);
@@ -90,7 +95,8 @@ Texture::Texture(const std::string &image, const char *name, GLuint slot, GLenum
     }
 }
 
-Texture::Texture(void *data, int width, int height, const char *name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter)
+Texture::Texture(void *data, int width, int height, const char *name, std::uint32_t slot, TextureFormat format, TexturePixelType pixelType,
+                 TextureFilterMode filter)
     : slot(slot), format(format), pixelType(pixelType), Width(width), Height(height), UniformName(name)
 {
     this->SetTextureData(data, width, height, this->format, pixelType, filter);
@@ -98,25 +104,7 @@ Texture::Texture(void *data, int width, int height, const char *name, GLuint slo
 
 Texture::~Texture() { this->Destroy(); }
 
-TextureFormat Texture::ToTextureFormat(GLenum textureFormat) const
-{
-    switch (textureFormat)
-    {
-        case GL_BGRA:
-            return TextureFormat::BGRA8;
-        case GL_DEPTH_STENCIL:
-            return TextureFormat::Depth24Stencil8;
-        case GL_DEPTH_COMPONENT:
-            return TextureFormat::Depth32Float;
-        case GL_RED:
-            return TextureFormat::R8;
-        case GL_RGBA:
-        default:
-            return TextureFormat::RGBA8;
-    }
-}
-
-void Texture::SetTextureData(void *data, int width, int height, GLenum format, GLenum pixelType, GLenum filter)
+void Texture::SetTextureData(void *data, int width, int height, TextureFormat format, TexturePixelType pixelType, TextureFilterMode filter)
 {
     this->Destroy();
     this->Width = width;
@@ -128,7 +116,7 @@ void Texture::SetTextureData(void *data, int width, int height, GLenum format, G
     {
         TextureCreateInfo createInfo;
         createInfo.desc.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
-        createInfo.desc.format = ToTextureFormat(format);
+        createInfo.desc.format = format;
         createInfo.desc.mipLevels = 1;
         createInfo.desc.renderTarget = false;
         createInfo.debugName = this->UniformName;
@@ -157,7 +145,7 @@ void Texture::SetTextureData(void *data, int width, int height, GLenum format, G
     }
 }
 
-void *Texture::GetTextureData(int &width, int &height, GLenum &format, GLenum &pixelType) const
+void *Texture::GetTextureData(int &width, int &height, TextureFormat &format, TexturePixelType &pixelType) const
 {
     width = this->Width;
     height = this->Height;
@@ -179,42 +167,38 @@ void *Texture::GetTextureData(int &width, int &height, GLenum &format, GLenum &p
     return data;
 }
 
-size_t Texture::GetPixelTypeSize(GLenum pixelType) const
+size_t Texture::GetPixelTypeSize(TexturePixelType pixelType) const
 {
     switch (pixelType)
     {
-        case GL_UNSIGNED_BYTE:
-        case GL_BYTE:
+        case TexturePixelType::UnsignedByte:
+        case TexturePixelType::Byte:
             return 1;
-        case GL_UNSIGNED_SHORT:
-        case GL_SHORT:
-        case GL_HALF_FLOAT:
+        case TexturePixelType::UnsignedShort:
+        case TexturePixelType::Short:
+        case TexturePixelType::HalfFloat:
             return 2;
-        case GL_UNSIGNED_INT:
-        case GL_INT:
-        case GL_FLOAT:
+        case TexturePixelType::UnsignedInt:
+        case TexturePixelType::Int:
+        case TexturePixelType::Float:
             return 4;
-        case GL_DOUBLE:
+        case TexturePixelType::Double:
             return 8;
         default:
             return 1;
     }
 }
 
-size_t Texture::GetComponentCount(GLenum format) const
+size_t Texture::GetComponentCount(TextureFormat format) const
 {
     switch (format)
     {
-        case GL_RED:
-        case GL_DEPTH_COMPONENT:
+        case TextureFormat::R8:
+        case TextureFormat::Depth32Float:
             return 1;
-        case GL_RG:
-            return 2;
-        case GL_RGB:
-        case GL_BGR:
-            return 3;
-        case GL_RGBA:
-        case GL_BGRA:
+        case TextureFormat::Depth24Stencil8:
+        case TextureFormat::RGBA8:
+        case TextureFormat::BGRA8:
             return 4;
         default:
             return 4;
@@ -223,15 +207,15 @@ size_t Texture::GetComponentCount(GLenum format) const
 
 size_t Texture::GetDataSize() const { return Width * Height * GetComponentCount(format) * GetPixelTypeSize(pixelType); }
 
-void Texture::SetFramebufferTexture(const char *uniformName, GLuint slot, int width, int height, GLuint FBO)
+void Texture::SetFramebufferTexture(const char *uniformName, std::uint32_t slot, int width, int height, std::uint32_t FBO)
 {
     this->Destroy();
     this->slot = slot;
     this->UniformName = uniformName;
     this->Width = width;
     this->Height = height;
-    this->format = GL_RGBA;
-    this->pixelType = GL_UNSIGNED_BYTE;
+    this->format = TextureFormat::RGBA8;
+    this->pixelType = TexturePixelType::UnsignedByte;
 
     if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
     {
@@ -271,8 +255,8 @@ void Texture::ResizeFramebufferTexture(int width, int height)
 void Texture::texUnit(const Shader &shader) const
 {
     shader.Bind();
-    const GLint location = shader.GetUniformLocation(this->UniformName);
-    const GLint slotValue = static_cast<GLint>(this->slot);
+    const int location = shader.GetUniformLocation(this->UniformName);
+    const int slotValue = static_cast<int>(this->slot);
     shader.SetUniformInts(location, &slotValue, 1);
 }
 

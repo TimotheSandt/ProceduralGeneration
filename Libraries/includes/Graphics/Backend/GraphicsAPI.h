@@ -26,6 +26,7 @@ struct GraphicsLaunchOptions
     bool showHelp = false;
     bool listApis = false;
     bool chooseApiInteractively = false;
+    bool apiExplicitlyRequested = false;
 };
 
 std::string_view GraphicsAPIToString(GraphicsAPI api) noexcept;

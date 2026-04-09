@@ -1,11 +1,10 @@
 #pragma once
 
-#include <glad/glad.h>
-
 #include "Graphics/Core/GraphicsResources.h"
 #include "Logger.h"
 
 #include <cerrno>
+#include <cstdint>
 #include <fstream>
 #include <memory>
 #include <sstream>
@@ -33,16 +32,16 @@ class Shader
     void Bind() const;
     void Unbind() const;
     void Destroy();
-    GLint GetUniformLocation(const std::string &uniform) const;
-    void SetUniformFloats(GLint location, const GLfloat *data, std::size_t componentCount) const;
-    void SetUniformInts(GLint location, const GLint *data, std::size_t componentCount) const;
-    void SetUniformMatrix4(GLint location, const GLfloat *data) const;
+    int GetUniformLocation(const std::string &uniform) const;
+    void SetUniformFloats(int location, const float *data, std::size_t componentCount) const;
+    void SetUniformInts(int location, const int *data, std::size_t componentCount) const;
+    void SetUniformMatrix4(int location, const float *data) const;
 
-    GLuint GetID() const { return this->ID; }
+    std::uint32_t GetID() const { return this->ID; }
     bool IsCompiled() const { return this->ID != 0; }
 
   private:
-    GLuint ID = 0;
+    std::uint32_t ID = 0;
     std::unique_ptr<IShaderProgramResource> backendResource;
 
     const char *vertexShaderPath;

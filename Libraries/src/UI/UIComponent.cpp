@@ -8,7 +8,7 @@
 namespace UI
 {
 
-std::vector<GLfloat> UIComponentBase::GetVertices() const
+std::vector<float> UIComponentBase::GetVertices() const
 {
     // Unit quad (0-1 range) - shader will multiply by scale and add offset
     return {
@@ -21,8 +21,8 @@ std::vector<GLfloat> UIComponentBase::GetVertices() const
 
 UIComponentBase::UIComponentBase(Bounds bounds) : localBounds(bounds)
 {
-    std::vector<GLfloat> vertices = GetVertices();
-    std::vector<GLuint> indices = {0, 1, 2, 2, 3, 0};
+    std::vector<float> vertices = GetVertices();
+    std::vector<std::uint32_t> indices = {0, 1, 2, 2, 3, 0};
     this->mesh.Initialize(vertices, indices, {2});
     this->mesh.SetShader(GET_RESOURCE_PATH("shader/UI/default.vert"), GET_RESOURCE_PATH("shader/UI/default.frag"));
 

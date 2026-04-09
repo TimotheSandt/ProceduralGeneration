@@ -45,7 +45,7 @@ TestSuite CreateShaderSuite()
             []
             {
                 Shader shader;
-                AssertEqual(shader.GetID(), static_cast<GLuint>(0), "Default shader id should be zero");
+                AssertEqual(shader.GetID(), static_cast<std::uint32_t>(0), "Default shader id should be zero");
                 Assert(!shader.IsCompiled(), "Default shader should not be compiled");
             });
 
@@ -54,7 +54,7 @@ TestSuite CreateShaderSuite()
             {
                 Shader source;
                 Shader moved(std::move(source));
-                AssertEqual(moved.GetID(), static_cast<GLuint>(0), "Moved default shader should still have zero id");
+                AssertEqual(moved.GetID(), static_cast<std::uint32_t>(0), "Moved default shader should still have zero id");
                 Assert(!moved.IsCompiled(), "Moved default shader should remain uncompiled");
             });
 

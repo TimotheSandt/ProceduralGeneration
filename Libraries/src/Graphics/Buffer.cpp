@@ -7,7 +7,7 @@
 #include <cstring>
 #include <vector>
 
-Buffer::Buffer(BufferUsage usage, size_t size, GLuint bindingPoint, bool cpuWritable)
+Buffer::Buffer(BufferUsage usage, size_t size, std::uint32_t bindingPoint, bool cpuWritable)
 {
     this->Initialize(usage, size, bindingPoint, cpuWritable);
 }
@@ -34,7 +34,7 @@ void Buffer::Swap(Buffer &other) noexcept
     std::swap(this->backendBuffer, other.backendBuffer);
 }
 
-bool Buffer::Initialize(BufferUsage usage, size_t size, GLuint bindingPoint, bool cpuWritable)
+bool Buffer::Initialize(BufferUsage usage, size_t size, std::uint32_t bindingPoint, bool cpuWritable)
 {
     this->Destroy();
 

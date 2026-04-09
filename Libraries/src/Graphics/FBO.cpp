@@ -133,7 +133,7 @@ void FBO::Resize(int newWidth, int newHeight)
 
 void FBO::BlitFBO(FBO &oFBO) const
 {
-    GLuint oID = oFBO.GetID();
+    const std::uint32_t oID = oFBO.GetID();
     int oWidth = oFBO.GetWidth();
     int oHeight = oFBO.GetHeight();
 

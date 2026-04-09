@@ -1,9 +1,8 @@
 #pragma once
 
-#include <glad/glad.h>
-
 #include "Graphics/Core/GraphicsResources.h"
 
+#include <cstdint>
 #include <memory>
 
 #define CAMERA_BINDING_POINT 0
@@ -15,7 +14,7 @@ class Buffer
 {
   public:
     Buffer() = default;
-    Buffer(BufferUsage usage, size_t size, GLuint bindingPoint = 0, bool cpuWritable = true);
+    Buffer(BufferUsage usage, size_t size, std::uint32_t bindingPoint = 0, bool cpuWritable = true);
     ~Buffer();
 
     Buffer(const Buffer &) = delete;
@@ -24,7 +23,7 @@ class Buffer
     Buffer(Buffer &&) noexcept;
     Buffer &operator=(Buffer &&) noexcept;
 
-    bool Initialize(BufferUsage usage, size_t size, GLuint bindingPoint = 0, bool cpuWritable = true);
+    bool Initialize(BufferUsage usage, size_t size, std::uint32_t bindingPoint = 0, bool cpuWritable = true);
     void Destroy();
 
     void Bind() const;
@@ -39,17 +38,17 @@ class Buffer
     void UnmapBuffer() const;
 
     bool IsInitialized() const { return ID != 0; }
-    GLuint GetID() const { return ID; }
+    std::uint32_t GetID() const { return ID; }
     size_t GetSize() const { return desc.sizeInBytes; }
-    GLuint GetBindingPoint() const { return bindingPoint; }
+    std::uint32_t GetBindingPoint() const { return bindingPoint; }
     BufferUsage GetUsage() const { return desc.usage; }
 
   private:
     void Swap(Buffer &other) noexcept;
 
   private:
-    GLuint ID = 0;
-    GLuint bindingPoint = 0;
+    std::uint32_t ID = 0;
+    std::uint32_t bindingPoint = 0;
     BufferDesc desc{};
     std::unique_ptr<IBufferResource> backendBuffer;
 };

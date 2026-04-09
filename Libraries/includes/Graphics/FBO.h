@@ -1,11 +1,10 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-
 #include "Graphics/Core/GraphicsResources.h"
 #include "Shader.h"
 #include "Texture.h"
+
+#include <cstdint>
 
 class FBO
 {
@@ -32,9 +31,9 @@ class FBO
     void RenderScreenQuad() const;
     void RenderScreenQuad(int fWidth, int fHeight) const;
 
-    GLuint GetID() const { return ID; }
+    std::uint32_t GetID() const { return ID; }
     Texture &GetTexture() { return TextureColor; }
-    GLuint GetTextureID() const { return TextureColor.GetID(); }
+    std::uint32_t GetTextureID() const { return TextureColor.GetID(); }
     int GetWidth() const { return width; }
     int GetHeight() const { return height; }
 
@@ -43,8 +42,8 @@ class FBO
     void Setup();
 
   private:
-    GLuint ID = 0;
-    GLuint depthBufferID = 0;
+    std::uint32_t ID = 0;
+    std::uint32_t depthBufferID = 0;
     std::unique_ptr<IRenderTargetResource> backendRenderTarget;
     Texture TextureColor;
     int width = 0, height = 0;

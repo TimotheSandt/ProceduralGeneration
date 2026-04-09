@@ -37,6 +37,7 @@ TestSuite CreateGraphicsAPISuite()
                 const GraphicsLaunchOptions options = ParseGraphicsLaunchOptions(1, argv);
                 AssertEqual(options.api, GraphicsAPI::OpenGL, "Default graphics API should stay OpenGL");
                 Assert(!options.chooseApiInteractively, "Interactive selection should be disabled by default");
+                Assert(!options.apiExplicitlyRequested, "Default launch should not mark the API as explicit");
             });
 
     AddTest(suite, "launch options parse explicit api",
@@ -45,6 +46,7 @@ TestSuite CreateGraphicsAPISuite()
                 const char *argv[] = {"ProceduralGeneration", "--api=vulkan"};
                 const GraphicsLaunchOptions options = ParseGraphicsLaunchOptions(2, argv);
                 AssertEqual(options.api, GraphicsAPI::Vulkan, "Explicit API argument should override the default");
+                Assert(options.apiExplicitlyRequested, "Explicit API argument should be tracked");
             });
 
     AddTest(suite, "launch options parse chooser flag",
@@ -82,6 +84,17 @@ TestSuite CreateGraphicsAPISuite()
 
                 Assert(PromptForGraphicsAPI(input, output, selectedApi), "Interactive selection should accept valid choices");
                 AssertEqual(selectedApi, GraphicsAPI::Vulkan, "Choice 2 should map to Vulkan");
+            });
+
+    AddTest(suite, "interactive selection defaults to opengl on empty entry",
+            []
+            {
+                std::istringstream input("\n");
+                std::ostringstream output;
+                GraphicsAPI selectedApi = GraphicsAPI::Metal;
+
+                Assert(PromptForGraphicsAPI(input, output, selectedApi), "Empty selection should accept the default");
+                AssertEqual(selectedApi, GraphicsAPI::OpenGL, "Empty selection should default to OpenGL");
             });
 
     AddTest(suite, "interactive selection rejects invalid entries",

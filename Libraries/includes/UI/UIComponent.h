@@ -131,7 +131,7 @@ class UIComponentBase : public std::enable_shared_from_this<UIComponentBase>
     virtual void UpdateTheme();
 
   private:
-    std::vector<GLfloat> GetVertices() const;
+    std::vector<float> GetVertices() const;
 };
 
 // Helper template for chaining

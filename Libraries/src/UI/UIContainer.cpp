@@ -98,7 +98,7 @@ void UIContainerBase::InitializedFBO()
     }
 }
 
-void SaveFBOState(GLint &oldFBO, GLint viewport[4])
+void SaveFBOState(int &oldFBO, int viewport[4])
 {
     const OpenGLRenderState::FramebufferState state = OpenGLRenderState::CaptureFramebufferState();
     oldFBO = state.framebuffer;
@@ -108,9 +108,9 @@ void SaveFBOState(GLint &oldFBO, GLint viewport[4])
     }
 }
 
-void RestoreFBOState(GLint oldFBO, GLint viewport[4])
+void RestoreFBOState(int oldFBO, int viewport[4])
 {
-    OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(oldFBO));
+    OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, static_cast<std::uint32_t>(oldFBO));
     OpenGLRenderState::SetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 }
 
@@ -119,17 +119,17 @@ void UIContainerBase::ClearZone(glm::vec4 bounds)
     OpenGLRenderState::SetScissorTest(true);
     // Flip Y for OpenGL (Bottom-Left origin)
     // Bounds are (x, y, w, h) in Top-Left origin
-    GLint yGl = static_cast<GLint>(contentSize.y - (bounds.y + bounds.w));
+    const int yGl = static_cast<int>(contentSize.y - (bounds.y + bounds.w));
 
-    OpenGLRenderState::SetScissor(static_cast<GLint>(bounds.x), yGl, static_cast<GLsizei>(bounds.z), static_cast<GLsizei>(bounds.w));
+    OpenGLRenderState::SetScissor(static_cast<int>(bounds.x), yGl, static_cast<int>(bounds.z), static_cast<int>(bounds.w));
     OpenGLRenderState::ClearTransparentColorBuffer();
     OpenGLRenderState::SetScissorTest(false);
 }
 
 void UIContainerBase::RenderChildren()
 {
-    GLint oldFBO;
-    GLint viewport[4];
+    int oldFBO;
+    int viewport[4];
     SaveFBOState(oldFBO, viewport);
 
     fbo.Bind();
@@ -213,7 +213,7 @@ void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
     mesh.InitUniform4f("color", glm::value_ptr(this->color.Get()));
 
     fbo.GetTexture().Bind();
-    GLint texSamplerLoc = 0;
+    int texSamplerLoc = 0;
     mesh.InitUniform1i("textureSampler", &texSamplerLoc);
 
     mesh.Draw();

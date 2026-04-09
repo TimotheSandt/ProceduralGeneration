@@ -170,7 +170,7 @@ void Shader::Destroy()
     this->ID = 0;
 }
 
-GLint Shader::GetUniformLocation(const std::string &uniform) const
+int Shader::GetUniformLocation(const std::string &uniform) const
 {
     if (this->backendResource == nullptr)
     {
@@ -179,7 +179,7 @@ GLint Shader::GetUniformLocation(const std::string &uniform) const
     return this->backendResource->GetUniformLocation(uniform);
 }
 
-void Shader::SetUniformFloats(GLint location, const GLfloat *data, std::size_t componentCount) const
+void Shader::SetUniformFloats(int location, const float *data, std::size_t componentCount) const
 {
     if (this->backendResource == nullptr)
     {
@@ -188,7 +188,7 @@ void Shader::SetUniformFloats(GLint location, const GLfloat *data, std::size_t c
     this->backendResource->SetFloatUniform(location, data, componentCount);
 }
 
-void Shader::SetUniformInts(GLint location, const GLint *data, std::size_t componentCount) const
+void Shader::SetUniformInts(int location, const int *data, std::size_t componentCount) const
 {
     if (this->backendResource == nullptr)
     {
@@ -197,7 +197,7 @@ void Shader::SetUniformInts(GLint location, const GLint *data, std::size_t compo
     this->backendResource->SetIntUniform(location, data, componentCount);
 }
 
-void Shader::SetUniformMatrix4(GLint location, const GLfloat *data) const
+void Shader::SetUniformMatrix4(int location, const float *data) const
 {
     if (this->backendResource == nullptr)
     {

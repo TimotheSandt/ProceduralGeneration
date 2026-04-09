@@ -5,20 +5,20 @@
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 
-Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib)
+Mesh::Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib)
 {
     this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib));
 }
 
-Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib, std::vector<GLfloat> instances,
-           std::vector<GLuint> SizeAttribInstance)
+Mesh::Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib, std::vector<float> instances,
+           std::vector<std::uint32_t> sizeAttribInstance)
 {
-    this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib), std::move(instances), std::move(SizeAttribInstance));
+    this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib), std::move(instances), std::move(sizeAttribInstance));
 }
 
 Mesh::Mesh(const Mesh &mesh)
 {
-    this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.SizeAttribInstance);
+    this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.sizeAttribInstance);
     for (const Texture &texture : mesh.textures)
     {
         this->textures.push_back(texture.Copy());
@@ -36,7 +36,7 @@ Mesh &Mesh::operator=(const Mesh &mesh)
         return *this;
     }
     this->Destroy();
-    this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.SizeAttribInstance);
+    this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.sizeAttribInstance);
     for (const Texture &texture : mesh.textures)
     {
         this->textures.push_back(texture.Copy());
@@ -52,7 +52,7 @@ Mesh::Mesh(Mesh &&mesh) noexcept
     : vertices(std::move(mesh.vertices)), indices(std::move(mesh.indices)), sizeAttrib(std::move(mesh.sizeAttrib)),
       textures(std::move(mesh.textures)), shader(std::move(mesh.shader)), position(std::move(mesh.position)), scale(std::move(mesh.scale)),
       rotation(std::move(mesh.rotation)), instancing(mesh.instancing), instances(std::move(mesh.instances)),
-      SizeAttribInstance(std::move(mesh.SizeAttribInstance)), geometry(std::move(mesh.geometry)), modelBuffer(std::move(mesh.modelBuffer)),
+      sizeAttribInstance(std::move(mesh.sizeAttribInstance)), geometry(std::move(mesh.geometry)), modelBuffer(std::move(mesh.modelBuffer)),
       uniformCache(std::move(mesh.uniformCache))
 {
     mesh.instancing = 1;
@@ -74,7 +74,7 @@ void Mesh::Swap(Mesh &mesh) noexcept
     std::swap(this->indices, mesh.indices);
     std::swap(this->sizeAttrib, mesh.sizeAttrib);
     std::swap(this->instances, mesh.instances);
-    std::swap(this->SizeAttribInstance, mesh.SizeAttribInstance);
+    std::swap(this->sizeAttribInstance, mesh.sizeAttribInstance);
     std::swap(this->textures, mesh.textures);
     std::swap(this->instancing, mesh.instancing);
     std::swap(this->geometry, mesh.geometry);
@@ -85,19 +85,19 @@ void Mesh::Swap(Mesh &mesh) noexcept
     std::swap(this->rotation, mesh.rotation);
 }
 
-void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib)
+void Mesh::Initialize(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib)
 {
     this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib), {}, {});
 }
 
-void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib,
-                      std::vector<GLfloat> instances, std::vector<GLuint> SizeAttribInstance)
+void Mesh::Initialize(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib,
+                      std::vector<float> instances, std::vector<std::uint32_t> sizeAttribInstance)
 {
     this->vertices = std::move(vertices);
     this->indices = std::move(indices);
     this->sizeAttrib = sizeAttrib;
     this->instances = instances;
-    this->SizeAttribInstance = SizeAttribInstance;
+    this->sizeAttribInstance = sizeAttribInstance;
 
     if (instances.empty())
     {
@@ -107,7 +107,7 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
     {
         // Calculate instances based on total components per instance
         int componentsPerInstance = 0;
-        for (GLuint size : SizeAttribInstance)
+        for (std::uint32_t size : sizeAttribInstance)
         {
             componentsPerInstance += static_cast<int>(size);
         }
@@ -118,7 +118,7 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
     {
         GeometryCreateInfo createInfo;
         createInfo.layout.vertexAttributes = this->sizeAttrib;
-        createInfo.layout.instanceAttributes = this->SizeAttribInstance;
+        createInfo.layout.instanceAttributes = this->sizeAttribInstance;
         createInfo.vertexData.assign(this->vertices.begin(), this->vertices.end());
         createInfo.indexData.assign(this->indices.begin(), this->indices.end());
         createInfo.instanceData.assign(this->instances.begin(), this->instances.end());
@@ -134,7 +134,7 @@ void Mesh::Destroy()
     this->geometry.reset();
     this->modelBuffer.Destroy();
     this->shader.Destroy();
-    for (GLuint i = 0; i < this->textures.size(); i++)
+    for (std::size_t i = 0; i < this->textures.size(); i++)
     {
         this->textures[i].Destroy();
     }
@@ -144,9 +144,9 @@ void Mesh::Destroy()
 
 void Mesh::AddTexture(Texture texture) { this->textures.push_back(texture.Copy()); }
 
-void Mesh::AddTexture(const char *image, const char *name, GLenum format, GLenum pixelType)
+void Mesh::AddTexture(const char *image, const char *name, TextureFormat format, TexturePixelType pixelType)
 {
-    GLuint slot = this->textures.size();
+    const std::uint32_t slot = static_cast<std::uint32_t>(this->textures.size());
     this->textures.push_back(Texture(image, name, slot, format, pixelType));
 }
 
@@ -162,7 +162,7 @@ void Mesh::Render(Camera &camera)
     {
         this->geometry->Bind();
     }
-    for (GLuint i = 0; i < this->textures.size(); i++)
+    for (std::size_t i = 0; i < this->textures.size(); i++)
     {
         this->textures[i].texUnit(this->shader);
 
@@ -172,10 +172,10 @@ void Mesh::Render(Camera &camera)
     this->Draw();
     if (camera.IsWireframe())
     {
-        GLint wireframe = GL_TRUE;
+        int wireframe = 1;
         this->InitUniform1i("wireframe", &wireframe);
         this->Draw(true);
-        wireframe = GL_FALSE;
+        wireframe = 0;
         this->InitUniform1i("wireframe", &wireframe);
     }
 
@@ -185,7 +185,7 @@ void Mesh::Render(Camera &camera)
     }
     this->shader.Unbind();
     this->modelBuffer.Unbind();
-    for (GLuint i = 0; i < this->textures.size(); i++)
+    for (std::size_t i = 0; i < this->textures.size(); i++)
     {
         this->textures[i].Unbind();
     }

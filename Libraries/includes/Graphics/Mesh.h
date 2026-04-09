@@ -5,6 +5,7 @@
 #include <memory>
 #include <unordered_map>
 #include <string>
+#include <cstdint>
 
 #include "Logger.h"
 
@@ -18,9 +19,9 @@ class Mesh
 {
   public:
     Mesh() = default;
-    Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib);
-    Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib, std::vector<GLfloat> instances,
-         std::vector<GLuint> SizeAttribInstance);
+    Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib);
+    Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib, std::vector<float> instances,
+         std::vector<std::uint32_t> sizeAttribInstance);
 
     Mesh(const Mesh &);
     Mesh &operator=(const Mesh &);
@@ -30,13 +31,13 @@ class Mesh
 
     ~Mesh() { this->Destroy(); }
 
-    void Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib);
-    void Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib,
-                    std::vector<GLfloat> instances, std::vector<GLuint> SizeAttribInstance);
+    void Initialize(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib);
+    void Initialize(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib,
+                    std::vector<float> instances, std::vector<std::uint32_t> sizeAttribInstance);
     void Destroy();
 
     void AddTexture(Texture texture);
-    void AddTexture(const char *image, const char *name, GLenum format, GLenum pixelType);
+    void AddTexture(const char *image, const char *name, TextureFormat format, TexturePixelType pixelType);
     void SetShader(Shader &shader) { this->shader = std::move(shader); }
     void SetShaderCopy(const Shader &shader) { this->shader = Shader(shader); }
     void SetShader(const char *vertexPath, const char *fragmentPath) { this->shader.SetShader(vertexPath, fragmentPath); }
@@ -46,15 +47,15 @@ class Mesh
 
     void UpdateUBO();
 
-    void InitUniform4f(const char *uniform, const GLfloat *data);
-    void InitUniform3f(const char *uniform, const GLfloat *data);
-    void InitUniform2f(const char *uniform, const GLfloat *data);
-    void InitUniform1f(const char *uniform, const GLfloat *data);
-    void InitUniform4i(const char *uniform, const GLint *data);
-    void InitUniform3i(const char *uniform, const GLint *data);
-    void InitUniform2i(const char *uniform, const GLint *data);
-    void InitUniform1i(const char *uniform, const GLint *data);
-    void InitUniformMatrix4f(const char *uniform, const GLfloat *data);
+    void InitUniform4f(const char *uniform, const float *data);
+    void InitUniform3f(const char *uniform, const float *data);
+    void InitUniform2f(const char *uniform, const float *data);
+    void InitUniform1f(const char *uniform, const float *data);
+    void InitUniform4i(const char *uniform, const int *data);
+    void InitUniform3i(const char *uniform, const int *data);
+    void InitUniform2i(const char *uniform, const int *data);
+    void InitUniform1i(const char *uniform, const int *data);
+    void InitUniformMatrix4f(const char *uniform, const float *data);
 
     void Render(Camera &camera);
     void Draw(bool wireframe = false) const;
@@ -83,9 +84,9 @@ class Mesh
     glm::vec3 &GetRotation() { return this->rotation; }
 
   private:
-    std::vector<GLfloat> vertices;
-    std::vector<GLuint> indices;
-    std::vector<GLuint> sizeAttrib;
+    std::vector<float> vertices;
+    std::vector<std::uint32_t> indices;
+    std::vector<std::uint32_t> sizeAttrib;
     std::vector<Texture> textures;
     Shader shader;
 
@@ -93,9 +94,9 @@ class Mesh
     glm::vec3 scale = glm::vec3(1.0f);
     glm::vec3 rotation = glm::vec3(0.0f);
 
-    GLuint instancing;
-    std::vector<GLfloat> instances;
-    std::vector<GLuint> SizeAttribInstance;
+    std::uint32_t instancing = 1;
+    std::vector<float> instances;
+    std::vector<std::uint32_t> sizeAttribInstance;
 
     std::unique_ptr<IGeometryResource> geometry;
     Buffer modelBuffer;
@@ -105,15 +106,15 @@ class Mesh
     {
         std::array<uint8_t, 64> data; // Up to mat4
         size_t size;
-        GLint location;
-        GLuint shaderID;
+        int location;
+        std::uint32_t shaderID;
 
         UniformCache() : data({0}), size(0), location(-2), shaderID(0) {}
     };
     std::unique_ptr<std::unordered_map<std::string, UniformCache>> uniformCache;
     std::unordered_map<std::string, UniformCache> &GetOrCreateUniformCache();
     bool CacheUniform(const std::string &uniform, void *data, size_t size);
-    GLint CachedUniformLocation(const std::string &uniform);
+    int CachedUniformLocation(const std::string &uniform);
     void FreeCache();
     void Swap(Mesh &other) noexcept;
 };

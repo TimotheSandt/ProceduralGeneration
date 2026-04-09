@@ -118,6 +118,7 @@ GraphicsLaunchOptions ParseGraphicsLaunchOptions(int argc, const char *const *ar
             }
 
             options.api = *parsedApi;
+            options.apiExplicitlyRequested = true;
             continue;
         }
         if (argument.rfind("--api=", 0) == 0)
@@ -129,6 +130,7 @@ GraphicsLaunchOptions ParseGraphicsLaunchOptions(int argc, const char *const *ar
             }
 
             options.api = *parsedApi;
+            options.apiExplicitlyRequested = true;
             continue;
         }
 
@@ -148,15 +150,22 @@ void PrintGraphicsAPIUsage(std::ostream &out)
 bool PromptForGraphicsAPI(std::istream &input, std::ostream &output, GraphicsAPI &selectedApi)
 {
     output << "Select a graphics API:\n";
-    output << "  1. OpenGL\n";
-    output << "  2. Vulkan\n";
-    output << "  3. Metal\n";
+    output << "  1. OpenGL  - available now\n";
+    output << "  2. Vulkan  - recognized, not implemented yet\n";
+    output << "  3. Metal   - recognized, not implemented yet\n";
+    output << "Press Enter for OpenGL.\n";
     output << "> ";
 
     std::string choice;
     if (!std::getline(input, choice))
     {
         return false;
+    }
+
+    if (choice.empty())
+    {
+        selectedApi = GraphicsAPI::OpenGL;
+        return true;
     }
 
     if (choice == "1")
