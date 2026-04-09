@@ -241,6 +241,32 @@ void Texture::SetFramebufferTexture(const char *uniformName, GLuint slot, int wi
     this->format = GL_RGBA;
     this->pixelType = GL_UNSIGNED_BYTE;
 
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    {
+        TextureCreateInfo createInfo;
+        createInfo.desc.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
+        createInfo.desc.format = TextureFormat::RGBA8;
+        createInfo.desc.mipLevels = 1;
+        createInfo.desc.renderTarget = true;
+        createInfo.debugName = this->UniformName;
+        createInfo.generateMipmaps = false;
+
+        std::unique_ptr<ITextureResource> resource = device->CreateTexture(createInfo);
+        if (auto *openGLResource = dynamic_cast<OpenGLTextureResource *>(resource.get()); openGLResource != nullptr)
+        {
+            this->ID = openGLResource->GetTextureID();
+            this->backendResource = std::move(resource);
+            if (this->ID != 0)
+            {
+                glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->ID, 0);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                return;
+            }
+            this->backendResource.reset();
+        }
+    }
+
     glBindFramebuffer(GL_FRAMEBUFFER, FBO);
 
     glGenTextures(1, &this->ID);
