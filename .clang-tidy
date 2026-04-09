@@ -6,6 +6,7 @@ Checks: >
   performance-unnecessary-value-param,
   performance-enum-size,
   bugprone-exception-escape,
+  performance-no-int-to-ptr,
   bugprone-narrowing-conversions,
   bugprone-integer-division,
   bugprone-reserved-identifier

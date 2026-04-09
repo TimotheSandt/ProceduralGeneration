@@ -1,7 +1,13 @@
 #include "Mesh.h"
 
+#include <bit>
 #include <cstdint>
 #include <utility>
+
+namespace
+{
+void *VertexAttribOffset(std::size_t bytes) { return std::bit_cast<void *>(static_cast<std::uintptr_t>(bytes)); }
+} // namespace
 
 Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib)
 {
@@ -133,7 +139,7 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
     for (; i < sizeAttrib.size(); i++)
     {
         this->bVAO.LinkAttrib(bVBO, i, sizeAttrib[i], GL_FLOAT, static_cast<GLsizeiptr>(numComponents * sizeof(GLfloat)),
-                              reinterpret_cast<void *>(static_cast<std::uintptr_t>(offset * sizeof(GLfloat))));
+                              VertexAttribOffset(static_cast<std::size_t>(offset) * sizeof(GLfloat)));
         offset += static_cast<int>(sizeAttrib[i]);
     }
 
@@ -154,7 +160,7 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
         {
             this->bVAO.LinkAttrib(instanceVBO, i, SizeAttribInstance[i - sizeAttrib.size()], GL_FLOAT,
                                   static_cast<GLsizeiptr>(numComponents * sizeof(GLfloat)),
-                                  reinterpret_cast<void *>(static_cast<std::uintptr_t>(offset * sizeof(GLfloat))));
+                                  VertexAttribOffset(static_cast<std::size_t>(offset) * sizeof(GLfloat)));
             offset += static_cast<int>(SizeAttribInstance[i - sizeAttrib.size()]);
         }
 

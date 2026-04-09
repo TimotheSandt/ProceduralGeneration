@@ -1,5 +1,7 @@
 #include "FBO.h"
 
+#include <bit>
+
 #include "Logger.h"
 #include "utilities.h"
 
@@ -201,7 +203,7 @@ void FBO::Setup()
     EBO bEBO(indices);
 
     this->screenQuadVAO.LinkAttrib(bVBO, 0, 2, GL_FLOAT, 4 * sizeof(GLfloat), nullptr);
-    this->screenQuadVAO.LinkAttrib(bVBO, 1, 2, GL_FLOAT, 4 * sizeof(GLfloat), (void *)(2 * sizeof(GLfloat)));
+    this->screenQuadVAO.LinkAttrib(bVBO, 1, 2, GL_FLOAT, 4 * sizeof(GLfloat), std::bit_cast<void *>(std::uintptr_t(2 * sizeof(GLfloat))));
 
     GL_CHECK_ERROR_M("FBO screen VAO link");
 
