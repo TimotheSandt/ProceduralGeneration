@@ -1,15 +1,9 @@
 #include "Mesh.h"
 
-#include <bit>
-#include <cstdint>
 #include <utility>
 
+#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
-
-namespace
-{
-void *VertexAttribOffset(std::size_t bytes) { return std::bit_cast<void *>(static_cast<std::uintptr_t>(bytes)); }
-} // namespace
 
 Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib)
 {
@@ -199,33 +193,33 @@ void Mesh::Render(Camera &camera)
 
 void Mesh::Draw(bool wireframe) const
 {
+    if (this->geometry == nullptr)
+    {
+        return;
+    }
+
     if (wireframe)
     {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        // Optional: disable depth testing for wireframe to avoid z-fighting
-        // glDisable(GL_DEPTH_TEST);
+        OpenGLRenderState::SetWireframe(true);
     }
     else
     {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        // glEnable(GL_DEPTH_TEST);
+        OpenGLRenderState::SetWireframe(false);
     }
 
     if (this->instancing > 1)
     {
-        glDrawElementsInstanced(GL_TRIANGLES, static_cast<GLsizei>(this->indices.size()), GL_UNSIGNED_INT, nullptr,
-                                static_cast<GLsizei>(this->instancing));
+        this->geometry->DrawIndexedInstanced();
     }
     else
     {
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(this->indices.size()), GL_UNSIGNED_INT, nullptr);
+        this->geometry->DrawIndexed();
     }
 
-    // Reset to fill mode after drawing
     if (wireframe)
     {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glEnable(GL_DEPTH_TEST);
+        OpenGLRenderState::SetWireframe(false);
+        OpenGLRenderState::SetDepthTest(true);
     }
 }
 

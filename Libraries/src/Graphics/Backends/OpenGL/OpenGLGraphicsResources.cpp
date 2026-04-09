@@ -122,10 +122,7 @@ GLenum ToOpenGLBufferUsageHint(const BufferDesc &desc)
     }
 }
 
-void *AttributeOffset(std::size_t bytes)
-{
-    return std::bit_cast<void *>(static_cast<std::uintptr_t>(bytes));
-}
+void *AttributeOffset(std::size_t bytes) { return std::bit_cast<void *>(static_cast<std::uintptr_t>(bytes)); }
 
 bool CheckShaderCompile(GLuint shaderID, ShaderStage stage)
 {
@@ -224,6 +221,85 @@ std::string_view OpenGLShaderProgramResource::GetDebugName() const noexcept { re
 
 const ShaderProgramDesc &OpenGLShaderProgramResource::GetDescription() const noexcept { return desc; }
 
+void OpenGLShaderProgramResource::Bind() const
+{
+    if (programID != 0)
+    {
+        glUseProgram(programID);
+    }
+}
+
+void OpenGLShaderProgramResource::Unbind() const { glUseProgram(0); }
+
+int OpenGLShaderProgramResource::GetUniformLocation(std::string_view name) const
+{
+    if (programID == 0)
+    {
+        return -1;
+    }
+    return glGetUniformLocation(programID, std::string(name).c_str());
+}
+
+void OpenGLShaderProgramResource::SetFloatUniform(int location, const float *data, std::size_t componentCount) const
+{
+    if (location < 0 || data == nullptr)
+    {
+        return;
+    }
+
+    switch (componentCount)
+    {
+        case 1:
+            glUniform1fv(location, 1, data);
+            break;
+        case 2:
+            glUniform2fv(location, 1, data);
+            break;
+        case 3:
+            glUniform3fv(location, 1, data);
+            break;
+        case 4:
+            glUniform4fv(location, 1, data);
+            break;
+        default:
+            break;
+    }
+}
+
+void OpenGLShaderProgramResource::SetIntUniform(int location, const int *data, std::size_t componentCount) const
+{
+    if (location < 0 || data == nullptr)
+    {
+        return;
+    }
+
+    switch (componentCount)
+    {
+        case 1:
+            glUniform1iv(location, 1, data);
+            break;
+        case 2:
+            glUniform2iv(location, 1, data);
+            break;
+        case 3:
+            glUniform3iv(location, 1, data);
+            break;
+        case 4:
+            glUniform4iv(location, 1, data);
+            break;
+        default:
+            break;
+    }
+}
+
+void OpenGLShaderProgramResource::SetMatrix4Uniform(int location, const float *data) const
+{
+    if (location >= 0 && data != nullptr)
+    {
+        glUniformMatrix4fv(location, 1, GL_FALSE, data);
+    }
+}
+
 GLuint OpenGLShaderProgramResource::GetProgramID() const noexcept { return programID; }
 
 OpenGLBufferResource::OpenGLBufferResource(BufferCreateInfo createInfo)
@@ -255,6 +331,123 @@ std::string_view OpenGLBufferResource::GetDebugName() const noexcept { return de
 
 const BufferDesc &OpenGLBufferResource::GetDescription() const noexcept { return desc; }
 
+void OpenGLBufferResource::Bind() const
+{
+    if (bufferID != 0)
+    {
+        glBindBuffer(target, bufferID);
+    }
+}
+
+void OpenGLBufferResource::BindToBindingPoint(std::uint32_t bindingPoint) const
+{
+    if (bufferID == 0)
+    {
+        return;
+    }
+
+    switch (desc.usage)
+    {
+        case BufferUsage::Uniform:
+            glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, bufferID);
+            break;
+        case BufferUsage::Storage:
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, bufferID);
+            break;
+        default:
+            Bind();
+            break;
+    }
+}
+
+void OpenGLBufferResource::Unbind() const { glBindBuffer(target, 0); }
+
+void OpenGLBufferResource::UploadData(const void *data, std::size_t size, std::size_t offset)
+{
+    if (bufferID == 0 || data == nullptr || size == 0)
+    {
+        return;
+    }
+
+    glBindBuffer(target, bufferID);
+    glBufferSubData(target, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
+    glBindBuffer(target, 0);
+}
+
+void OpenGLBufferResource::Resize(std::size_t newSize, bool preserveData) { Recreate(newSize, preserveData); }
+
+void *OpenGLBufferResource::Map(BufferMapAccess access)
+{
+    if (bufferID == 0)
+    {
+        return nullptr;
+    }
+
+    GLenum openGLAccess = GL_READ_WRITE;
+    switch (access)
+    {
+        case BufferMapAccess::ReadOnly:
+            openGLAccess = GL_READ_ONLY;
+            break;
+        case BufferMapAccess::WriteOnly:
+            openGLAccess = GL_WRITE_ONLY;
+            break;
+        case BufferMapAccess::ReadWrite:
+        default:
+            openGLAccess = GL_READ_WRITE;
+            break;
+    }
+
+    glBindBuffer(target, bufferID);
+    return glMapBuffer(target, openGLAccess);
+}
+
+void OpenGLBufferResource::Unmap()
+{
+    if (bufferID == 0)
+    {
+        return;
+    }
+
+    glBindBuffer(target, bufferID);
+    glUnmapBuffer(target);
+    glBindBuffer(target, 0);
+}
+
+GLenum OpenGLBufferResource::UsageHint() const noexcept { return ToOpenGLBufferUsageHint(desc); }
+
+void OpenGLBufferResource::Recreate(std::size_t newSize, bool preserveData)
+{
+    if (bufferID == 0 || newSize == desc.sizeInBytes)
+    {
+        desc.sizeInBytes = newSize;
+        return;
+    }
+
+    std::vector<std::byte> previousData;
+    if (preserveData && desc.sizeInBytes > 0)
+    {
+        previousData.resize(std::min(desc.sizeInBytes, newSize));
+        glBindBuffer(target, bufferID);
+        glGetBufferSubData(target, 0, static_cast<GLsizeiptr>(previousData.size()), previousData.data());
+        glBindBuffer(target, 0);
+    }
+
+    glDeleteBuffers(1, &bufferID);
+    bufferID = 0;
+    desc.sizeInBytes = newSize;
+
+    glGenBuffers(1, &bufferID);
+    glBindBuffer(target, bufferID);
+    glBufferData(target, static_cast<GLsizeiptr>(desc.sizeInBytes), nullptr, UsageHint());
+    glBindBuffer(target, 0);
+
+    if (!previousData.empty())
+    {
+        UploadData(previousData.data(), previousData.size(), 0);
+    }
+}
+
 GLuint OpenGLBufferResource::GetBufferID() const noexcept { return bufferID; }
 
 OpenGLGeometryResource::OpenGLGeometryResource(GeometryCreateInfo createInfo)
@@ -270,7 +463,8 @@ OpenGLGeometryResource::OpenGLGeometryResource(GeometryCreateInfo createInfo)
 
     glGenBuffers(1, &vertexBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(createInfo.vertexData.size() * sizeof(float)), createInfo.vertexData.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(createInfo.vertexData.size() * sizeof(float)), createInfo.vertexData.data(),
+                 GL_STATIC_DRAW);
 
     glGenBuffers(1, &indexBufferID);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
@@ -296,8 +490,8 @@ OpenGLGeometryResource::OpenGLGeometryResource(GeometryCreateInfo createInfo)
     {
         glGenBuffers(1, &instanceBufferID);
         glBindBuffer(GL_ARRAY_BUFFER, instanceBufferID);
-        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(createInfo.instanceData.size() * sizeof(float)), createInfo.instanceData.data(),
-                     GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(createInfo.instanceData.size() * sizeof(float)),
+                     createInfo.instanceData.data(), GL_STATIC_DRAW);
 
         std::uint32_t instanceStride = 0;
         for (const std::uint32_t size : layout.instanceAttributes)
@@ -372,6 +566,23 @@ void OpenGLGeometryResource::Bind() const
 }
 
 void OpenGLGeometryResource::Unbind() const { glBindVertexArray(0); }
+
+void OpenGLGeometryResource::DrawIndexed() const
+{
+    if (vertexArrayID != 0)
+    {
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indexCount), GL_UNSIGNED_INT, nullptr);
+    }
+}
+
+void OpenGLGeometryResource::DrawIndexedInstanced() const
+{
+    if (vertexArrayID != 0)
+    {
+        glDrawElementsInstanced(GL_TRIANGLES, static_cast<GLsizei>(indexCount), GL_UNSIGNED_INT, nullptr,
+                                static_cast<GLsizei>(instanceCount));
+    }
+}
 
 OpenGLTextureResource::OpenGLTextureResource(TextureCreateInfo createInfo)
     : desc(createInfo.desc), debugName(std::move(createInfo.debugName))

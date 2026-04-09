@@ -139,47 +139,24 @@ void Shader::CompileShader()
             this->backendResource.reset();
         }
     }
-
-    const char *vSource = this->vertexSource.c_str();
-    const char *fSource = this->fragmentSource.c_str();
-
-    // Build and compile the vertex shader
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vSource, nullptr);
-    glCompileShader(vertexShader);
-    this->compileErrors(vertexShader, "VERTEX");
-
-    // Build and compile the fragment shader
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fSource, nullptr);
-    glCompileShader(fragmentShader);
-    this->compileErrors(fragmentShader, "FRAGMENT");
-
-    // Link the vertex and fragment shader into a shader program
-    this->ID = glCreateProgram();
-    glAttachShader(this->ID, vertexShader);
-    glAttachShader(this->ID, fragmentShader);
-    glLinkProgram(this->ID);
-    if (this->compileErrors(this->ID, "PROGRAM") == COMPILE_ERRORS)
-    {
-        this->Destroy();
-    }
-
-    // Delete the shaders as they're linked into our program now and no longer necessary
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
 }
 
 void Shader::Bind() const
 {
-    if (this->ID == 0)
+    if (this->backendResource == nullptr)
     {
         return;
     }
-    glUseProgram(this->ID);
+    this->backendResource->Bind();
 }
 
-void Shader::Unbind() const { glUseProgram(0); }
+void Shader::Unbind() const
+{
+    if (this->backendResource != nullptr)
+    {
+        this->backendResource->Unbind();
+    }
+}
 
 void Shader::Destroy()
 {
@@ -190,38 +167,41 @@ void Shader::Destroy()
         return;
     }
 
-    if (this->ID == 0)
-    {
-        return;
-    }
-    glDeleteProgram(this->ID);
     this->ID = 0;
 }
 
-// Checks if the different Shaders have compiled properly
-bool Shader::compileErrors(unsigned int shader, const char *type) const
+GLint Shader::GetUniformLocation(const std::string &uniform) const
 {
-    // Stores status of compilation
-    GLint hasCompiled;
-    // Character array to store error message in
-    char infoLog[1024];
-    if (strcmp(type, "PROGRAM") != 0)
+    if (this->backendResource == nullptr)
     {
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &hasCompiled);
-        if (hasCompiled == GL_FALSE)
-        {
-            glGetShaderInfoLog(shader, 1024, nullptr, infoLog);
-            LOG_ERROR(1, "SHADER_COMPILATION_ERROR for:", type, "\n", infoLog);
-        }
+        return -1;
     }
-    else
+    return this->backendResource->GetUniformLocation(uniform);
+}
+
+void Shader::SetUniformFloats(GLint location, const GLfloat *data, std::size_t componentCount) const
+{
+    if (this->backendResource == nullptr)
     {
-        glGetProgramiv(shader, GL_LINK_STATUS, &hasCompiled);
-        if (hasCompiled == GL_FALSE)
-        {
-            glGetProgramInfoLog(shader, 1024, nullptr, infoLog);
-            LOG_ERROR(1, "SHADER_LINKING_ERROR for:", type, "\n", infoLog);
-        }
+        return;
     }
-    return (hasCompiled) ? COMPILE_SUCCESS : COMPILE_ERRORS;
+    this->backendResource->SetFloatUniform(location, data, componentCount);
+}
+
+void Shader::SetUniformInts(GLint location, const GLint *data, std::size_t componentCount) const
+{
+    if (this->backendResource == nullptr)
+    {
+        return;
+    }
+    this->backendResource->SetIntUniform(location, data, componentCount);
+}
+
+void Shader::SetUniformMatrix4(GLint location, const GLfloat *data) const
+{
+    if (this->backendResource == nullptr)
+    {
+        return;
+    }
+    this->backendResource->SetMatrix4Uniform(location, data);
 }

@@ -29,6 +29,13 @@ struct BufferCreateInfo
     std::vector<std::byte> initialData;
 };
 
+enum class BufferMapAccess
+{
+    ReadOnly,
+    WriteOnly,
+    ReadWrite,
+};
+
 struct GeometryLayout
 {
     std::vector<std::uint32_t> vertexAttributes;
@@ -79,6 +86,12 @@ class IShaderProgramResource : public IGraphicsResource
     ~IShaderProgramResource() override = default;
 
     virtual const ShaderProgramDesc &GetDescription() const noexcept = 0;
+    virtual void Bind() const = 0;
+    virtual void Unbind() const = 0;
+    virtual int GetUniformLocation(std::string_view name) const = 0;
+    virtual void SetFloatUniform(int location, const float *data, std::size_t componentCount) const = 0;
+    virtual void SetIntUniform(int location, const int *data, std::size_t componentCount) const = 0;
+    virtual void SetMatrix4Uniform(int location, const float *data) const = 0;
 };
 
 class IBufferResource : public IGraphicsResource
@@ -87,6 +100,13 @@ class IBufferResource : public IGraphicsResource
     ~IBufferResource() override = default;
 
     virtual const BufferDesc &GetDescription() const noexcept = 0;
+    virtual void Bind() const = 0;
+    virtual void BindToBindingPoint(std::uint32_t bindingPoint) const = 0;
+    virtual void Unbind() const = 0;
+    virtual void UploadData(const void *data, std::size_t size, std::size_t offset) = 0;
+    virtual void Resize(std::size_t newSize, bool preserveData) = 0;
+    virtual void *Map(BufferMapAccess access) = 0;
+    virtual void Unmap() = 0;
 };
 
 class ITextureResource : public IGraphicsResource
@@ -107,6 +127,8 @@ class IGeometryResource : public IGraphicsResource
     virtual std::size_t GetInstanceCount() const noexcept = 0;
     virtual void Bind() const = 0;
     virtual void Unbind() const = 0;
+    virtual void DrawIndexed() const = 0;
+    virtual void DrawIndexedInstanced() const = 0;
 };
 
 class IRenderTargetResource : public IGraphicsResource

@@ -8,7 +8,7 @@ void Mesh::InitUniform4f(const char *uniform, const GLfloat *data)
         return;
     }
     this->shader.Bind();
-    glUniform4fv(CachedUniformLocation(sUni), 1, data);
+    this->shader.SetUniformFloats(CachedUniformLocation(sUni), data, 4);
 }
 
 void Mesh::InitUniform3f(const char *uniform, const GLfloat *data)
@@ -19,7 +19,7 @@ void Mesh::InitUniform3f(const char *uniform, const GLfloat *data)
         return;
     }
     this->shader.Bind();
-    glUniform3fv(CachedUniformLocation(sUni), 1, data);
+    this->shader.SetUniformFloats(CachedUniformLocation(sUni), data, 3);
 }
 
 void Mesh::InitUniform2f(const char *uniform, const GLfloat *data)
@@ -30,7 +30,7 @@ void Mesh::InitUniform2f(const char *uniform, const GLfloat *data)
         return;
     }
     this->shader.Bind();
-    glUniform2fv(CachedUniformLocation(sUni), 1, data);
+    this->shader.SetUniformFloats(CachedUniformLocation(sUni), data, 2);
 }
 
 void Mesh::InitUniform1f(const char *uniform, const GLfloat *data)
@@ -41,7 +41,7 @@ void Mesh::InitUniform1f(const char *uniform, const GLfloat *data)
         return;
     }
     this->shader.Bind();
-    glUniform1fv(CachedUniformLocation(sUni), 1, data);
+    this->shader.SetUniformFloats(CachedUniformLocation(sUni), data, 1);
 }
 
 void Mesh::InitUniform4i(const char *uniform, const GLint *data)
@@ -52,7 +52,7 @@ void Mesh::InitUniform4i(const char *uniform, const GLint *data)
         return;
     }
     this->shader.Bind();
-    glUniform4iv(CachedUniformLocation(sUni), 1, data);
+    this->shader.SetUniformInts(CachedUniformLocation(sUni), data, 4);
 }
 
 void Mesh::InitUniform3i(const char *uniform, const GLint *data)
@@ -63,7 +63,7 @@ void Mesh::InitUniform3i(const char *uniform, const GLint *data)
         return;
     }
     this->shader.Bind();
-    glUniform3iv(CachedUniformLocation(sUni), 1, data);
+    this->shader.SetUniformInts(CachedUniformLocation(sUni), data, 3);
 }
 
 void Mesh::InitUniform2i(const char *uniform, const GLint *data)
@@ -74,7 +74,7 @@ void Mesh::InitUniform2i(const char *uniform, const GLint *data)
         return;
     }
     this->shader.Bind();
-    glUniform2iv(CachedUniformLocation(sUni), 1, data);
+    this->shader.SetUniformInts(CachedUniformLocation(sUni), data, 2);
 }
 
 void Mesh::InitUniform1i(const char *uniform, const GLint *data)
@@ -85,7 +85,7 @@ void Mesh::InitUniform1i(const char *uniform, const GLint *data)
         return;
     }
     this->shader.Bind();
-    glUniform1iv(CachedUniformLocation(sUni), 1, data);
+    this->shader.SetUniformInts(CachedUniformLocation(sUni), data, 1);
 }
 
 void Mesh::InitUniformMatrix4f(const char *uniform, const GLfloat *data)
@@ -96,7 +96,7 @@ void Mesh::InitUniformMatrix4f(const char *uniform, const GLfloat *data)
         return;
     }
     this->shader.Bind();
-    glUniformMatrix4fv(CachedUniformLocation(sUni), 1, GL_FALSE, data);
+    this->shader.SetUniformMatrix4(CachedUniformLocation(sUni), data);
 }
 
 std::unordered_map<std::string, Mesh::UniformCache> &Mesh::GetOrCreateUniformCache()
@@ -117,7 +117,7 @@ GLint Mesh::CachedUniformLocation(const std::string &uniform)
         return cache.location;
     }
     cache.shaderID = ID;
-    cache.location = glGetUniformLocation(ID, uniform.c_str());
+    cache.location = this->shader.GetUniformLocation(uniform);
     if (cache.location == -1)
     {
         LOG_ERROR(1, "Uniform ", uniform, " not found");

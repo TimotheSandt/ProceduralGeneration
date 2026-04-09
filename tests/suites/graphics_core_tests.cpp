@@ -42,6 +42,12 @@ class FakeShaderProgramResource final : public IShaderProgramResource
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
     std::string_view GetDebugName() const noexcept override { return debugName; }
     const ShaderProgramDesc &GetDescription() const noexcept override { return desc; }
+    void Bind() const override {}
+    void Unbind() const override {}
+    int GetUniformLocation(std::string_view) const override { return 0; }
+    void SetFloatUniform(int, const float *, std::size_t) const override {}
+    void SetIntUniform(int, const int *, std::size_t) const override {}
+    void SetMatrix4Uniform(int, const float *) const override {}
 
   private:
     ShaderProgramDesc desc;
@@ -56,6 +62,13 @@ class FakeBufferResource final : public IBufferResource
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
     std::string_view GetDebugName() const noexcept override { return debugName; }
     const BufferDesc &GetDescription() const noexcept override { return desc; }
+    void Bind() const override {}
+    void BindToBindingPoint(std::uint32_t) const override {}
+    void Unbind() const override {}
+    void UploadData(const void *, std::size_t, std::size_t) override {}
+    void Resize(std::size_t newSize, bool) override { desc.sizeInBytes = newSize; }
+    void *Map(BufferMapAccess) override { return nullptr; }
+    void Unmap() override {}
 
   private:
     BufferDesc desc;
@@ -79,6 +92,8 @@ class FakeGeometryResource final : public IGeometryResource
     std::size_t GetInstanceCount() const noexcept override { return instanceCount; }
     void Bind() const override {}
     void Unbind() const override {}
+    void DrawIndexed() const override {}
+    void DrawIndexedInstanced() const override {}
 
   private:
     GeometryLayout layout;

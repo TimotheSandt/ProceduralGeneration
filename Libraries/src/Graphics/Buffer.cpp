@@ -34,43 +34,6 @@ void Buffer::Swap(Buffer &other) noexcept
     std::swap(this->backendBuffer, other.backendBuffer);
 }
 
-GLenum Buffer::GetTarget() const noexcept
-{
-    switch (desc.usage)
-    {
-        case BufferUsage::Index:
-            return GL_ELEMENT_ARRAY_BUFFER;
-        case BufferUsage::Uniform:
-            return GL_UNIFORM_BUFFER;
-        case BufferUsage::Storage:
-            return GL_SHADER_STORAGE_BUFFER;
-        case BufferUsage::Staging:
-        case BufferUsage::Vertex:
-        default:
-            return GL_ARRAY_BUFFER;
-    }
-}
-
-GLenum Buffer::GetUsageHint() const noexcept
-{
-    if (desc.cpuWritable)
-    {
-        return GL_DYNAMIC_DRAW;
-    }
-
-    switch (desc.usage)
-    {
-        case BufferUsage::Staging:
-            return GL_STREAM_DRAW;
-        case BufferUsage::Vertex:
-        case BufferUsage::Index:
-        case BufferUsage::Uniform:
-        case BufferUsage::Storage:
-        default:
-            return GL_STATIC_DRAW;
-    }
-}
-
 bool Buffer::Initialize(BufferUsage usage, size_t size, GLuint bindingPoint, bool cpuWritable)
 {
     this->Destroy();
@@ -93,11 +56,7 @@ bool Buffer::Initialize(BufferUsage usage, size_t size, GLuint bindingPoint, boo
         }
     }
 
-    glGenBuffers(1, &this->ID);
-    glBindBuffer(GetTarget(), this->ID);
-    glBufferData(GetTarget(), static_cast<GLsizeiptr>(this->desc.sizeInBytes), nullptr, GetUsageHint());
-    glBindBuffer(GetTarget(), 0);
-    return this->ID != 0;
+    return false;
 }
 
 void Buffer::Destroy()
@@ -110,111 +69,79 @@ void Buffer::Destroy()
         return;
     }
 
-    if (ID != 0)
-    {
-        glDeleteBuffers(1, &ID);
-    }
     ID = 0;
     desc.sizeInBytes = 0;
 }
 
 void Buffer::Bind() const
 {
-    if (ID == 0)
+    if (backendBuffer == nullptr)
     {
         return;
     }
-    glBindBuffer(GetTarget(), ID);
+    backendBuffer->Bind();
 }
 
 void Buffer::BindToBindingPoint() const
 {
-    if (ID == 0)
+    if (backendBuffer == nullptr)
     {
         return;
     }
-
-    switch (desc.usage)
-    {
-        case BufferUsage::Uniform:
-            glBindBufferBase(GL_UNIFORM_BUFFER, bindingPoint, ID);
-            break;
-        case BufferUsage::Storage:
-            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, ID);
-            break;
-        default:
-            Bind();
-            break;
-    }
+    backendBuffer->BindToBindingPoint(bindingPoint);
 }
 
-void Buffer::Unbind() const { glBindBuffer(GetTarget(), 0); }
+void Buffer::Unbind() const
+{
+    if (backendBuffer != nullptr)
+    {
+        backendBuffer->Unbind();
+    }
+}
 
 void Buffer::UploadData(const void *data, size_t size, size_t offset) const
 {
-    if (ID == 0 || data == nullptr || size == 0)
+    if (backendBuffer == nullptr || data == nullptr || size == 0)
     {
         return;
     }
-
-    glBindBuffer(GetTarget(), ID);
-    glBufferSubData(GetTarget(), static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
-    glBindBuffer(GetTarget(), 0);
+    backendBuffer->UploadData(data, size, offset);
 }
 
-void Buffer::Recreate(size_t newSize, bool preserveData)
+void Buffer::Resize(size_t newSize)
 {
-    if (ID == 0 || newSize == desc.sizeInBytes)
+    if (backendBuffer == nullptr)
     {
-        desc.sizeInBytes = newSize;
         return;
     }
-
-    std::vector<std::byte> previousData;
-    if (preserveData && desc.sizeInBytes > 0)
-    {
-        previousData.resize(std::min(desc.sizeInBytes, newSize));
-        glBindBuffer(GetTarget(), ID);
-        glGetBufferSubData(GetTarget(), 0, static_cast<GLsizeiptr>(previousData.size()), previousData.data());
-        glBindBuffer(GetTarget(), 0);
-    }
-
-    const BufferUsage usage = desc.usage;
-    const bool cpuWritable = desc.cpuWritable;
-    const GLuint currentBindingPoint = bindingPoint;
-
-    this->Destroy();
-    this->Initialize(usage, newSize, currentBindingPoint, cpuWritable);
-
-    if (!previousData.empty())
-    {
-        this->UploadData(previousData.data(), previousData.size());
-    }
+    backendBuffer->Resize(newSize, false);
+    desc.sizeInBytes = newSize;
 }
 
-void Buffer::Resize(size_t newSize) { Recreate(newSize, false); }
-
-void Buffer::ResizePreserveData(size_t newSize) { Recreate(newSize, true); }
-
-void *Buffer::MapBuffer(GLenum access) const
+void Buffer::ResizePreserveData(size_t newSize)
 {
-    if (ID == 0)
+    if (backendBuffer == nullptr)
+    {
+        return;
+    }
+    backendBuffer->Resize(newSize, true);
+    desc.sizeInBytes = newSize;
+}
+
+void *Buffer::MapBuffer(BufferMapAccess access)
+{
+    if (backendBuffer == nullptr)
     {
         return nullptr;
     }
-
-    glBindBuffer(GetTarget(), ID);
-    return glMapBuffer(GetTarget(), access);
+    return backendBuffer->Map(access);
 }
 
 void Buffer::UnmapBuffer() const
 {
-    if (ID == 0)
+    if (backendBuffer == nullptr)
     {
         return;
     }
-
-    glBindBuffer(GetTarget(), ID);
-    glUnmapBuffer(GetTarget());
-    glBindBuffer(GetTarget(), 0);
+    backendBuffer->Unmap();
 }

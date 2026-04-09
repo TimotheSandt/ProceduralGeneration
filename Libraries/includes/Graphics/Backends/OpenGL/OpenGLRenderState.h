@@ -21,6 +21,7 @@ void ClearColor(const glm::vec4 &color) noexcept;
 void Clear(GLbitfield mask) noexcept;
 void ClearTransparentColorBuffer() noexcept;
 void SetDepthTest(bool enabled) noexcept;
+void SetWireframe(bool enabled) noexcept;
 void SetBlend(bool enabled) noexcept;
 void SetAlphaBlend() noexcept;
 void SetScissorTest(bool enabled) noexcept;

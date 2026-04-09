@@ -13,6 +13,12 @@ class OpenGLShaderProgramResource final : public IShaderProgramResource
     GraphicsAPI GetAPI() const noexcept override;
     std::string_view GetDebugName() const noexcept override;
     const ShaderProgramDesc &GetDescription() const noexcept override;
+    void Bind() const override;
+    void Unbind() const override;
+    int GetUniformLocation(std::string_view name) const override;
+    void SetFloatUniform(int location, const float *data, std::size_t componentCount) const override;
+    void SetIntUniform(int location, const int *data, std::size_t componentCount) const override;
+    void SetMatrix4Uniform(int location, const float *data) const override;
     GLuint GetProgramID() const noexcept;
 
   private:
@@ -30,9 +36,18 @@ class OpenGLBufferResource final : public IBufferResource
     GraphicsAPI GetAPI() const noexcept override;
     std::string_view GetDebugName() const noexcept override;
     const BufferDesc &GetDescription() const noexcept override;
+    void Bind() const override;
+    void BindToBindingPoint(std::uint32_t bindingPoint) const override;
+    void Unbind() const override;
+    void UploadData(const void *data, std::size_t size, std::size_t offset) override;
+    void Resize(std::size_t newSize, bool preserveData) override;
+    void *Map(BufferMapAccess access) override;
+    void Unmap() override;
     GLuint GetBufferID() const noexcept;
 
   private:
+    GLenum UsageHint() const noexcept;
+    void Recreate(std::size_t newSize, bool preserveData);
     GLuint bufferID = 0;
     GLenum target = GL_ARRAY_BUFFER;
     BufferDesc desc;
@@ -52,6 +67,8 @@ class OpenGLGeometryResource final : public IGeometryResource
     std::size_t GetInstanceCount() const noexcept override;
     void Bind() const override;
     void Unbind() const override;
+    void DrawIndexed() const override;
+    void DrawIndexedInstanced() const override;
 
   private:
     GLuint vertexArrayID = 0;

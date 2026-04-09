@@ -33,6 +33,10 @@ class Shader
     void Bind() const;
     void Unbind() const;
     void Destroy();
+    GLint GetUniformLocation(const std::string &uniform) const;
+    void SetUniformFloats(GLint location, const GLfloat *data, std::size_t componentCount) const;
+    void SetUniformInts(GLint location, const GLint *data, std::size_t componentCount) const;
+    void SetUniformMatrix4(GLint location, const GLfloat *data) const;
 
     GLuint GetID() const { return this->ID; }
     bool IsCompiled() const { return this->ID != 0; }
@@ -48,5 +52,4 @@ class Shader
 
   private:
     void Swap(Shader &other) noexcept;
-    bool compileErrors(unsigned int shader, const char *type) const;
 };

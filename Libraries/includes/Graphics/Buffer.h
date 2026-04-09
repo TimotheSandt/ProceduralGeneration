@@ -35,7 +35,7 @@ class Buffer
     void Resize(size_t newSize);
     void ResizePreserveData(size_t newSize);
 
-    void *MapBuffer(GLenum access = GL_READ_WRITE) const;
+    void *MapBuffer(BufferMapAccess access = BufferMapAccess::ReadWrite);
     void UnmapBuffer() const;
 
     bool IsInitialized() const { return ID != 0; }
@@ -46,9 +46,6 @@ class Buffer
 
   private:
     void Swap(Buffer &other) noexcept;
-    GLenum GetTarget() const noexcept;
-    GLenum GetUsageHint() const noexcept;
-    void Recreate(size_t newSize, bool preserveData);
 
   private:
     GLuint ID = 0;

@@ -48,6 +48,12 @@ void SetDepthTest(bool enabled) noexcept
     GL_CHECK_ERROR_M("glDisable(GL_DEPTH_TEST)");
 }
 
+void SetWireframe(bool enabled) noexcept
+{
+    glPolygonMode(GL_FRONT_AND_BACK, enabled ? GL_LINE : GL_FILL);
+    GL_CHECK_ERROR_M("glPolygonMode");
+}
+
 void SetBlend(bool enabled) noexcept
 {
     if (enabled)
