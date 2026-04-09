@@ -27,4 +27,5 @@ class IGraphicsDevice
     virtual std::unique_ptr<IRenderTargetResource> CreateRenderTarget(const RenderTargetCreateInfo &createInfo) const = 0;
     virtual std::unique_ptr<IAccelerationStructureResource> CreateAccelerationStructure(
         const AccelerationStructureCreateInfo &createInfo) const = 0;
+    virtual std::unique_ptr<IGPUTimestampQueryResource> CreateTimestampQuery(const GPUTimestampQueryCreateInfo &createInfo) const = 0;
 };

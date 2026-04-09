@@ -3,6 +3,7 @@
 #include "Graphics/Core/GraphicsTypes.h"
 
 #include <cstddef>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -70,6 +71,11 @@ struct GeometryCreateInfo
 struct AccelerationStructureCreateInfo
 {
     AccelerationStructureDesc desc{};
+    std::string debugName;
+};
+
+struct GPUTimestampQueryCreateInfo
+{
     std::string debugName;
 };
 
@@ -162,4 +168,15 @@ class IAccelerationStructureResource : public IGraphicsResource
     ~IAccelerationStructureResource() override = default;
 
     virtual const AccelerationStructureDesc &GetDescription() const noexcept = 0;
+};
+
+class IGPUTimestampQueryResource : public IGraphicsResource
+{
+  public:
+    ~IGPUTimestampQueryResource() override = default;
+
+    virtual void Begin() = 0;
+    virtual void End() = 0;
+    virtual bool IsReady() const = 0;
+    virtual std::chrono::nanoseconds GetElapsedTime() const = 0;
 };

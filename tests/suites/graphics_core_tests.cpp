@@ -191,6 +191,8 @@ class FakeRayTracingDevice final : public IGraphicsDevice
         return std::make_unique<FakeAccelerationStructureResource>(createInfo);
     }
 
+    std::unique_ptr<IGPUTimestampQueryResource> CreateTimestampQuery(const GPUTimestampQueryCreateInfo &) const override { return nullptr; }
+
   private:
     static constexpr ShaderStageMask supportedStages =
         ShaderStageBit(ShaderStage::RayGeneration) | ShaderStageBit(ShaderStage::Miss) | ShaderStageBit(ShaderStage::ClosestHit);

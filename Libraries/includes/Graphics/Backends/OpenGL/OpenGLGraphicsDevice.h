@@ -18,6 +18,7 @@ class OpenGLGraphicsDevice final : public IGraphicsDevice
     std::unique_ptr<IRenderTargetResource> CreateRenderTarget(const RenderTargetCreateInfo &createInfo) const override;
     std::unique_ptr<IAccelerationStructureResource> CreateAccelerationStructure(
         const AccelerationStructureCreateInfo &createInfo) const override;
+    std::unique_ptr<IGPUTimestampQueryResource> CreateTimestampQuery(const GPUTimestampQueryCreateInfo &createInfo) const override;
 
   private:
     GraphicsCapabilities capabilities;

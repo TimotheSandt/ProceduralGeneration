@@ -60,3 +60,8 @@ std::unique_ptr<IAccelerationStructureResource> OpenGLGraphicsDevice::CreateAcce
     static_cast<void>(createInfo);
     return nullptr;
 }
+
+std::unique_ptr<IGPUTimestampQueryResource> OpenGLGraphicsDevice::CreateTimestampQuery(const GPUTimestampQueryCreateInfo &createInfo) const
+{
+    return std::make_unique<OpenGLTimestampQueryResource>(createInfo);
+}

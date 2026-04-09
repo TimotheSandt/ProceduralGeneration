@@ -849,3 +849,65 @@ void OpenGLRenderTargetResource::BlitToDefault(std::uint32_t srcWidth, std::uint
 GLuint OpenGLRenderTargetResource::GetFramebufferID() const noexcept { return framebufferID; }
 
 GLuint OpenGLRenderTargetResource::GetDepthBufferID() const noexcept { return depthBufferID; }
+
+OpenGLTimestampQueryResource::OpenGLTimestampQueryResource(GPUTimestampQueryCreateInfo createInfo) : debugName(std::move(createInfo.debugName))
+{
+    if (HasActiveOpenGLContext())
+    {
+        glGenQueries(2, queryIDs.data());
+    }
+}
+
+OpenGLTimestampQueryResource::~OpenGLTimestampQueryResource()
+{
+    if (HasActiveOpenGLContext() && queryIDs[0] != 0)
+    {
+        glDeleteQueries(2, queryIDs.data());
+    }
+}
+
+GraphicsAPI OpenGLTimestampQueryResource::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
+
+std::string_view OpenGLTimestampQueryResource::GetDebugName() const noexcept { return debugName; }
+
+void OpenGLTimestampQueryResource::Begin()
+{
+    if (queryIDs[0] != 0)
+    {
+        glQueryCounter(queryIDs[0], GL_TIMESTAMP);
+    }
+}
+
+void OpenGLTimestampQueryResource::End()
+{
+    if (queryIDs[1] != 0)
+    {
+        glQueryCounter(queryIDs[1], GL_TIMESTAMP);
+    }
+}
+
+bool OpenGLTimestampQueryResource::IsReady() const
+{
+    if (queryIDs[1] == 0)
+    {
+        return false;
+    }
+
+    GLint available = GL_FALSE;
+    glGetQueryObjectiv(queryIDs[1], GL_QUERY_RESULT_AVAILABLE, &available);
+    return available == GL_TRUE;
+}
+
+std::chrono::nanoseconds OpenGLTimestampQueryResource::GetElapsedTime() const
+{
+    if (!IsReady())
+    {
+        return std::chrono::nanoseconds::zero();
+    }
+
+    GLuint64 startTime = 0;
+    GLuint64 endTime = 0;
+    glGetQueryObjectui64v(queryIDs[0], GL_QUERY_RESULT, &startTime);
+    glGetQueryObjectui64v(queryIDs[1], GL_QUERY_RESULT, &endTime);
+    return std::chrono::nanoseconds(endTime - startTime);
+}

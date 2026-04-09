@@ -135,3 +135,21 @@ class OpenGLRenderTargetResource final : public IRenderTargetResource
     RenderTargetDesc desc;
     std::string debugName;
 };
+
+class OpenGLTimestampQueryResource final : public IGPUTimestampQueryResource
+{
+  public:
+    explicit OpenGLTimestampQueryResource(GPUTimestampQueryCreateInfo createInfo);
+    ~OpenGLTimestampQueryResource() override;
+
+    GraphicsAPI GetAPI() const noexcept override;
+    std::string_view GetDebugName() const noexcept override;
+    void Begin() override;
+    void End() override;
+    bool IsReady() const override;
+    std::chrono::nanoseconds GetElapsedTime() const override;
+
+  private:
+    std::array<GLuint, 2> queryIDs = {0, 0};
+    std::string debugName;
+};
