@@ -191,6 +191,11 @@ OpenGLShaderProgramResource::OpenGLShaderProgramResource(ShaderProgramCreateInfo
         compiledShaders.push_back(shaderID);
     }
 
+    if (!compiledShaders.empty())
+    {
+        glLinkProgram(programID);
+    }
+
     if (compiledShaders.empty() || !CheckProgramLink(programID))
     {
         glDeleteProgram(programID);
@@ -911,3 +916,4 @@ std::chrono::nanoseconds OpenGLTimestampQueryResource::GetElapsedTime() const
     glGetQueryObjectui64v(queryIDs[1], GL_QUERY_RESULT, &endTime);
     return std::chrono::nanoseconds(endTime - startTime);
 }
+
