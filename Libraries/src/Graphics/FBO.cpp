@@ -2,6 +2,7 @@
 
 #include <bit>
 
+#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Logger.h"
 #include "utilities.h"
 
@@ -95,8 +96,7 @@ void FBO::Bind() const
     }
     glBindFramebuffer(GL_FRAMEBUFFER, ID);
     GL_CHECK_ERROR_M("FBO bind");
-    glViewport(0, 0, width, height);
-    GL_CHECK_ERROR_M("FBO viewport");
+    OpenGLRenderState::SetViewport(0, 0, width, height);
 }
 
 void FBO::Unbind() const
@@ -216,13 +216,10 @@ void FBO::RenderScreenQuad() const { RenderScreenQuad(width, height); }
 
 void FBO::RenderScreenQuad(int fWidth, int fHeight) const
 {
-    glViewport(0, 0, fWidth, fHeight);
-    GL_CHECK_ERROR_M("FBO screen viewport");
+    OpenGLRenderState::SetViewport(0, 0, fWidth, fHeight);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    GL_CHECK_ERROR_M("FBO screen fbo unbind");
-    glDisable(GL_DEPTH_TEST);
-    GL_CHECK_ERROR_M("FBO screen depth disable");
+    OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, 0);
+    OpenGLRenderState::SetDepthTest(false);
 
     TextureColor.texUnit(this->screenQuadShader);
     TextureColor.Bind();
@@ -238,6 +235,5 @@ void FBO::RenderScreenQuad(int fWidth, int fHeight) const
     glBindTexture(GL_TEXTURE_2D, 0);
     GL_CHECK_ERROR_M("FBO screen tex unbind");
 
-    glEnable(GL_DEPTH_TEST);
-    GL_CHECK_ERROR_M("FBO screen depth enable");
+    OpenGLRenderState::SetDepthTest(true);
 }

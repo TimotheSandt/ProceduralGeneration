@@ -2,6 +2,9 @@
 
 #include <stdexcept>
 
+#include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
+#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
+
 Game::Game()
 {
     LOG_TRACE("Initializing window");
@@ -43,7 +46,7 @@ void Game::stop()
 
     if (this->window.GetWindow() != nullptr)
     {
-        glfwMakeContextCurrent(this->window.GetWindow());
+        OpenGLWindowContext::EnsureContextCurrent(this->window.GetWindow());
     }
     if (this->world)
     {
@@ -99,7 +102,7 @@ void Game::render()
     const auto averageTimeMs = [](const char *name) { return static_cast<double>(Profiler::GetAverageTime(name).count()) * 1e-6; };
 
     // 1. Force Viewport for World Rendering (Reset state for new frame)
-    glViewport(0, 0, *window.GetWidthptr(), *window.GetHeightptr());
+    OpenGLRenderState::PrepareScreenPass(*window.GetWidthptr(), *window.GetHeightptr());
 
     // 2. Render World
     Profiler::ProfileGPU("Clear", &Window::Clear, window);
@@ -107,7 +110,7 @@ void Game::render()
     Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), this->camera);
 
     // 3. Restore viewport before Text (just in case World changed it, though unlikely)
-    glViewport(0, 0, *window.GetWidthptr(), *window.GetHeightptr());
+    OpenGLRenderState::PrepareScreenPass(*window.GetWidthptr(), *window.GetHeightptr());
 
     textRenderer->updateScreenSize(*window.GetWidthptr(), *window.GetHeightptr());
     textRenderer->renderText("fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, glm::vec3(1.0f, 0.8f, 1.0f),
@@ -122,7 +125,7 @@ void Game::render()
                              glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
 
     // 4. Transform viewport for UI if needed (UI::Render usually expects window size)
-    glViewport(0, 0, *window.GetWidthptr(), *window.GetHeightptr());
+    OpenGLRenderState::PrepareScreenPass(*window.GetWidthptr(), *window.GetHeightptr());
 
     // Render UI
     UI::UIManager::Instance().Render(*window.GetWidthptr(), *window.GetHeightptr());

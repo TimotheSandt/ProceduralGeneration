@@ -2,14 +2,31 @@
 
 #include <glad/glad.h>
 
+#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Logger.h"
 
 namespace OpenGLWindowContext
 {
 
+void EnsureContextCurrent(GLFWwindow *window) noexcept
+{
+    if (!window)
+    {
+        return;
+    }
+
+    if (glfwGetCurrentContext() == window)
+    {
+        return;
+    }
+
+    glfwMakeContextCurrent(window);
+    GL_CHECK_ERROR_M("glfwMakeContextCurrent");
+}
+
 bool Initialize(GLFWwindow *window, bool enableVsync, int width, int height)
 {
-    glfwMakeContextCurrent(window);
+    EnsureContextCurrent(window);
 
     if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)))
     {
@@ -18,14 +35,12 @@ bool Initialize(GLFWwindow *window, bool enableVsync, int width, int height)
     }
     GL_CHECK_ERROR_M("gladLoadGL");
 
-    glViewport(0, 0, width, height);
-    GL_CHECK_ERROR_M("glViewport");
+    OpenGLRenderState::SetViewport(0, 0, width, height);
 
     glfwSwapInterval(enableVsync ? 1 : 0);
     GL_CHECK_ERROR_M("glfwSwapInterval");
 
-    glEnable(GL_DEPTH_TEST);
-    GL_CHECK_ERROR_M("glEnable");
+    OpenGLRenderState::SetDepthTest(true);
 
     return true;
 }
@@ -37,18 +52,15 @@ void ApplyDefaultFramebufferState(GLFWwindow *window, bool enableVsync, const gl
         return;
     }
 
-    glfwMakeContextCurrent(window);
-    GL_CHECK_ERROR_M("glfwMakeContextCurrent");
+    EnsureContextCurrent(window);
 
     glfwSwapInterval(enableVsync ? 1 : 0);
     GL_CHECK_ERROR_M("glfwSwapInterval");
 
-    glEnable(GL_DEPTH_TEST);
-    GL_CHECK_ERROR_M("glEnable");
+    OpenGLRenderState::SetDepthTest(true);
 
-    glClearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    GL_CHECK_ERROR_M("glClear");
+    OpenGLRenderState::ClearColor(clearColor);
+    OpenGLRenderState::Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glfwSwapBuffers(window);
     GL_CHECK_ERROR_M("glfwSwapBuffers");

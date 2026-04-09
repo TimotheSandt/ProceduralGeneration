@@ -4,6 +4,7 @@
 #include <windows.h>
 #endif
 
+#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
 #include "Logger.h"
 #include "utilities.h"
@@ -123,10 +124,8 @@ void Window::Close()
 
 void Window::Clear() const
 {
-    glClearColor(this->parameters.clearColor.r, this->parameters.clearColor.g, this->parameters.clearColor.b,
-                 this->parameters.clearColor.a);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    GL_CHECK_ERROR_M("glClear");
+    OpenGLRenderState::ClearColor(this->parameters.clearColor);
+    OpenGLRenderState::Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 bool Window::NewFrame()
@@ -496,7 +495,7 @@ void Window::CallbackResize(GLFWwindow *window, int width, int height)
 
     UpdateFBOResotution();
 
-    glViewport(0, 0, this->parameters.width, this->parameters.height);
+    OpenGLRenderState::SetViewport(0, 0, this->parameters.width, this->parameters.height);
 }
 
 void Window::CallbackPosition(GLFWwindow *window, int x, int y)
@@ -611,7 +610,7 @@ bool Window::IsWindowHealthy() const
     if (currentContext != this->window)
     {
         LOG_WARNING("OpenGL context mismatch");
-        glfwMakeContextCurrent(this->window);
+        OpenGLWindowContext::EnsureContextCurrent(this->window);
     }
 
 #ifdef DEBUG

@@ -1,5 +1,7 @@
 #include "Window.h"
 
+#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
+
 void Window::SetRenderScale(float scale)
 {
     if (scale <= 0.0f || scale > 1.0f)
@@ -25,7 +27,7 @@ void Window::EnableUpscaling(bool enable)
     parameters.enableUpscaling = enable;
     if (!enable)
     {
-        glViewport(0, 0, parameters.width, parameters.height);
+        OpenGLRenderState::SetViewport(0, 0, parameters.width, parameters.height);
     }
     else
     {
@@ -55,7 +57,7 @@ void Window::InitFBOs()
 void Window::BindRenderFBO() const { FBORendering.Bind(); }
 void Window::UnbindRenderFBO() const
 {
-    glViewport(0, 0, parameters.width, parameters.height);
+    OpenGLRenderState::SetViewport(0, 0, parameters.width, parameters.height);
 
     FBORendering.Unbind();
     FBORendering.RenderScreenQuad(parameters.width, parameters.height);

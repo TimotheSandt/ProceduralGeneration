@@ -1,5 +1,6 @@
 // Libraries/src/UI/TextRenderer.cpp
 #include "UI/TextRenderer.h"
+#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
@@ -313,8 +314,8 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
 
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(VAO);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    OpenGLRenderState::SetBlend(true);
+    OpenGLRenderState::SetAlphaBlend();
 
     float cursorX = startX;
     float cursorY = startY;
@@ -378,7 +379,7 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
     }
 
     glBindVertexArray(0);
-    glDisable(GL_BLEND);
+    OpenGLRenderState::SetBlend(false);
 }
 
 float TextRenderer::measureTextWidth(const std::string &text, float scale)
@@ -724,10 +725,10 @@ void TextRenderer::renderTextAdvanced(const std::string &text, float x, float y,
 
     if (useScissor)
     {
-        glEnable(GL_SCISSOR_TEST);
+        OpenGLRenderState::SetScissorTest(true);
         // En OpenGL, scissor commence en bas à gauche
         int scissorY = static_cast<int>(static_cast<float>(screenHeight) - (y + params.maxHeight));
-        glScissor(static_cast<int>(x), scissorY, static_cast<int>(params.maxWidth), static_cast<int>(params.maxHeight));
+        OpenGLRenderState::SetScissor(static_cast<int>(x), scissorY, static_cast<int>(params.maxWidth), static_cast<int>(params.maxHeight));
     }
 
     for (const auto &line : layout.lines)
@@ -742,7 +743,7 @@ void TextRenderer::renderTextAdvanced(const std::string &text, float x, float y,
 
     if (useScissor)
     {
-        glDisable(GL_SCISSOR_TEST);
+        OpenGLRenderState::SetScissorTest(false);
     }
 }
 

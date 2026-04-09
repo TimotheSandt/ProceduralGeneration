@@ -1,7 +1,7 @@
 #include "UIContainer.h"
-#include "utilities.h"
-#include <glad/glad.h>
+#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Logger.h"
+#include "utilities.h"
 
 namespace UI
 {
@@ -87,16 +87,11 @@ void UIContainerBase::InitializedFBO()
         GL_CHECK_ERROR_M("UIContainer FBO Init");
 
         // Clear FBO to transparent immediately after init
-        GLint currentFBO;
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFBO);
-        GLint viewport[4];
-        glGetIntegerv(GL_VIEWPORT, viewport);
+        const OpenGLRenderState::FramebufferState previousState = OpenGLRenderState::CaptureFramebufferState();
 
         fbo.Bind();
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glBindFramebuffer(GL_FRAMEBUFFER, currentFBO);
-        glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+        OpenGLRenderState::ClearTransparentColorBuffer();
+        OpenGLRenderState::RestoreFramebufferState(previousState);
 
         // Force re-render on next frame
         MarkFullDirty();
@@ -105,27 +100,30 @@ void UIContainerBase::InitializedFBO()
 
 void SaveFBOState(GLint &oldFBO, GLint viewport[4])
 {
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &oldFBO);
-    glGetIntegerv(GL_VIEWPORT, viewport);
+    const OpenGLRenderState::FramebufferState state = OpenGLRenderState::CaptureFramebufferState();
+    oldFBO = state.framebuffer;
+    for (int i = 0; i < 4; ++i)
+    {
+        viewport[i] = state.viewport[i];
+    }
 }
 
 void RestoreFBOState(GLint oldFBO, GLint viewport[4])
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
-    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(oldFBO));
+    OpenGLRenderState::SetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 }
 
 void UIContainerBase::ClearZone(glm::vec4 bounds)
 {
-    glEnable(GL_SCISSOR_TEST);
+    OpenGLRenderState::SetScissorTest(true);
     // Flip Y for OpenGL (Bottom-Left origin)
     // Bounds are (x, y, w, h) in Top-Left origin
     GLint yGl = static_cast<GLint>(contentSize.y - (bounds.y + bounds.w));
 
-    glScissor(static_cast<GLint>(bounds.x), yGl, static_cast<GLsizei>(bounds.z), static_cast<GLsizei>(bounds.w));
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glDisable(GL_SCISSOR_TEST);
+    OpenGLRenderState::SetScissor(static_cast<GLint>(bounds.x), yGl, static_cast<GLsizei>(bounds.z), static_cast<GLsizei>(bounds.w));
+    OpenGLRenderState::ClearTransparentColorBuffer();
+    OpenGLRenderState::SetScissorTest(false);
 }
 
 void UIContainerBase::RenderChildren()
@@ -138,7 +136,7 @@ void UIContainerBase::RenderChildren()
     GL_CHECK_ERROR_M("RenderDirtyChildren Bind");
 
     // Set viewport to FBO size
-    glViewport(0, 0, static_cast<GLsizei>(contentSize.x), static_cast<GLsizei>(contentSize.y));
+    OpenGLRenderState::SetViewport(0, 0, static_cast<GLsizei>(contentSize.x), static_cast<GLsizei>(contentSize.y));
 
     // Determine dirty level: layout vs appearance only
     bool hasLayoutDirty = IsSelfLayoutDirty(); // If we resized, we must re-render all (anchors changed)
@@ -159,8 +157,7 @@ void UIContainerBase::RenderChildren()
     if (hasLayoutDirty)
     {
         // Layout changed: clear entire FBO and re-render all
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        OpenGLRenderState::ClearTransparentColorBuffer();
 
         for (auto &child : children)
         {
