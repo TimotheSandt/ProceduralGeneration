@@ -29,3 +29,5 @@ std::string MetalGraphicsBackend::DescribeAvailability() const
     return "Metal backend is not supported on this platform.";
 #endif
 }
+
+const GraphicsCapabilities &MetalGraphicsBackend::GetCapabilities() const noexcept { return capabilities; }

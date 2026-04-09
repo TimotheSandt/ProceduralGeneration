@@ -59,6 +59,8 @@ bool OpenGLGraphicsBackend::IsAvailable() const noexcept { return true; }
 
 std::string OpenGLGraphicsBackend::DescribeAvailability() const { return "OpenGL backend is available."; }
 
+const GraphicsCapabilities &OpenGLGraphicsBackend::GetCapabilities() const noexcept { return capabilities; }
+
 void OpenGLGraphicsBackend::SetupErrorHandling() const
 {
 #ifdef _WIN32

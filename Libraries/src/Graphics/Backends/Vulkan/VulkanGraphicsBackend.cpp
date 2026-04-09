@@ -18,3 +18,5 @@ std::string VulkanGraphicsBackend::DescribeAvailability() const
 {
     return "Vulkan backend selection is recognized, but this backend is not implemented yet.";
 }
+
+const GraphicsCapabilities &VulkanGraphicsBackend::GetCapabilities() const noexcept { return capabilities; }

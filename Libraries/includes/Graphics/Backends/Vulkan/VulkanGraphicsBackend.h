@@ -10,4 +10,16 @@ class VulkanGraphicsBackend final : public IGraphicsBackend
     void Shutdown() noexcept override;
     bool IsAvailable() const noexcept override;
     std::string DescribeAvailability() const override;
+    const GraphicsCapabilities &GetCapabilities() const noexcept override;
+
+  private:
+    GraphicsCapabilities capabilities = {.api = GraphicsAPI::Vulkan,
+                                         .supportsRuntimeShaderCompilation = false,
+                                         .supportsComputeShaders = true,
+                                         .supportsGeometryShaders = true,
+                                         .supportsTessellationShaders = true,
+                                         .supportsFramebufferBlit = true,
+                                         .supportsWireframeRendering = true,
+                                         .supportsWindowPresentation = true,
+                                         .maxColorAttachments = 8};
 };

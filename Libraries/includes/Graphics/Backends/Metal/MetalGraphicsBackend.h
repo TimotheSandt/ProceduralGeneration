@@ -10,4 +10,16 @@ class MetalGraphicsBackend final : public IGraphicsBackend
     void Shutdown() noexcept override;
     bool IsAvailable() const noexcept override;
     std::string DescribeAvailability() const override;
+    const GraphicsCapabilities &GetCapabilities() const noexcept override;
+
+  private:
+    GraphicsCapabilities capabilities = {.api = GraphicsAPI::Metal,
+                                         .supportsRuntimeShaderCompilation = false,
+                                         .supportsComputeShaders = true,
+                                         .supportsGeometryShaders = false,
+                                         .supportsTessellationShaders = true,
+                                         .supportsFramebufferBlit = true,
+                                         .supportsWireframeRendering = false,
+                                         .supportsWindowPresentation = true,
+                                         .maxColorAttachments = 8};
 };

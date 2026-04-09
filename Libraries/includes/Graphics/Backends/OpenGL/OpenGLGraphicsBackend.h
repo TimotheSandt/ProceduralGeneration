@@ -10,6 +10,7 @@ class OpenGLGraphicsBackend final : public IGraphicsBackend
     void Shutdown() noexcept override;
     bool IsAvailable() const noexcept override;
     std::string DescribeAvailability() const override;
+    const GraphicsCapabilities &GetCapabilities() const noexcept override;
 
   private:
     void SetupErrorHandling() const;
@@ -18,4 +19,13 @@ class OpenGLGraphicsBackend final : public IGraphicsBackend
     bool initialized = false;
     int majorVersion = 4;
     int minorVersion = 3;
+    GraphicsCapabilities capabilities = {.api = GraphicsAPI::OpenGL,
+                                         .supportsRuntimeShaderCompilation = true,
+                                         .supportsComputeShaders = true,
+                                         .supportsGeometryShaders = true,
+                                         .supportsTessellationShaders = true,
+                                         .supportsFramebufferBlit = true,
+                                         .supportsWireframeRendering = true,
+                                         .supportsWindowPresentation = true,
+                                         .maxColorAttachments = 8};
 };

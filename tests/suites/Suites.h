@@ -7,6 +7,7 @@ namespace tests
 
 TestSuite CreateUtilitiesSuite();
 TestSuite CreateGraphicsAPISuite();
+TestSuite CreateGraphicsCoreSuite();
 TestSuite CreateShaderSuite();
 TestSuite CreateNoiseSuite();
 TestSuite CreateProceduralSuite();
