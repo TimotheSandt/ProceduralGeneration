@@ -40,17 +40,6 @@ void FBO::Destroy()
     {
         backendRenderTarget.reset();
     }
-    else
-    {
-        if (ID != 0)
-        {
-            glDeleteFramebuffers(1, &ID);
-        }
-        if (depthBufferID != 0)
-        {
-            glDeleteRenderbuffers(1, &depthBufferID);
-        }
-    }
 
     ID = 0;
     depthBufferID = 0;
@@ -80,35 +69,19 @@ void FBO::Init(int width, int height)
         }
     }
 
-    if (ID == 0)
+    if (backendRenderTarget == nullptr)
     {
-        glGenFramebuffers(1, &ID);
-        GL_CHECK_ERROR_M("FBO gen");
+        LOG_ERROR(1, "OpenGL render target backend resource is required");
+        return;
     }
-    glBindFramebuffer(GL_FRAMEBUFFER, ID);
-    GL_CHECK_ERROR_M("FBO bind init");
+
+    backendRenderTarget->Bind();
 
     TextureColor.SetFramebufferTexture("screenTexture", 0, width, height, this->ID);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, ID);
-    GL_CHECK_ERROR_M("FBO rebind init");
-    if (depthBufferID == 0)
+    if (!backendRenderTarget->IsComplete())
     {
-        glGenRenderbuffers(1, &depthBufferID);
-        GL_CHECK_ERROR_M("FBO depth gen");
-        glBindRenderbuffer(GL_RENDERBUFFER, depthBufferID);
-        GL_CHECK_ERROR_M("FBO depth bind");
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
-        GL_CHECK_ERROR_M("FBO depth storage");
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBufferID);
-        GL_CHECK_ERROR_M("FBO depth attach");
-    }
-
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    GL_CHECK_ERROR_M("FBO status check");
-    if (status != GL_FRAMEBUFFER_COMPLETE)
-    {
-        LOG_ERROR(status, "FBO incomplete");
+        LOG_ERROR(1, "FBO incomplete");
         return;
     }
 
@@ -119,19 +92,20 @@ void FBO::Init(int width, int height)
 
 void FBO::Bind() const
 {
-    if (ID == 0)
+    if (backendRenderTarget == nullptr)
     {
         return;
     }
-    glBindFramebuffer(GL_FRAMEBUFFER, ID);
-    GL_CHECK_ERROR_M("FBO bind");
+    backendRenderTarget->Bind();
     OpenGLRenderState::SetViewport(0, 0, width, height);
 }
 
 void FBO::Unbind() const
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    GL_CHECK_ERROR_M("FBO unbind");
+    if (backendRenderTarget != nullptr)
+    {
+        backendRenderTarget->Unbind();
+    }
 }
 
 void FBO::Resize(int newWidth, int newHeight)
@@ -141,27 +115,17 @@ void FBO::Resize(int newWidth, int newHeight)
         return;
     }
 
-    // Store the new dimensions
     width = newWidth;
     height = newHeight;
 
-    // Resize the color texture
     TextureColor.ResizeFramebufferTexture(width, height);
-
-    // Resize the depth buffer
-    glBindRenderbuffer(GL_RENDERBUFFER, depthBufferID);
-    GL_CHECK_ERROR_M("FBO resize depth bind");
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
-    GL_CHECK_ERROR_M("FBO resize depth storage");
-
-    // Verify the framebuffer is still complete
-    glBindFramebuffer(GL_FRAMEBUFFER, ID);
-    GL_CHECK_ERROR_M("FBO resize bind");
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    GL_CHECK_ERROR_M("FBO resize status check");
-    if (status != GL_FRAMEBUFFER_COMPLETE)
+    if (backendRenderTarget != nullptr)
     {
-        LOG_ERROR(status, "FBO incomplete after resize: ");
+        backendRenderTarget->Resize(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
+        if (!backendRenderTarget->IsComplete())
+        {
+            LOG_ERROR(1, "FBO incomplete after resize");
+        }
     }
 
     Unbind();
@@ -179,15 +143,11 @@ void FBO::BlitFBO(FBO &oFBO) const
         return;
     }
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, oID);
-    GL_CHECK_ERROR_M("FBO blit read bind");
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, ID);
-    GL_CHECK_ERROR_M("FBO blit draw bind");
-
-    glBlitFramebuffer(0, 0, oWidth, oHeight, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    GL_CHECK_ERROR_M("FBO blit color");
-    glBlitFramebuffer(0, 0, oWidth, oHeight, 0, 0, width, height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-    GL_CHECK_ERROR_M("FBO blit depth");
+    if (backendRenderTarget != nullptr && oFBO.backendRenderTarget != nullptr)
+    {
+        oFBO.backendRenderTarget->BlitTo(*backendRenderTarget, static_cast<std::uint32_t>(oWidth), static_cast<std::uint32_t>(oHeight),
+                                         static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
+    }
 
     this->Unbind();
 }
@@ -200,15 +160,11 @@ void FBO::BlitToScreen(int sWidth, int sHeight) const
         return;
     }
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, ID);
-    GL_CHECK_ERROR_M("FBO screen blit read bind");
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    GL_CHECK_ERROR_M("FBO screen blit draw bind");
-
-    glBlitFramebuffer(0, 0, width, height, 0, 0, sWidth, sHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    GL_CHECK_ERROR_M("FBO screen blit color");
-    glBlitFramebuffer(0, 0, width, height, 0, 0, sWidth, sHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-    GL_CHECK_ERROR_M("FBO screen blit depth");
+    if (backendRenderTarget != nullptr)
+    {
+        backendRenderTarget->BlitToDefault(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height),
+                                           static_cast<std::uint32_t>(sWidth), static_cast<std::uint32_t>(sHeight));
+    }
 
     this->Unbind();
 }
@@ -262,8 +218,7 @@ void FBO::RenderScreenQuad(int fWidth, int fHeight) const
 
     this->screenQuadGeometry->Unbind();
     this->screenQuadShader.Unbind();
-    glBindTexture(GL_TEXTURE_2D, 0);
-    GL_CHECK_ERROR_M("FBO screen tex unbind");
+    TextureColor.Unbind();
 
     OpenGLRenderState::SetDepthTest(true);
 }

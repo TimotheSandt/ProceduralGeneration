@@ -753,6 +753,60 @@ std::string_view OpenGLRenderTargetResource::GetDebugName() const noexcept { ret
 
 const RenderTargetDesc &OpenGLRenderTargetResource::GetDescription() const noexcept { return desc; }
 
+void OpenGLRenderTargetResource::Bind() const { glBindFramebuffer(GL_FRAMEBUFFER, framebufferID); }
+
+void OpenGLRenderTargetResource::Unbind() const { glBindFramebuffer(GL_FRAMEBUFFER, 0); }
+
+void OpenGLRenderTargetResource::Resize(std::uint32_t width, std::uint32_t height)
+{
+    desc.extent = {width, height};
+
+    if (depthBufferID != 0)
+    {
+        glBindRenderbuffer(GL_RENDERBUFFER, depthBufferID);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, static_cast<GLsizei>(width), static_cast<GLsizei>(height));
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    }
+}
+
+bool OpenGLRenderTargetResource::IsComplete() const
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, framebufferID);
+    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    return status == GL_FRAMEBUFFER_COMPLETE;
+}
+
+void OpenGLRenderTargetResource::BlitTo(const IRenderTargetResource &destination, std::uint32_t srcWidth, std::uint32_t srcHeight,
+                                        std::uint32_t dstWidth, std::uint32_t dstHeight) const
+{
+    const auto *openGLDestination = dynamic_cast<const OpenGLRenderTargetResource *>(&destination);
+    if (openGLDestination == nullptr)
+    {
+        return;
+    }
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebufferID);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, openGLDestination->framebufferID);
+    glBlitFramebuffer(0, 0, static_cast<GLint>(srcWidth), static_cast<GLint>(srcHeight), 0, 0, static_cast<GLint>(dstWidth),
+                      static_cast<GLint>(dstHeight), GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glBlitFramebuffer(0, 0, static_cast<GLint>(srcWidth), static_cast<GLint>(srcHeight), 0, 0, static_cast<GLint>(dstWidth),
+                      static_cast<GLint>(dstHeight), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void OpenGLRenderTargetResource::BlitToDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth,
+                                               std::uint32_t dstHeight) const
+{
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebufferID);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBlitFramebuffer(0, 0, static_cast<GLint>(srcWidth), static_cast<GLint>(srcHeight), 0, 0, static_cast<GLint>(dstWidth),
+                      static_cast<GLint>(dstHeight), GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glBlitFramebuffer(0, 0, static_cast<GLint>(srcWidth), static_cast<GLint>(srcHeight), 0, 0, static_cast<GLint>(dstWidth),
+                      static_cast<GLint>(dstHeight), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 GLuint OpenGLRenderTargetResource::GetFramebufferID() const noexcept { return framebufferID; }
 
 GLuint OpenGLRenderTargetResource::GetDepthBufferID() const noexcept { return depthBufferID; }

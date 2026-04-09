@@ -112,6 +112,13 @@ class OpenGLRenderTargetResource final : public IRenderTargetResource
     GraphicsAPI GetAPI() const noexcept override;
     std::string_view GetDebugName() const noexcept override;
     const RenderTargetDesc &GetDescription() const noexcept override;
+    void Bind() const override;
+    void Unbind() const override;
+    void Resize(std::uint32_t width, std::uint32_t height) override;
+    bool IsComplete() const override;
+    void BlitTo(const IRenderTargetResource &destination, std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth,
+                std::uint32_t dstHeight) const override;
+    void BlitToDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth, std::uint32_t dstHeight) const override;
     GLuint GetFramebufferID() const noexcept;
     GLuint GetDepthBufferID() const noexcept;
 

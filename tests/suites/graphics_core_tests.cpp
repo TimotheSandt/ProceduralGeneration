@@ -131,6 +131,12 @@ class FakeRenderTargetResource final : public IRenderTargetResource
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
     std::string_view GetDebugName() const noexcept override { return debugName; }
     const RenderTargetDesc &GetDescription() const noexcept override { return desc; }
+    void Bind() const override {}
+    void Unbind() const override {}
+    void Resize(std::uint32_t width, std::uint32_t height) override { desc.extent = {width, height}; }
+    bool IsComplete() const override { return true; }
+    void BlitTo(const IRenderTargetResource &, std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t) const override {}
+    void BlitToDefault(std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t) const override {}
 
   private:
     RenderTargetDesc desc;
