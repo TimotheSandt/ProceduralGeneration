@@ -106,32 +106,23 @@ void Game::render()
 {
     const auto averageTimeMs = [](const char *name) { return static_cast<double>(Profiler::GetAverageTime(name).count()) * 1e-6; };
 
-    // 1. Force Viewport for World Rendering (Reset state for new frame)
-    OpenGLRenderState::PrepareScreenPass(*window.GetWidthptr(), *window.GetHeightptr());
+    renderer3D.BeginFrame(*window.GetWidthptr(), *window.GetHeightptr());
 
-    // 2. Render World
-    Profiler::ProfileGPU("Clear", &Window::Clear, window);
-    this->camera.BindUBO();
-    Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), this->camera);
+    Profiler::ProfileGPU("Clear", &Renderer3D::Clear, &renderer3D, std::cref(window));
+    renderer3D.BindCamera(this->camera);
+    Profiler::ProfileGPU("RenderWorld", &Renderer3D::RenderWorld, &renderer3D, std::ref(*this->world), std::ref(this->camera));
 
-    // 3. Restore viewport before Text (just in case World changed it, though unlikely)
-    OpenGLRenderState::PrepareScreenPass(*window.GetWidthptr(), *window.GetHeightptr());
+    renderer2D.BeginFrame(*window.GetWidthptr(), *window.GetHeightptr());
+    renderer2D.RenderText(*textRenderer, "fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, glm::vec3(1.0f, 0.8f, 1.0f),
+                          UI::TextAnchor::TopLeft);
+    renderer2D.RenderText(*textRenderer, std::format("Render: {:.3f}ms", averageTimeMs("Render")), 10, 50, 0.3f,
+                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    renderer2D.RenderText(*textRenderer, std::format("Render World: {:.3f}ms", averageTimeMs("RenderWorld")), 10, 70, 0.3f,
+                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    renderer2D.RenderText(*textRenderer, std::format("Upscale: {:.3f}ms", averageTimeMs("Upscale")), 10, 90, 0.3f,
+                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    renderer2D.RenderText(*textRenderer, std::format("Swap Buffers: {:.3f}ms", averageTimeMs("SwapBuffers")), 10, 110, 0.3f,
+                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
 
-    textRenderer->updateScreenSize(*window.GetWidthptr(), *window.GetHeightptr());
-    textRenderer->renderText("fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, glm::vec3(1.0f, 0.8f, 1.0f),
-                             UI::TextAnchor::TopLeft);
-    textRenderer->renderText(std::format("Render: {:.3f}ms", averageTimeMs("Render")), 10, 50, 0.3f, glm::vec3(1.0f, 0.8f, 1.0f),
-                             UI::TextAnchor::TopLeft);
-    textRenderer->renderText(std::format("Render World: {:.3f}ms", averageTimeMs("RenderWorld")), 10, 70, 0.3f, glm::vec3(1.0f, 0.8f, 1.0f),
-                             UI::TextAnchor::TopLeft);
-    textRenderer->renderText(std::format("Upscale: {:.3f}ms", averageTimeMs("Upscale")), 10, 90, 0.3f, glm::vec3(1.0f, 0.8f, 1.0f),
-                             UI::TextAnchor::TopLeft);
-    textRenderer->renderText(std::format("Swap Buffers: {:.3f}ms", averageTimeMs("SwapBuffers")), 10, 110, 0.3f,
-                             glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-
-    // 4. Transform viewport for UI if needed (UI::Render usually expects window size)
-    OpenGLRenderState::PrepareScreenPass(*window.GetWidthptr(), *window.GetHeightptr());
-
-    // Render UI
-    UI::UIManager::Instance().Render(*window.GetWidthptr(), *window.GetHeightptr());
+    UI::UIManager::Instance().Render(renderer2D, *window.GetWidthptr(), *window.GetHeightptr());
 }

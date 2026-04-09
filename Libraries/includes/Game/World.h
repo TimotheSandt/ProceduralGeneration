@@ -5,6 +5,7 @@
 #include "glm/glm.hpp"
 #include "glm/gtx/hash.hpp"
 
+#include "Renderer3D.h"
 #include "TerrainGenerator.h"
 #include "Light.h"
 
@@ -19,7 +20,7 @@ class World
 
     void Update();
 
-    void Render(Camera &camera);
+    void Render(const Renderer3D &renderer3D, Camera &camera);
 
   private:
     TerrainGenerator terrain;

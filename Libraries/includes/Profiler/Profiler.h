@@ -101,8 +101,7 @@ class Profiler
     static auto ProfileGPU(const std::string &name, Func &&func, Args &&...args) -> std::invoke_result_t<Func, Args...>
     {
         const IGraphicsDevice *device = TryGetActiveGraphicsDevice();
-        std::unique_ptr<IGPUTimestampQueryResource> query =
-            device != nullptr ? device->CreateTimestampQuery({.debugName = name}) : nullptr;
+        std::unique_ptr<IGPUTimestampQueryResource> query = device != nullptr ? device->CreateTimestampQuery({.debugName = name}) : nullptr;
         if (query == nullptr)
         {
             return Profile(name, std::forward<Func>(func), std::forward<Args>(args)...);

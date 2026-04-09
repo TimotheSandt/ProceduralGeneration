@@ -5,6 +5,8 @@
 #include "World.h"
 #include "Camera.h"
 #include "Window.h"
+#include "Renderer2D.h"
+#include "Renderer3D.h"
 #include "UIManager.h"
 #include "TextRenderer.h"
 #include "InputManager.h"
@@ -27,6 +29,8 @@ class Game
 
   private:
     Window window;
+    Renderer2D renderer2D;
+    Renderer3D renderer3D;
     Camera camera;
     std::unique_ptr<World> world = nullptr;
     std::unique_ptr<UI::TextRenderer> textRenderer;

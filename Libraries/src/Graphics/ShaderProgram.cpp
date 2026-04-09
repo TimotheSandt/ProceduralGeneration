@@ -26,7 +26,8 @@ std::string get_file_contents(const char *filename)
     throw(errno);
 }
 
-ShaderProgram::ShaderProgram(const char *vertexFile, const char *fragmentFile) : vertexShaderPath(vertexFile), fragmentShaderPath(fragmentFile)
+ShaderProgram::ShaderProgram(const char *vertexFile, const char *fragmentFile)
+    : vertexShaderPath(vertexFile), fragmentShaderPath(fragmentFile)
 {
     this->SetShader(vertexFile, fragmentFile);
 }

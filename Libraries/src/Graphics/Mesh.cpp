@@ -10,8 +10,8 @@ Mesh::Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std:
     this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib));
 }
 
-Mesh::Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib, std::vector<float> instances,
-           std::vector<std::uint32_t> sizeAttribInstance)
+Mesh::Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib,
+           std::vector<float> instances, std::vector<std::uint32_t> sizeAttribInstance)
 {
     this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib), std::move(instances), std::move(sizeAttribInstance));
 }
@@ -51,8 +51,7 @@ Mesh &Mesh::operator=(const Mesh &mesh)
 Mesh::Mesh(Mesh &&mesh) noexcept
     : vertices(std::move(mesh.vertices)), indices(std::move(mesh.indices)), sizeAttrib(std::move(mesh.sizeAttrib)),
       textures(std::move(mesh.textures)), shaderProgram(std::move(mesh.shaderProgram)), position(std::move(mesh.position)),
-      scale(std::move(mesh.scale)),
-      rotation(std::move(mesh.rotation)), instancing(mesh.instancing), instances(std::move(mesh.instances)),
+      scale(std::move(mesh.scale)), rotation(std::move(mesh.rotation)), instancing(mesh.instancing), instances(std::move(mesh.instances)),
       sizeAttribInstance(std::move(mesh.sizeAttribInstance)), geometry(std::move(mesh.geometry)), modelBuffer(std::move(mesh.modelBuffer)),
       uniformCache(std::move(mesh.uniformCache))
 {
@@ -96,11 +95,11 @@ void Mesh::Initialize(std::vector<float> vertices, std::vector<std::uint32_t> in
 {
     this->vertices = std::move(vertices);
     this->indices = std::move(indices);
-    this->sizeAttrib = sizeAttrib;
-    this->instances = instances;
-    this->sizeAttribInstance = sizeAttribInstance;
+    this->sizeAttrib = std::move(sizeAttrib);
+    this->instances = std::move(instances);
+    this->sizeAttribInstance = std::move(sizeAttribInstance);
 
-    if (instances.empty())
+    if (this->instances.empty())
     {
         this->instancing = 1;
     }
@@ -108,11 +107,11 @@ void Mesh::Initialize(std::vector<float> vertices, std::vector<std::uint32_t> in
     {
         // Calculate instances based on total components per instance
         int componentsPerInstance = 0;
-        for (std::uint32_t size : sizeAttribInstance)
+        for (std::uint32_t size : this->sizeAttribInstance)
         {
             componentsPerInstance += static_cast<int>(size);
         }
-        this->instancing = (componentsPerInstance > 0) ? instances.size() / componentsPerInstance : 1;
+        this->instancing = (componentsPerInstance > 0) ? this->instances.size() / componentsPerInstance : 1;
     }
 
     if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr)

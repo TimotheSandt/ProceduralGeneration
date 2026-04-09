@@ -6,6 +6,7 @@
 #include <functional>
 
 #include "Mesh.h"
+#include "Renderer3D.h"
 
 struct Vertex
 {
@@ -33,7 +34,7 @@ class Grid
 
     void TransformPoints(const std::function<void(Vertex &, unsigned int)> &func);
 
-    void Render(Camera &camera);
+    void Render(const Renderer3D &renderer3D, Camera &camera);
 
     unsigned int GetResolutionX() { return this->resolution_x; }
     unsigned int GetResolutionY() { return this->resolution_z; }

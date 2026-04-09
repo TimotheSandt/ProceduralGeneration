@@ -2,6 +2,7 @@
 
 #include "Grid.h"
 #include "Noise.h"
+#include "Renderer3D.h"
 
 #include <functional>
 #include <cmath>
@@ -19,7 +20,7 @@ class TerrainGenerator
     void Destroy();
 
     void init(float sizeX, float sizeZ, int resX, int resZ);
-    void Render(Camera &camera);
+    void Render(const Renderer3D &renderer3D, Camera &camera);
 
     // Terrain Generation
     void GenerateFlatTerrain();

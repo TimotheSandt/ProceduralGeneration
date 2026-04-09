@@ -11,7 +11,7 @@ UIContainerBase::UIContainerBase(Bounds bounds) : UIComponentBase(bounds)
 {
     contentSize = localBounds.scale;
     // Use container-specific shader with texture and scroll support
-    this->mesh.SetShader(GET_RESOURCE_PATH("shader/UI/container.vert"), GET_RESOURCE_PATH("shader/UI/container.frag"));
+    this->sprite.SetShader(GET_RESOURCE_PATH("shader/UI/container.vert"), GET_RESOURCE_PATH("shader/UI/container.frag"));
     UpdateTheme();
 }
 
@@ -202,27 +202,13 @@ void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
     // offset already includes anchor offset from cachedBoundsInParent
     RenderChildren();
 
-    // Draw the render target texture
-    mesh.BindShader();
-    mesh.BindVAO();
-
-    mesh.InitUniform2f("offset", glm::value_ptr(offset));
-    mesh.InitUniform2f("scale", glm::value_ptr(localBounds.scale));
-    mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
-    mesh.InitUniform2f("scrollOffset", glm::value_ptr(scrollOffset));
-    mesh.InitUniform2f("contentSize", glm::value_ptr(contentSize));
-    mesh.InitUniform4f("color", glm::value_ptr(this->color.Get()));
-
-    renderTarget.GetTexture().Bind();
-    int texSamplerLoc = 0;
-    mesh.InitUniform1i("textureSampler", &texSamplerLoc);
-
-    mesh.Draw();
-
-    renderTarget.GetTexture().Unbind();
-
-    mesh.UnbindVAO();
-    mesh.UnbindShader();
+    sprite.Draw({.offset = offset,
+                 .scale = localBounds.scale,
+                 .containerSize = containerSize,
+                 .scrollOffset = scrollOffset,
+                 .contentSize = contentSize,
+                 .color = this->color.Get()},
+                &renderTarget.GetTexture());
 
     ClearDirty();
 }

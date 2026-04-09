@@ -585,8 +585,8 @@ void OpenGLGeometryResource::UpdateVertexData(const float *data, std::size_t flo
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
-    glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(offsetFloats * sizeof(float)), static_cast<GLsizeiptr>(floatCount * sizeof(float)),
-                    data);
+    glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(offsetFloats * sizeof(float)),
+                    static_cast<GLsizeiptr>(floatCount * sizeof(float)), data);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
@@ -598,8 +598,8 @@ void OpenGLGeometryResource::UpdateInstanceData(const float *data, std::size_t f
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, instanceBufferID);
-    glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(offsetFloats * sizeof(float)), static_cast<GLsizeiptr>(floatCount * sizeof(float)),
-                    data);
+    glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(offsetFloats * sizeof(float)),
+                    static_cast<GLsizeiptr>(floatCount * sizeof(float)), data);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
@@ -855,7 +855,8 @@ GLuint OpenGLRenderTargetResource::GetFramebufferID() const noexcept { return fr
 
 GLuint OpenGLRenderTargetResource::GetDepthBufferID() const noexcept { return depthBufferID; }
 
-OpenGLTimestampQueryResource::OpenGLTimestampQueryResource(GPUTimestampQueryCreateInfo createInfo) : debugName(std::move(createInfo.debugName))
+OpenGLTimestampQueryResource::OpenGLTimestampQueryResource(GPUTimestampQueryCreateInfo createInfo)
+    : debugName(std::move(createInfo.debugName))
 {
     if (HasActiveOpenGLContext())
     {
@@ -916,4 +917,3 @@ std::chrono::nanoseconds OpenGLTimestampQueryResource::GetElapsedTime() const
     glGetQueryObjectui64v(queryIDs[1], GL_QUERY_RESULT, &endTime);
     return std::chrono::nanoseconds(endTime - startTime);
 }
-

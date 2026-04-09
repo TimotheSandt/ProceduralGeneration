@@ -1,4 +1,5 @@
 #include "UIManager.h"
+#include "Renderer2D.h"
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "UIHBox.h"
 #include "UIVBox.h"
@@ -73,7 +74,7 @@ void UIManager::Update(float dt, int w, int h)
     rootContainer->Update();
 }
 
-void UIManager::Render(int w, int h)
+void UIManager::Render(Renderer2D &renderer2D, int w, int h)
 {
     if (!active)
     {
@@ -85,6 +86,8 @@ void UIManager::Render(int w, int h)
     {
         Init(w, h);
     }
+
+    renderer2D.BeginFrame(w, h);
 
     // Save GL state
     const OpenGLRenderState::FramebufferState previousState = OpenGLRenderState::CaptureFramebufferState();

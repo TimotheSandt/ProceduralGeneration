@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "InputManager.h"
-#include "Mesh.h"
+#include "Sprite.h"
 
 #include "Bounds.h"
 #include "UITheme.h"
@@ -26,7 +26,7 @@ class UIComponentBase : public std::enable_shared_from_this<UIComponentBase>
 {
   protected:
     Bounds localBounds;
-    Mesh mesh;
+    Sprite sprite;
 
     std::weak_ptr<UIContainerBase> parent;
 
@@ -129,9 +129,6 @@ class UIComponentBase : public std::enable_shared_from_this<UIComponentBase>
     void NotifyParentFullDirty();
 
     virtual void UpdateTheme();
-
-  private:
-    std::vector<float> GetVertices() const;
 };
 
 // Helper template for chaining

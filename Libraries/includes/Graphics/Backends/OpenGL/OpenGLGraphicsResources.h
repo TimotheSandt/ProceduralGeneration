@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glad/glad.h>
+#include <array>
 
 #include "Graphics/Core/GraphicsResources.h"
 

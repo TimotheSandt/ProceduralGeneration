@@ -1,9 +1,9 @@
 #include "UI/TextRenderer.h"
 
-#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Logger.h"
 
+#include <array>
 #include <algorithm>
 #include <glm/gtc/matrix_transform.hpp>
 #include <utility>
@@ -144,8 +144,8 @@ Character TextRenderer::loadCharacter(FT_Face face, char c)
 
     Character character;
     character.texture =
-        Texture(face->glyph->bitmap.buffer, static_cast<int>(face->glyph->bitmap.width), static_cast<int>(face->glyph->bitmap.rows), "text", 0,
-                TextureFormat::R8, TexturePixelType::UnsignedByte, TextureFilterMode::Linear);
+        Texture(face->glyph->bitmap.buffer, static_cast<int>(face->glyph->bitmap.width), static_cast<int>(face->glyph->bitmap.rows), "text",
+                0, TextureFormat::R8, TexturePixelType::UnsignedByte, TextureFilterMode::Linear);
     character.size = {face->glyph->bitmap.width, face->glyph->bitmap.rows};
     character.bearing = {face->glyph->bitmap_left, face->glyph->bitmap_top};
     character.advance = static_cast<unsigned int>(face->glyph->advance.x);
@@ -228,9 +228,6 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
     shaderProgram.SetUniformInts(shaderProgram.GetUniformLocation("text"), &textureSlot, 1);
 
     glyphGeometry->Bind();
-    OpenGLRenderState::SetBlend(true);
-    OpenGLRenderState::SetAlphaBlend();
-
     float cursorX = startX;
     float cursorY = startY;
 
@@ -260,8 +257,8 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
         const float h = static_cast<float>(ch.size.y) * scale;
 
         const std::array<float, GlyphQuadFloatCount> vertices = {
-            xpos,     ypos + h, 0.0f, 0.0f, xpos,     ypos,     0.0f, 1.0f, xpos + w, ypos,     1.0f, 1.0f,
-            xpos,     ypos + h, 0.0f, 0.0f, xpos + w, ypos,     1.0f, 1.0f, xpos + w, ypos + h, 1.0f, 0.0f,
+            xpos, ypos + h, 0.0f, 0.0f, xpos,     ypos, 0.0f, 1.0f, xpos + w, ypos,     1.0f, 1.0f,
+            xpos, ypos + h, 0.0f, 0.0f, xpos + w, ypos, 1.0f, 1.0f, xpos + w, ypos + h, 1.0f, 0.0f,
         };
 
         glyphGeometry->UpdateVertexData(vertices.data(), vertices.size(), 0);
@@ -273,7 +270,6 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
 
     glyphGeometry->Unbind();
     shaderProgram.Unbind();
-    OpenGLRenderState::SetBlend(false);
 }
 
 float TextRenderer::measureTextWidth(const std::string &text, float scale)
@@ -604,24 +600,9 @@ void TextRenderer::renderTextAdvanced(const std::string &text, float x, float y,
 {
     TextLayout layout = calculateLayout(text, scale, params);
 
-    const bool useScissor =
-        (params.overflow == TextOverflow::Hidden || params.overflow == TextOverflow::Scroll) && params.maxWidth > 0.0f && params.maxHeight > 0.0f;
-
-    if (useScissor)
-    {
-        OpenGLRenderState::SetScissorTest(true);
-        const int scissorY = static_cast<int>(static_cast<float>(screenHeight) - (y + params.maxHeight));
-        OpenGLRenderState::SetScissor(static_cast<int>(x), scissorY, static_cast<int>(params.maxWidth), static_cast<int>(params.maxHeight));
-    }
-
     for (const auto &line : layout.lines)
     {
         renderText(line.text, x + line.x - layout.scrollOffset.x, y + line.y - layout.scrollOffset.y, scale, color, TextAnchor::TopLeft);
-    }
-
-    if (useScissor)
-    {
-        OpenGLRenderState::SetScissorTest(false);
     }
 }
 
@@ -647,7 +628,8 @@ glm::vec2 TextRenderer::calculateMinSize(const std::string &text, float scale, b
     return measureText(text, scale);
 }
 
-glm::vec2 TextRenderer::getCenteredPosition(const std::string &text, float scale, float rectX, float rectY, float rectWidth, float rectHeight)
+glm::vec2 TextRenderer::getCenteredPosition(const std::string &text, float scale, float rectX, float rectY, float rectWidth,
+                                            float rectHeight)
 {
     const glm::vec2 textSize = measureText(text, scale);
     return {rectX + (rectWidth - textSize.x) / 2.0f, rectY + (rectHeight - textSize.y) / 2.0f};

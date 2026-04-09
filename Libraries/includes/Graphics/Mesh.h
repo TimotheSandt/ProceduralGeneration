@@ -20,8 +20,8 @@ class Mesh
   public:
     Mesh() = default;
     Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib);
-    Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib, std::vector<float> instances,
-         std::vector<std::uint32_t> sizeAttribInstance);
+    Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib,
+         std::vector<float> instances, std::vector<std::uint32_t> sizeAttribInstance);
 
     Mesh(const Mesh &);
     Mesh &operator=(const Mesh &);

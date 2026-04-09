@@ -2,6 +2,7 @@
 
 #include "Graphics/Core/GraphicsTypes.h"
 
+#include <array>
 #include <cstddef>
 #include <chrono>
 #include <memory>
@@ -30,7 +31,7 @@ struct BufferCreateInfo
     std::vector<std::byte> initialData;
 };
 
-enum class BufferMapAccess
+enum class BufferMapAccess : std::uint8_t
 {
     ReadOnly,
     WriteOnly,
