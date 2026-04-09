@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "Graphics/Backend/GraphicsAPI.h"
 #include "Graphics/Core/GraphicsBackend.h"
+#include "Graphics/Core/GraphicsRuntime.h"
 #include "Logger.h"
 
 #include <cstdlib>
@@ -13,6 +14,7 @@ int main(int argc, char **argv)
 {
     GraphicsAPI selectedApi = GraphicsAPI::OpenGL;
     std::unique_ptr<IGraphicsBackend> graphicsBackend;
+    std::unique_ptr<IGraphicsDevice> graphicsDevice;
 
     try
     {
@@ -81,6 +83,8 @@ int main(int argc, char **argv)
         }
         else
         {
+            graphicsDevice = graphicsBackend->CreateDevice({});
+            BindGraphicsRuntime({.api = selectedApi, .backend = graphicsBackend.get(), .device = graphicsDevice.get()});
             LOG_INFO("Starting game with graphics API: ", GraphicsAPIToString(selectedApi));
 
             Game game;
@@ -93,6 +97,8 @@ int main(int argc, char **argv)
 
         if (graphicsBackend)
         {
+            ClearGraphicsRuntime();
+            graphicsDevice.reset();
             graphicsBackend->Shutdown();
         }
         FLUSH_LOG_TO_FILE;
@@ -102,6 +108,8 @@ int main(int argc, char **argv)
     {
         if (graphicsBackend)
         {
+            ClearGraphicsRuntime();
+            graphicsDevice.reset();
             graphicsBackend->Shutdown();
         }
         LOG_ERROR(1, "Unhandled exception: ", e.what());
@@ -112,6 +120,8 @@ int main(int argc, char **argv)
     {
         if (graphicsBackend)
         {
+            ClearGraphicsRuntime();
+            graphicsDevice.reset();
             graphicsBackend->Shutdown();
         }
         LOG_ERROR(1, "Unhandled non-standard exception");

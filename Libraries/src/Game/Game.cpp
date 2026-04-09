@@ -4,9 +4,15 @@
 
 #include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
+#include "Graphics/Core/GraphicsRuntime.h"
 
 Game::Game()
 {
+    if (!IsGraphicsAPIActive(GraphicsAPI::OpenGL))
+    {
+        throw std::runtime_error("Game currently requires the OpenGL runtime backend");
+    }
+
     LOG_TRACE("Initializing window");
     if (window.Init() != 0)
     {

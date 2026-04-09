@@ -3,6 +3,7 @@
 #include "Graphics/Backends/Metal/MetalGraphicsBackend.h"
 #include "Graphics/Backends/OpenGL/OpenGLGraphicsBackend.h"
 #include "Graphics/Backends/Vulkan/VulkanGraphicsBackend.h"
+#include "Graphics/Core/GraphicsRuntime.h"
 #include "Graphics/Core/GraphicsTypes.h"
 
 namespace tests
@@ -141,6 +142,25 @@ TestSuite CreateGraphicsCoreSuite()
 
                 Assert(vulkanBackend.CreateDevice({}) == nullptr, "Vulkan should not create a device before implementation");
                 Assert(metalBackend.CreateDevice({}) == nullptr, "Metal should not create a device before implementation");
+            });
+
+    AddTest(suite, "graphics runtime bindings expose the active backend and device",
+            []
+            {
+                const OpenGLGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
+
+                BindGraphicsRuntime({.api = GraphicsAPI::OpenGL, .backend = &backend, .device = device.get()});
+
+                AssertEqual(GetActiveGraphicsAPI(), GraphicsAPI::OpenGL, "Runtime should expose the bound graphics API");
+                Assert(TryGetActiveGraphicsBackend() == &backend, "Runtime should expose the bound backend");
+                Assert(TryGetActiveGraphicsDevice() == device.get(), "Runtime should expose the bound device");
+                Assert(IsGraphicsAPIActive(GraphicsAPI::OpenGL), "Runtime should report the bound API as active");
+                Assert(!IsGraphicsAPIActive(GraphicsAPI::Vulkan), "Runtime should reject non-bound APIs");
+
+                ClearGraphicsRuntime();
+                Assert(TryGetActiveGraphicsBackend() == nullptr, "Runtime should clear backend bindings");
+                Assert(TryGetActiveGraphicsDevice() == nullptr, "Runtime should clear device bindings");
             });
 
     return suite;

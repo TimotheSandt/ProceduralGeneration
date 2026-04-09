@@ -6,6 +6,7 @@
 
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
+#include "Graphics/Core/GraphicsRuntime.h"
 #include "Logger.h"
 #include "utilities.h"
 
@@ -69,6 +70,12 @@ void Window::Swap(Window &other) noexcept
 
 int Window::Init()
 {
+    if (!IsGraphicsAPIActive(GraphicsAPI::OpenGL))
+    {
+        LOG_ERROR(1, "Window currently supports only the OpenGL runtime backend");
+        return -1;
+    }
+
     // Create a window of size 800x800 and called "OpenGL"
     this->window = glfwCreateWindow(this->parameters.width, this->parameters.height, this->parameters.title.c_str(), nullptr, nullptr);
     if (!this->window)
