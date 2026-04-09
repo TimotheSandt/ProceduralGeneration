@@ -11,6 +11,8 @@ class OpenGLGraphicsDevice final : public IGraphicsDevice
     std::string_view GetDeviceName() const noexcept override;
     const GraphicsCapabilities &GetCapabilities() const noexcept override;
     bool SupportsShaderStages(ShaderStageMask stages) const noexcept override;
+    std::unique_ptr<IBufferResource> CreateBuffer(const BufferCreateInfo &createInfo) const override;
+    std::unique_ptr<IGeometryResource> CreateGeometry(const GeometryCreateInfo &createInfo) const override;
     std::unique_ptr<IShaderProgramResource> CreateShaderProgram(const ShaderProgramCreateInfo &createInfo) const override;
     std::unique_ptr<ITextureResource> CreateTexture(const TextureCreateInfo &createInfo) const override;
     std::unique_ptr<IRenderTargetResource> CreateRenderTarget(const RenderTargetCreateInfo &createInfo) const override;

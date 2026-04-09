@@ -8,10 +8,8 @@
 
 #include "Logger.h"
 
-#include "VAO.h"
-#include "VBO.h"
-#include "EBO.h"
-#include "UBO.h"
+#include "Buffer.h"
+#include "Graphics/Core/GraphicsResources.h"
 #include "Texture.h"
 #include "Shader.h"
 #include "Camera.h"
@@ -64,8 +62,20 @@ class Mesh
     // Bind/Unbind for custom rendering (UI)
     void BindShader() { shader.Bind(); }
     void UnbindShader() { shader.Unbind(); }
-    void BindVAO() { bVAO.Bind(); }
-    void UnbindVAO() { bVAO.Unbind(); }
+    void BindVAO()
+    {
+        if (geometry != nullptr)
+        {
+            geometry->Bind();
+        }
+    }
+    void UnbindVAO()
+    {
+        if (geometry != nullptr)
+        {
+            geometry->Unbind();
+        }
+    }
     bool IsShaderCompiled() const { return shader.IsCompiled(); }
 
     glm::vec3 &GetPosition() { return this->position; }
@@ -87,8 +97,8 @@ class Mesh
     std::vector<GLfloat> instances;
     std::vector<GLuint> SizeAttribInstance;
 
-    VAO bVAO;
-    UBO bUBO;
+    std::unique_ptr<IGeometryResource> geometry;
+    Buffer modelBuffer;
 
   private:
     struct UniformCache

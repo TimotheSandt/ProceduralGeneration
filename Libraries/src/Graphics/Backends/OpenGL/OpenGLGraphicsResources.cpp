@@ -4,6 +4,8 @@
 
 #include "Logger.h"
 
+#include <bit>
+
 namespace
 {
 
@@ -81,6 +83,48 @@ GLenum ToOpenGLDataType(TextureFormat format)
         default:
             return GL_UNSIGNED_BYTE;
     }
+}
+
+GLenum ToOpenGLBufferTarget(BufferUsage usage)
+{
+    switch (usage)
+    {
+        case BufferUsage::Index:
+            return GL_ELEMENT_ARRAY_BUFFER;
+        case BufferUsage::Uniform:
+            return GL_UNIFORM_BUFFER;
+        case BufferUsage::Storage:
+            return GL_SHADER_STORAGE_BUFFER;
+        case BufferUsage::Staging:
+        case BufferUsage::Vertex:
+        default:
+            return GL_ARRAY_BUFFER;
+    }
+}
+
+GLenum ToOpenGLBufferUsageHint(const BufferDesc &desc)
+{
+    if (desc.cpuWritable)
+    {
+        return GL_DYNAMIC_DRAW;
+    }
+
+    switch (desc.usage)
+    {
+        case BufferUsage::Staging:
+            return GL_STREAM_DRAW;
+        case BufferUsage::Vertex:
+        case BufferUsage::Index:
+        case BufferUsage::Uniform:
+        case BufferUsage::Storage:
+        default:
+            return GL_STATIC_DRAW;
+    }
+}
+
+void *AttributeOffset(std::size_t bytes)
+{
+    return std::bit_cast<void *>(static_cast<std::uintptr_t>(bytes));
 }
 
 bool CheckShaderCompile(GLuint shaderID, ShaderStage stage)
@@ -181,6 +225,153 @@ std::string_view OpenGLShaderProgramResource::GetDebugName() const noexcept { re
 const ShaderProgramDesc &OpenGLShaderProgramResource::GetDescription() const noexcept { return desc; }
 
 GLuint OpenGLShaderProgramResource::GetProgramID() const noexcept { return programID; }
+
+OpenGLBufferResource::OpenGLBufferResource(BufferCreateInfo createInfo)
+    : target(ToOpenGLBufferTarget(createInfo.desc.usage)), desc(createInfo.desc), debugName(std::move(createInfo.debugName))
+{
+    if (!HasActiveOpenGLContext())
+    {
+        return;
+    }
+
+    glGenBuffers(1, &bufferID);
+    glBindBuffer(target, bufferID);
+    glBufferData(target, static_cast<GLsizeiptr>(desc.sizeInBytes),
+                 createInfo.initialData.empty() ? nullptr : createInfo.initialData.data(), ToOpenGLBufferUsageHint(desc));
+    glBindBuffer(target, 0);
+}
+
+OpenGLBufferResource::~OpenGLBufferResource()
+{
+    if (bufferID != 0 && HasActiveOpenGLContext())
+    {
+        glDeleteBuffers(1, &bufferID);
+    }
+}
+
+GraphicsAPI OpenGLBufferResource::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
+
+std::string_view OpenGLBufferResource::GetDebugName() const noexcept { return debugName; }
+
+const BufferDesc &OpenGLBufferResource::GetDescription() const noexcept { return desc; }
+
+GLuint OpenGLBufferResource::GetBufferID() const noexcept { return bufferID; }
+
+OpenGLGeometryResource::OpenGLGeometryResource(GeometryCreateInfo createInfo)
+    : layout(std::move(createInfo.layout)), indexCount(createInfo.indexData.size()), debugName(std::move(createInfo.debugName))
+{
+    if (!HasActiveOpenGLContext() || createInfo.vertexData.empty() || createInfo.indexData.empty())
+    {
+        return;
+    }
+
+    glGenVertexArrays(1, &vertexArrayID);
+    glBindVertexArray(vertexArrayID);
+
+    glGenBuffers(1, &vertexBufferID);
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBufferID);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(createInfo.vertexData.size() * sizeof(float)), createInfo.vertexData.data(), GL_STATIC_DRAW);
+
+    glGenBuffers(1, &indexBufferID);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(createInfo.indexData.size() * sizeof(std::uint32_t)),
+                 createInfo.indexData.data(), GL_STATIC_DRAW);
+
+    std::uint32_t vertexStride = 0;
+    for (const std::uint32_t size : layout.vertexAttributes)
+    {
+        vertexStride += size;
+    }
+
+    std::uint32_t offset = 0;
+    for (GLuint attributeIndex = 0; attributeIndex < layout.vertexAttributes.size(); ++attributeIndex)
+    {
+        glVertexAttribPointer(attributeIndex, static_cast<GLint>(layout.vertexAttributes[attributeIndex]), GL_FLOAT, GL_FALSE,
+                              static_cast<GLsizei>(vertexStride * sizeof(float)), AttributeOffset(offset * sizeof(float)));
+        glEnableVertexAttribArray(attributeIndex);
+        offset += layout.vertexAttributes[attributeIndex];
+    }
+
+    if (!createInfo.instanceData.empty() && !layout.instanceAttributes.empty())
+    {
+        glGenBuffers(1, &instanceBufferID);
+        glBindBuffer(GL_ARRAY_BUFFER, instanceBufferID);
+        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(createInfo.instanceData.size() * sizeof(float)), createInfo.instanceData.data(),
+                     GL_STATIC_DRAW);
+
+        std::uint32_t instanceStride = 0;
+        for (const std::uint32_t size : layout.instanceAttributes)
+        {
+            instanceStride += size;
+        }
+
+        offset = 0;
+        const GLuint firstInstanceAttribute = static_cast<GLuint>(layout.vertexAttributes.size());
+        for (GLuint attributeIndex = 0; attributeIndex < layout.instanceAttributes.size(); ++attributeIndex)
+        {
+            const GLuint layoutIndex = firstInstanceAttribute + attributeIndex;
+            glVertexAttribPointer(layoutIndex, static_cast<GLint>(layout.instanceAttributes[attributeIndex]), GL_FLOAT, GL_FALSE,
+                                  static_cast<GLsizei>(instanceStride * sizeof(float)), AttributeOffset(offset * sizeof(float)));
+            glEnableVertexAttribArray(layoutIndex);
+            glVertexAttribDivisor(layoutIndex, 1);
+            offset += layout.instanceAttributes[attributeIndex];
+        }
+
+        instanceCount = instanceStride == 0 ? 0 : createInfo.instanceData.size() / instanceStride;
+    }
+    else
+    {
+        instanceCount = 1;
+    }
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+OpenGLGeometryResource::~OpenGLGeometryResource()
+{
+    if (!HasActiveOpenGLContext())
+    {
+        return;
+    }
+
+    if (instanceBufferID != 0)
+    {
+        glDeleteBuffers(1, &instanceBufferID);
+    }
+    if (indexBufferID != 0)
+    {
+        glDeleteBuffers(1, &indexBufferID);
+    }
+    if (vertexBufferID != 0)
+    {
+        glDeleteBuffers(1, &vertexBufferID);
+    }
+    if (vertexArrayID != 0)
+    {
+        glDeleteVertexArrays(1, &vertexArrayID);
+    }
+}
+
+GraphicsAPI OpenGLGeometryResource::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
+
+std::string_view OpenGLGeometryResource::GetDebugName() const noexcept { return debugName; }
+
+const GeometryLayout &OpenGLGeometryResource::GetLayout() const noexcept { return layout; }
+
+std::size_t OpenGLGeometryResource::GetIndexCount() const noexcept { return indexCount; }
+
+std::size_t OpenGLGeometryResource::GetInstanceCount() const noexcept { return instanceCount; }
+
+void OpenGLGeometryResource::Bind() const
+{
+    if (vertexArrayID != 0)
+    {
+        glBindVertexArray(vertexArrayID);
+    }
+}
+
+void OpenGLGeometryResource::Unbind() const { glBindVertexArray(0); }
 
 OpenGLTextureResource::OpenGLTextureResource(TextureCreateInfo createInfo)
     : desc(createInfo.desc), debugName(std::move(createInfo.debugName))

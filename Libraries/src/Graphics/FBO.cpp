@@ -1,9 +1,7 @@
 #include "FBO.h"
 
-#include <bit>
-
-#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
+#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Logger.h"
 #include "utilities.h"
@@ -32,7 +30,7 @@ void FBO::Swap(FBO &other) noexcept
     std::swap(this->depthBufferID, other.depthBufferID);
     std::swap(this->backendRenderTarget, other.backendRenderTarget);
     std::swap(this->screenQuadShader, other.screenQuadShader);
-    std::swap(this->screenQuadVAO, other.screenQuadVAO);
+    std::swap(this->screenQuadGeometry, other.screenQuadGeometry);
     std::swap(this->TextureColor, other.TextureColor);
 }
 
@@ -57,8 +55,8 @@ void FBO::Destroy()
     ID = 0;
     depthBufferID = 0;
 
+    this->screenQuadGeometry.reset();
     this->screenQuadShader.Destroy();
-    this->screenQuadVAO.Destroy();
     TextureColor.Destroy();
 }
 
@@ -217,36 +215,38 @@ void FBO::BlitToScreen(int sWidth, int sHeight) const
 
 void FBO::Setup()
 {
-    std::vector<GLfloat> vertices = {-1.0f, 1.0f, 0.0f, 1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f};
-    std::vector<GLuint> indices = {0, 1, 3, 1, 2, 3};
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    {
+        GeometryCreateInfo createInfo{};
+        createInfo.layout.vertexAttributes = {2, 2};
+        createInfo.vertexData = {
+            -1.0f, 1.0f, 0.0f, 1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+        };
+        createInfo.indexData = {0, 1, 3, 1, 2, 3};
+        createInfo.debugName = "fbo_screen_quad";
+        this->screenQuadGeometry = device->CreateGeometry(createInfo);
+    }
+
+    if (this->screenQuadGeometry == nullptr)
+    {
+        LOG_ERROR(1, "Failed to create backend screen quad geometry for FBO rendering");
+        return;
+    }
 
     this->screenQuadShader.SetShader(GET_RESOURCE_PATH("shader/upscaling/upscale.vert"),
                                      GET_RESOURCE_PATH("shader/upscaling/upscale.frag"));
-
-    this->screenQuadVAO.Initialize();
-    GL_CHECK_ERROR_M("FBO screen VAO init");
-    this->screenQuadVAO.Initialize();
-    GL_CHECK_ERROR_M("FBO screen VAO gen");
-    this->screenQuadVAO.Bind();
-    GL_CHECK_ERROR_M("FBO screen VAO bind");
-
-    VBO bVBO(vertices);
-    EBO bEBO(indices);
-
-    this->screenQuadVAO.LinkAttrib(bVBO, 0, 2, GL_FLOAT, 4 * sizeof(GLfloat), nullptr);
-    this->screenQuadVAO.LinkAttrib(bVBO, 1, 2, GL_FLOAT, 4 * sizeof(GLfloat), std::bit_cast<void *>(std::uintptr_t(2 * sizeof(GLfloat))));
-
-    GL_CHECK_ERROR_M("FBO screen VAO link");
-
-    this->screenQuadVAO.Unbind();
-    bVBO.Unbind();
-    bEBO.Unbind();
 }
 
 void FBO::RenderScreenQuad() const { RenderScreenQuad(width, height); }
 
 void FBO::RenderScreenQuad(int fWidth, int fHeight) const
 {
+    if (this->screenQuadGeometry == nullptr)
+    {
+        LOG_ERROR(1, "Screen quad geometry was not initialized");
+        return;
+    }
+
     OpenGLRenderState::SetViewport(0, 0, fWidth, fHeight);
 
     OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -256,12 +256,12 @@ void FBO::RenderScreenQuad(int fWidth, int fHeight) const
     TextureColor.Bind();
 
     this->screenQuadShader.Bind();
-    this->screenQuadVAO.Bind();
+    this->screenQuadGeometry->Bind();
 
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
     GL_CHECK_ERROR_M("FBO screen draw");
 
-    this->screenQuadVAO.Unbind();
+    this->screenQuadGeometry->Unbind();
     this->screenQuadShader.Unbind();
     glBindTexture(GL_TEXTURE_2D, 0);
     GL_CHECK_ERROR_M("FBO screen tex unbind");

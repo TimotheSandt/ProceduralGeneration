@@ -9,8 +9,8 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/vector_angle.hpp>
 
+#include "Buffer.h"
 #include "Shader.h"
-#include "UBO.h"
 
 class Camera
 {
@@ -75,7 +75,7 @@ class Camera
 
     bool firstClick = true;
 
-    UBO bUBO;
+    Buffer cameraBuffer;
     bool isWireframe = false;
 
   private:

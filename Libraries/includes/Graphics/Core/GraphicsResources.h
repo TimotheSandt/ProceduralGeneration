@@ -22,6 +22,19 @@ struct ShaderProgramCreateInfo
     std::vector<ShaderStageSource> stageSources;
 };
 
+struct BufferCreateInfo
+{
+    BufferDesc desc{};
+    std::string debugName;
+    std::vector<std::byte> initialData;
+};
+
+struct GeometryLayout
+{
+    std::vector<std::uint32_t> vertexAttributes;
+    std::vector<std::uint32_t> instanceAttributes;
+};
+
 struct TextureCreateInfo
 {
     TextureDesc desc{};
@@ -33,6 +46,15 @@ struct TextureCreateInfo
 struct RenderTargetCreateInfo
 {
     RenderTargetDesc desc{};
+    std::string debugName;
+};
+
+struct GeometryCreateInfo
+{
+    GeometryLayout layout{};
+    std::vector<float> vertexData;
+    std::vector<std::uint32_t> indexData;
+    std::vector<float> instanceData;
     std::string debugName;
 };
 
@@ -59,12 +81,32 @@ class IShaderProgramResource : public IGraphicsResource
     virtual const ShaderProgramDesc &GetDescription() const noexcept = 0;
 };
 
+class IBufferResource : public IGraphicsResource
+{
+  public:
+    ~IBufferResource() override = default;
+
+    virtual const BufferDesc &GetDescription() const noexcept = 0;
+};
+
 class ITextureResource : public IGraphicsResource
 {
   public:
     ~ITextureResource() override = default;
 
     virtual const TextureDesc &GetDescription() const noexcept = 0;
+};
+
+class IGeometryResource : public IGraphicsResource
+{
+  public:
+    ~IGeometryResource() override = default;
+
+    virtual const GeometryLayout &GetLayout() const noexcept = 0;
+    virtual std::size_t GetIndexCount() const noexcept = 0;
+    virtual std::size_t GetInstanceCount() const noexcept = 0;
+    virtual void Bind() const = 0;
+    virtual void Unbind() const = 0;
 };
 
 class IRenderTargetResource : public IGraphicsResource

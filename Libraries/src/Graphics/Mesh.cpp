@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <utility>
 
+#include "Graphics/Core/GraphicsRuntime.h"
+
 namespace
 {
 void *VertexAttribOffset(std::size_t bytes) { return std::bit_cast<void *>(static_cast<std::uintptr_t>(bytes)); }
@@ -56,7 +58,7 @@ Mesh::Mesh(Mesh &&mesh) noexcept
     : vertices(std::move(mesh.vertices)), indices(std::move(mesh.indices)), sizeAttrib(std::move(mesh.sizeAttrib)),
       textures(std::move(mesh.textures)), shader(std::move(mesh.shader)), position(std::move(mesh.position)), scale(std::move(mesh.scale)),
       rotation(std::move(mesh.rotation)), instancing(mesh.instancing), instances(std::move(mesh.instances)),
-      SizeAttribInstance(std::move(mesh.SizeAttribInstance)), bVAO(std::move(mesh.bVAO)), bUBO(std::move(mesh.bUBO)),
+      SizeAttribInstance(std::move(mesh.SizeAttribInstance)), geometry(std::move(mesh.geometry)), modelBuffer(std::move(mesh.modelBuffer)),
       uniformCache(std::move(mesh.uniformCache))
 {
     mesh.instancing = 1;
@@ -81,8 +83,8 @@ void Mesh::Swap(Mesh &mesh) noexcept
     std::swap(this->SizeAttribInstance, mesh.SizeAttribInstance);
     std::swap(this->textures, mesh.textures);
     std::swap(this->instancing, mesh.instancing);
-    std::swap(this->bVAO, mesh.bVAO);
-    std::swap(this->bUBO, mesh.bUBO);
+    std::swap(this->geometry, mesh.geometry);
+    std::swap(this->modelBuffer, mesh.modelBuffer);
     std::swap(this->shader, mesh.shader);
     std::swap(this->position, mesh.position);
     std::swap(this->scale, mesh.scale);
@@ -118,77 +120,25 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
         this->instancing = (componentsPerInstance > 0) ? instances.size() / componentsPerInstance : 1;
     }
 
-    this->bVAO.Initialize();
-    if (glGetError() != GL_NO_ERROR)
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr)
     {
-        LOG_ERROR(1, "VAO initialization failed");
-    }
-    this->bVAO.Bind();
-
-    VBO bVBO(this->vertices);
-    EBO bEBO(this->indices);
-
-    int numComponents = 0;
-    for (GLuint i = 0; i < sizeAttrib.size(); i++)
-    {
-        numComponents += static_cast<int>(sizeAttrib[i]);
+        GeometryCreateInfo createInfo;
+        createInfo.layout.vertexAttributes = this->sizeAttrib;
+        createInfo.layout.instanceAttributes = this->SizeAttribInstance;
+        createInfo.vertexData.assign(this->vertices.begin(), this->vertices.end());
+        createInfo.indexData.assign(this->indices.begin(), this->indices.end());
+        createInfo.instanceData.assign(this->instances.begin(), this->instances.end());
+        createInfo.debugName = "mesh_geometry";
+        this->geometry = device->CreateGeometry(createInfo);
     }
 
-    int offset = 0;
-    GLuint i = 0;
-    for (; i < sizeAttrib.size(); i++)
-    {
-        this->bVAO.LinkAttrib(bVBO, i, sizeAttrib[i], GL_FLOAT, static_cast<GLsizeiptr>(numComponents * sizeof(GLfloat)),
-                              VertexAttribOffset(static_cast<std::size_t>(offset) * sizeof(GLfloat)));
-        offset += static_cast<int>(sizeAttrib[i]);
-    }
-
-    if (!instances.empty())
-    {
-        VBO instanceVBO(instances);
-        instanceVBO.Bind();
-
-        numComponents = 0;
-        for (GLuint i = 0; i < SizeAttribInstance.size(); i++)
-        {
-            numComponents += static_cast<int>(SizeAttribInstance[i]);
-        }
-
-        offset = 0;
-        i = sizeAttrib.size();
-        for (; i < sizeAttrib.size() + SizeAttribInstance.size(); i++)
-        {
-            this->bVAO.LinkAttrib(instanceVBO, i, SizeAttribInstance[i - sizeAttrib.size()], GL_FLOAT,
-                                  static_cast<GLsizeiptr>(numComponents * sizeof(GLfloat)),
-                                  VertexAttribOffset(static_cast<std::size_t>(offset) * sizeof(GLfloat)));
-            offset += static_cast<int>(SizeAttribInstance[i - sizeAttrib.size()]);
-        }
-
-        i = sizeAttrib.size();
-        for (; i < sizeAttrib.size() + SizeAttribInstance.size(); i++)
-        {
-            glVertexAttribDivisor(i, 1);
-        }
-
-        this->bVAO.Unbind();
-        bVBO.Unbind();
-        instanceVBO.Unbind();
-        bEBO.Unbind();
-    }
-    else
-    {
-        this->bVAO.Unbind();
-        bVBO.Unbind();
-        bEBO.Unbind();
-    }
-
-    this->bUBO.initialize(sizeof(glm::mat4), MESH_MODEL_BINDING_POINT);
+    this->modelBuffer.Initialize(BufferUsage::Uniform, sizeof(glm::mat4), MESH_MODEL_BINDING_POINT, true);
 }
 
 void Mesh::Destroy()
 {
-    this->bVAO.Destroy();
-    this->bUBO.Destroy();
+    this->geometry.reset();
+    this->modelBuffer.Destroy();
     this->shader.Destroy();
     for (GLuint i = 0; i < this->textures.size(); i++)
     {
@@ -214,14 +164,17 @@ void Mesh::Render(Camera &camera)
         return;
     }
     this->shader.Bind();
-    this->bVAO.Bind();
+    if (this->geometry != nullptr)
+    {
+        this->geometry->Bind();
+    }
     for (GLuint i = 0; i < this->textures.size(); i++)
     {
         this->textures[i].texUnit(this->shader);
 
         this->textures[i].Bind();
     }
-    this->bUBO.BindToBindingPoint();
+    this->modelBuffer.BindToBindingPoint();
     this->Draw();
     if (camera.IsWireframe())
     {
@@ -232,9 +185,12 @@ void Mesh::Render(Camera &camera)
         this->InitUniform1i("wireframe", &wireframe);
     }
 
-    this->bVAO.Unbind();
+    if (this->geometry != nullptr)
+    {
+        this->geometry->Unbind();
+    }
     this->shader.Unbind();
-    this->bUBO.Unbind();
+    this->modelBuffer.Unbind();
     for (GLuint i = 0; i < this->textures.size(); i++)
     {
         this->textures[i].Unbind();
@@ -282,5 +238,5 @@ void Mesh::UpdateUBO()
     model = glm::rotate(model, glm::radians(this->rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
     model = glm::scale(model, this->scale);
 
-    this->bUBO.uploadData(glm::value_ptr(model), sizeof(glm::mat4));
+    this->modelBuffer.UploadData(glm::value_ptr(model), sizeof(glm::mat4));
 }

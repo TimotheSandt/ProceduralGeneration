@@ -3,12 +3,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#include "VAO.h"
-#include "VBO.h"
-#include "EBO.h"
+#include "Graphics/Core/GraphicsResources.h"
 #include "Shader.h"
 #include "Texture.h"
-#include "Graphics/Core/GraphicsResources.h"
 
 class FBO
 {
@@ -52,6 +49,6 @@ class FBO
     Texture TextureColor;
     int width = 0, height = 0;
 
-    VAO screenQuadVAO;
+    std::unique_ptr<IGeometryResource> screenQuadGeometry;
     Shader screenQuadShader;
 };

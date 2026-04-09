@@ -21,6 +21,49 @@ class OpenGLShaderProgramResource final : public IShaderProgramResource
     std::string debugName;
 };
 
+class OpenGLBufferResource final : public IBufferResource
+{
+  public:
+    explicit OpenGLBufferResource(BufferCreateInfo createInfo);
+    ~OpenGLBufferResource() override;
+
+    GraphicsAPI GetAPI() const noexcept override;
+    std::string_view GetDebugName() const noexcept override;
+    const BufferDesc &GetDescription() const noexcept override;
+    GLuint GetBufferID() const noexcept;
+
+  private:
+    GLuint bufferID = 0;
+    GLenum target = GL_ARRAY_BUFFER;
+    BufferDesc desc;
+    std::string debugName;
+};
+
+class OpenGLGeometryResource final : public IGeometryResource
+{
+  public:
+    explicit OpenGLGeometryResource(GeometryCreateInfo createInfo);
+    ~OpenGLGeometryResource() override;
+
+    GraphicsAPI GetAPI() const noexcept override;
+    std::string_view GetDebugName() const noexcept override;
+    const GeometryLayout &GetLayout() const noexcept override;
+    std::size_t GetIndexCount() const noexcept override;
+    std::size_t GetInstanceCount() const noexcept override;
+    void Bind() const override;
+    void Unbind() const override;
+
+  private:
+    GLuint vertexArrayID = 0;
+    GLuint vertexBufferID = 0;
+    GLuint indexBufferID = 0;
+    GLuint instanceBufferID = 0;
+    GeometryLayout layout;
+    std::size_t indexCount = 0;
+    std::size_t instanceCount = 0;
+    std::string debugName;
+};
+
 class OpenGLTextureResource final : public ITextureResource
 {
   public:

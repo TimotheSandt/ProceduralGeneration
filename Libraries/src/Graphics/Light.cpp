@@ -63,28 +63,29 @@ void LightManager::Swap(LightManager &other)
     std::swap(this->LightChanged, other.LightChanged);
     std::swap(this->LightsChanged, other.LightsChanged);
     std::swap(this->AmbientLightChanged, other.AmbientLightChanged);
-    std::swap(this->LightSSBO, other.LightSSBO);
+    std::swap(this->lightBuffer, other.lightBuffer);
 }
 
 void LightManager::initSSBO()
 {
-    this->LightSSBO.Destroy();
-    this->LightSSBO.Initialize(sizeof(Header) + sizeof(lght::LightBlock) * this->lLight.size(), LIGHT_BINDING_POINT);
+    this->lightBuffer.Destroy();
+    this->lightBuffer.Initialize(BufferUsage::Storage, sizeof(Header) + sizeof(lght::LightBlock) * this->lLight.size(), LIGHT_BINDING_POINT,
+                                 true);
 }
 
-void LightManager::Destroy() { this->LightSSBO.Destroy(); }
+void LightManager::Destroy() { this->lightBuffer.Destroy(); }
 
 void LightManager::updateSSBO()
 {
     if (this->LightsChanged)
     {
-        this->LightSSBO.ResizePreserveData(sizeof(Header) + sizeof(lght::LightBlock) * this->lLight.size());
+        this->lightBuffer.ResizePreserveData(sizeof(Header) + sizeof(lght::LightBlock) * this->lLight.size());
     }
 
     if (this->LightsChanged || this->AmbientLightChanged)
     {
         Header hHeader = {.size = this->size, .ambientLight = this->ambientLight};
-        this->LightSSBO.UploadData(&hHeader, sizeof(Header), 0);
+        this->lightBuffer.UploadData(&hHeader, sizeof(Header), 0);
         this->LightsChanged = false;
         this->AmbientLightChanged = false;
     }
@@ -96,12 +97,12 @@ void LightManager::updateSSBO()
             continue;
         }
         lght::LightBlock l = this->lLight[i];
-        this->LightSSBO.UploadData(&l, sizeof(lght::LightBlock), i * sizeof(lght::LightBlock) + sizeof(Header));
+        this->lightBuffer.UploadData(&l, sizeof(lght::LightBlock), i * sizeof(lght::LightBlock) + sizeof(Header));
         this->LightChanged[i] = false;
     }
 }
 
-void LightManager::BindSSBO() const { this->LightSSBO.BindToPoint(); }
+void LightManager::BindSSBO() const { this->lightBuffer.BindToBindingPoint(); }
 
 void LightManager::AddLight(lght::Light Light)
 {

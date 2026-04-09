@@ -5,8 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "SSBO.h"
-#include "UBO.h"
+#include "Buffer.h"
 
 namespace lght
 {
@@ -264,7 +263,7 @@ class LightManager
     lght::Light ambientLight;
     int size = 0;
 
-    SSBO LightSSBO;
+    Buffer lightBuffer;
 
   private:
     std::vector<bool> LightChanged;

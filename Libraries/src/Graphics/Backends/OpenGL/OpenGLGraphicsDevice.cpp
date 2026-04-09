@@ -24,6 +24,16 @@ bool OpenGLGraphicsDevice::SupportsShaderStages(ShaderStageMask stages) const no
     return (stages & OpenGLSupportedStages) == stages;
 }
 
+std::unique_ptr<IBufferResource> OpenGLGraphicsDevice::CreateBuffer(const BufferCreateInfo &createInfo) const
+{
+    return std::make_unique<OpenGLBufferResource>(createInfo);
+}
+
+std::unique_ptr<IGeometryResource> OpenGLGraphicsDevice::CreateGeometry(const GeometryCreateInfo &createInfo) const
+{
+    return std::make_unique<OpenGLGeometryResource>(createInfo);
+}
+
 std::unique_ptr<IShaderProgramResource> OpenGLGraphicsDevice::CreateShaderProgram(const ShaderProgramCreateInfo &createInfo) const
 {
     if (!SupportsShaderStages(createInfo.desc.stages))

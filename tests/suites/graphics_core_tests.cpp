@@ -48,6 +48,45 @@ class FakeShaderProgramResource final : public IShaderProgramResource
     std::string debugName;
 };
 
+class FakeBufferResource final : public IBufferResource
+{
+  public:
+    explicit FakeBufferResource(BufferCreateInfo createInfo) : desc(createInfo.desc), debugName(std::move(createInfo.debugName)) {}
+
+    GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
+    std::string_view GetDebugName() const noexcept override { return debugName; }
+    const BufferDesc &GetDescription() const noexcept override { return desc; }
+
+  private:
+    BufferDesc desc;
+    std::string debugName;
+};
+
+class FakeGeometryResource final : public IGeometryResource
+{
+  public:
+    explicit FakeGeometryResource(GeometryCreateInfo createInfo)
+        : layout(std::move(createInfo.layout)), indexCount(createInfo.indexData.size()),
+          instanceCount(createInfo.instanceData.empty() ? static_cast<std::size_t>(1) : createInfo.instanceData.size()),
+          debugName(std::move(createInfo.debugName))
+    {
+    }
+
+    GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
+    std::string_view GetDebugName() const noexcept override { return debugName; }
+    const GeometryLayout &GetLayout() const noexcept override { return layout; }
+    std::size_t GetIndexCount() const noexcept override { return indexCount; }
+    std::size_t GetInstanceCount() const noexcept override { return instanceCount; }
+    void Bind() const override {}
+    void Unbind() const override {}
+
+  private:
+    GeometryLayout layout;
+    std::size_t indexCount;
+    std::size_t instanceCount;
+    std::string debugName;
+};
+
 class FakeTextureResource final : public ITextureResource
 {
   public:
@@ -86,6 +125,16 @@ class FakeRayTracingDevice final : public IGraphicsDevice
     const GraphicsCapabilities &GetCapabilities() const noexcept override { return capabilities; }
 
     bool SupportsShaderStages(ShaderStageMask stages) const noexcept override { return (stages & supportedStages) == stages; }
+
+    std::unique_ptr<IBufferResource> CreateBuffer(const BufferCreateInfo &createInfo) const override
+    {
+        return std::make_unique<FakeBufferResource>(createInfo);
+    }
+
+    std::unique_ptr<IGeometryResource> CreateGeometry(const GeometryCreateInfo &createInfo) const override
+    {
+        return std::make_unique<FakeGeometryResource>(createInfo);
+    }
 
     std::unique_ptr<IShaderProgramResource> CreateShaderProgram(const ShaderProgramCreateInfo &createInfo) const override
     {
@@ -185,6 +234,20 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(!bufferDesc.cpuWritable, "Buffers should default to GPU-only ownership");
             });
 
+    AddTest(suite, "opengl device creates buffer resource descriptors",
+            []
+            {
+                const OpenGLGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
+                const std::unique_ptr<IBufferResource> buffer = device->CreateBuffer(
+                    {.desc = {.usage = BufferUsage::Uniform, .sizeInBytes = 128, .cpuWritable = true}, .debugName = "camera_buffer"});
+
+                Assert(buffer != nullptr, "OpenGL should create buffer resources");
+                AssertEqual(buffer->GetAPI(), GraphicsAPI::OpenGL, "Buffer resources should keep the OpenGL API tag");
+                AssertEqual(buffer->GetDescription().usage, BufferUsage::Uniform, "Buffer usage should be preserved");
+                AssertEqual(buffer->GetDescription().sizeInBytes, static_cast<std::size_t>(128), "Buffer size should be preserved");
+            });
+
     AddTest(suite, "acceleration structure description defaults to conservative tracing",
             []
             {
@@ -262,6 +325,25 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(renderTarget->GetDescription().hasDepthBuffer, "Render targets should preserve depth-buffer intent");
             });
 
+    AddTest(suite, "opengl device creates geometry resource descriptors",
+            []
+            {
+                const OpenGLGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
+                const std::unique_ptr<IGeometryResource> geometry =
+                    device->CreateGeometry({.layout = {.vertexAttributes = {3, 3, 2}},
+                                            .vertexData = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                                                           0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f},
+                                            .indexData = {0, 1, 2},
+                                            .debugName = "triangle_geometry"});
+
+                Assert(geometry != nullptr, "OpenGL should create geometry resources");
+                AssertEqual(geometry->GetAPI(), GraphicsAPI::OpenGL, "Geometry resources should keep the OpenGL API tag");
+                AssertEqual(geometry->GetLayout().vertexAttributes.size(), static_cast<std::size_t>(3),
+                            "Geometry layouts should preserve their vertex attribute count");
+                AssertEqual(geometry->GetIndexCount(), static_cast<std::size_t>(3), "Geometry index counts should be preserved");
+            });
+
     AddTest(suite, "opengl device rejects unsupported shader stage sets",
             []
             {
@@ -306,18 +388,30 @@ TestSuite CreateGraphicsCoreSuite()
             const std::unique_ptr<IRenderTargetResource> renderTarget =
                 device.CreateRenderTarget({.desc = {.extent = {1920, 1080}, .colorFormat = TextureFormat::RGBA8, .hasDepthBuffer = true},
                                            .debugName = "lighting_rt"});
+            const std::unique_ptr<IBufferResource> storageBuffer = device.CreateBuffer(
+                {.desc = {.usage = BufferUsage::Storage, .sizeInBytes = 4096, .cpuWritable = true}, .debugName = "light_storage"});
+            const std::unique_ptr<IGeometryResource> geometry = device.CreateGeometry(
+                {.layout = {.vertexAttributes = {3, 3}},
+                 .vertexData = {0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f},
+                 .indexData = {0, 1, 2},
+                 .debugName = "rt_geometry"});
 
             Assert(device.GetCapabilities().supportsAccelerationStructures,
                    "The fake device should simulate acceleration-structure support");
             Assert(device.GetCapabilities().supportsRayTracingPipelines, "The fake device should simulate ray tracing pipeline support");
             Assert(rayTracingProgram != nullptr, "The fake device should create a ray tracing shader program");
             Assert(renderTarget != nullptr, "The fake device should create a render target resource");
+            Assert(storageBuffer != nullptr, "The fake device should create buffer resources");
+            Assert(geometry != nullptr, "The fake device should create geometry resources");
             Assert(accelerationStructure != nullptr, "The fake device should create an acceleration structure resource");
             AssertEqual(rayTracingProgram->GetDescription().stages,
                         ShaderStageBit(ShaderStage::RayGeneration) | ShaderStageBit(ShaderStage::Miss) |
                             ShaderStageBit(ShaderStage::ClosestHit),
                         "The fake shader resource should preserve ray tracing shader stages");
             AssertEqual(renderTarget->GetDescription().extent.height, 1080u, "The fake render target should preserve its output extent");
+            AssertEqual(storageBuffer->GetDescription().usage, BufferUsage::Storage,
+                        "The fake buffer resource should preserve storage-buffer usage");
+            AssertEqual(geometry->GetIndexCount(), static_cast<std::size_t>(3), "The fake geometry resource should preserve index counts");
             AssertEqual(accelerationStructure->GetDescription().type, AccelerationStructureType::TopLevel,
                         "The fake acceleration structure should preserve the TLAS type");
             AssertEqual(accelerationStructure->GetDescription().instanceCount, 64u,
