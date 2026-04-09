@@ -1,5 +1,6 @@
 #include "Mesh.h"
 
+#include <cstdint>
 #include <utility>
 
 Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib)
@@ -98,7 +99,7 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
         int componentsPerInstance = 0;
         for (GLuint size : SizeAttribInstance)
         {
-            componentsPerInstance += size;
+            componentsPerInstance += static_cast<int>(size);
         }
         this->instancing = (componentsPerInstance > 0) ? instances.size() / componentsPerInstance : 1;
     }
@@ -116,15 +117,16 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
     int numComponents = 0;
     for (GLuint i = 0; i < sizeAttrib.size(); i++)
     {
-        numComponents += sizeAttrib[i];
+        numComponents += static_cast<int>(sizeAttrib[i]);
     }
 
     int offset = 0;
     GLuint i = 0;
     for (; i < sizeAttrib.size(); i++)
     {
-        this->bVAO.LinkAttrib(bVBO, i, sizeAttrib[i], GL_FLOAT, numComponents * sizeof(GLfloat), (void *)(offset * sizeof(GLfloat)));
-        offset += sizeAttrib[i];
+        this->bVAO.LinkAttrib(bVBO, i, sizeAttrib[i], GL_FLOAT, static_cast<GLsizeiptr>(numComponents * sizeof(GLfloat)),
+                              reinterpret_cast<void *>(static_cast<std::uintptr_t>(offset * sizeof(GLfloat))));
+        offset += static_cast<int>(sizeAttrib[i]);
     }
 
     if (!instances.empty())
@@ -135,16 +137,17 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
         numComponents = 0;
         for (GLuint i = 0; i < SizeAttribInstance.size(); i++)
         {
-            numComponents += SizeAttribInstance[i];
+            numComponents += static_cast<int>(SizeAttribInstance[i]);
         }
 
         offset = 0;
         i = sizeAttrib.size();
         for (; i < sizeAttrib.size() + SizeAttribInstance.size(); i++)
         {
-            this->bVAO.LinkAttrib(instanceVBO, i, SizeAttribInstance[i - sizeAttrib.size()], GL_FLOAT, numComponents * sizeof(GLfloat),
-                                  (void *)(offset * sizeof(GLfloat)));
-            offset += SizeAttribInstance[i - sizeAttrib.size()];
+            this->bVAO.LinkAttrib(instanceVBO, i, SizeAttribInstance[i - sizeAttrib.size()], GL_FLOAT,
+                                  static_cast<GLsizeiptr>(numComponents * sizeof(GLfloat)),
+                                  reinterpret_cast<void *>(static_cast<std::uintptr_t>(offset * sizeof(GLfloat))));
+            offset += static_cast<int>(SizeAttribInstance[i - sizeAttrib.size()]);
         }
 
         i = sizeAttrib.size();
@@ -240,11 +243,12 @@ void Mesh::Draw(bool wireframe) const
 
     if (this->instancing > 1)
     {
-        glDrawElementsInstanced(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, nullptr, this->instancing);
+        glDrawElementsInstanced(GL_TRIANGLES, static_cast<GLsizei>(this->indices.size()), GL_UNSIGNED_INT, nullptr,
+                                static_cast<GLsizei>(this->instancing));
     }
     else
     {
-        glDrawElements(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, nullptr);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(this->indices.size()), GL_UNSIGNED_INT, nullptr);
     }
 
     // Reset to fill mode after drawing

@@ -372,7 +372,7 @@ void Logger::AddLog(LogMessage &&log)
         {
             // Mise à jour partielle du compteur de répétition
             std::string timestamp = FormatTimestamp(duplicateLog.time);
-            int prefixLen = timestamp.size() + 4; // timestamp + "] ["
+            size_t prefixLen = timestamp.size() + 4; // timestamp + "] ["
             std::cout << "\033[" << prefixLen << "C";
             std::cout << duplicateLog.repetition;
         }

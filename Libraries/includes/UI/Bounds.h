@@ -18,9 +18,9 @@ struct Value
     ValueType type = ValueType::PIXEL;
 };
 
-constexpr Value operator""_pct(unsigned long long value) { return Value(value / 100.0, ValueType::PERCENT); }
+constexpr Value operator""_pct(unsigned long long value) { return Value(static_cast<double>(value) / 100.0, ValueType::PERCENT); }
 
-constexpr Value operator""_px(unsigned long long value) { return Value(value, ValueType::PIXEL); }
+constexpr Value operator""_px(unsigned long long value) { return Value(static_cast<double>(value), ValueType::PIXEL); }
 
 enum class Anchor
 {

@@ -26,7 +26,7 @@ void UIVBoxBase::RecalculateChildBounds()
     // Add spacing to total height calculation
     if (visibleChildrenCount > 1)
     {
-        totalChildrenHeight += (visibleChildrenCount - 1) * spacing;
+        totalChildrenHeight += static_cast<float>(visibleChildrenCount - 1) * spacing;
     }
 
     // Content size
@@ -66,7 +66,7 @@ void UIVBoxBase::RecalculateChildBounds()
 
         if (visibleChildrenCount > 1)
         {
-            totalReduceHeight += (visibleChildrenCount - 1) * actualSpacing;
+            totalReduceHeight += static_cast<float>(visibleChildrenCount - 1) * actualSpacing;
         }
 
         totalChildrenWidth = totalReduceWidth;
@@ -97,18 +97,18 @@ void UIVBoxBase::RecalculateChildBounds()
                 yOffset = actualPadding.y;
                 if (visibleChildrenCount > 1)
                 {
-                    currentSpacing = actualSpacing + freeSpace / (visibleChildrenCount - 1);
+                    currentSpacing = actualSpacing + freeSpace / static_cast<float>(visibleChildrenCount - 1);
                 }
                 break;
             case JustifyContent::SPACE_AROUND:
                 if (visibleChildrenCount > 0)
                 {
-                    float extra = freeSpace / visibleChildrenCount;
+                    float extra = freeSpace / static_cast<float>(visibleChildrenCount);
                     currentSpacing = actualSpacing + extra;
                     yOffset = actualPadding.y + extra / 2.0f;
                     if (visibleChildrenCount > 1)
                     {
-                        currentSpacing = freeSpace / (visibleChildrenCount - 1);
+                        currentSpacing = freeSpace / static_cast<float>(visibleChildrenCount - 1);
                     }
                 }
                 break;
@@ -118,12 +118,12 @@ void UIVBoxBase::RecalculateChildBounds()
 
         if (justifyContent == JustifyContent::SPACE_BETWEEN && visibleChildrenCount > 1)
         {
-            currentSpacing = actualSpacing + freeSpace / (visibleChildrenCount - 1);
+            currentSpacing = actualSpacing + freeSpace / static_cast<float>(visibleChildrenCount - 1);
             yOffset = actualPadding.y;
         }
         else if (justifyContent == JustifyContent::SPACE_AROUND && visibleChildrenCount > 0)
         {
-            float extra = freeSpace / visibleChildrenCount;
+            float extra = freeSpace / static_cast<float>(visibleChildrenCount);
             currentSpacing = actualSpacing + extra;
             yOffset = actualPadding.y + extra / 2.0f;
         }
@@ -161,7 +161,7 @@ glm::vec2 UIVBoxBase::GetAvailableSize() const
 
     // Total space consumed by layout: 2*padding + (n-1)*spacing
     float totalPadding = 2.0f * p;
-    float totalSpacing = (nbChildren > 1) ? s * (nbChildren - 1) : 0.0f;
+    float totalSpacing = (nbChildren > 1) ? s * static_cast<float>(nbChildren - 1) : 0.0f;
 
     // Use the definitive scale - if zero, fall back to computing from raw bounds
     glm::vec2 size = localBounds.scale;

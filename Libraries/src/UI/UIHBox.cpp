@@ -25,7 +25,7 @@ void UIHBoxBase::RecalculateChildBounds()
     // Add spacing to total width calculation
     if (visibleChildrenCount > 1)
     {
-        totalChildrenWidth += (visibleChildrenCount - 1) * spacing;
+        totalChildrenWidth += static_cast<float>(visibleChildrenCount - 1) * spacing;
     }
 
     // Content size
@@ -65,7 +65,7 @@ void UIHBoxBase::RecalculateChildBounds()
 
         if (visibleChildrenCount > 1)
         {
-            totalReduceWidth += (visibleChildrenCount - 1) * actualSpacing;
+            totalReduceWidth += static_cast<float>(visibleChildrenCount - 1) * actualSpacing;
         }
 
         totalChildrenWidth = totalReduceWidth;
@@ -82,8 +82,9 @@ void UIHBoxBase::RecalculateChildBounds()
     // Only apply justification if we have extra space and not START alignment
     if (justifyContent != JustifyContent::START && containerWidth > totalChildrenWidth + 2 * actualPadding.x)
     {
-        float freeSpace = containerWidth - 2 * actualPadding.x -
-                          (totalChildrenWidth - (visibleChildrenCount > 1 ? (visibleChildrenCount - 1) * actualSpacing : 0));
+        float freeSpace =
+            containerWidth - 2 * actualPadding.x -
+            (totalChildrenWidth - (visibleChildrenCount > 1 ? static_cast<float>(visibleChildrenCount - 1) * actualSpacing : 0.0f));
         freeSpace = containerWidth - (2 * actualPadding.x + totalChildrenWidth);
 
         switch (justifyContent)
@@ -93,25 +94,25 @@ void UIHBoxBase::RecalculateChildBounds()
                 break;
             case JustifyContent::END:
                 xOffset = containerWidth - actualPadding.x - totalChildrenWidth +
-                          (visibleChildrenCount > 1 ? (visibleChildrenCount - 1) * actualSpacing : 0);
+                          (visibleChildrenCount > 1 ? static_cast<float>(visibleChildrenCount - 1) * actualSpacing : 0.0f);
                 xOffset = containerWidth - actualPadding.x - totalChildrenWidth;
                 break;
             case JustifyContent::SPACE_BETWEEN:
                 xOffset = actualPadding.x;
                 if (visibleChildrenCount > 1)
                 {
-                    currentSpacing = actualSpacing + freeSpace / (visibleChildrenCount - 1);
+                    currentSpacing = actualSpacing + freeSpace / static_cast<float>(visibleChildrenCount - 1);
                 }
                 break;
             case JustifyContent::SPACE_AROUND:
                 if (visibleChildrenCount > 0)
                 {
-                    float extraPerItem = freeSpace / visibleChildrenCount;
-                    currentSpacing = actualSpacing + freeSpace / visibleChildrenCount;
-                    xOffset = actualPadding.x + (freeSpace / visibleChildrenCount) / 2.0f;
+                    float extraPerItem = freeSpace / static_cast<float>(visibleChildrenCount);
+                    currentSpacing = actualSpacing + freeSpace / static_cast<float>(visibleChildrenCount);
+                    xOffset = actualPadding.x + (freeSpace / static_cast<float>(visibleChildrenCount)) / 2.0f;
                     if (visibleChildrenCount > 1)
                     {
-                        currentSpacing = freeSpace / (visibleChildrenCount - 1);
+                        currentSpacing = freeSpace / static_cast<float>(visibleChildrenCount - 1);
                     }
                 }
                 break;
@@ -121,12 +122,12 @@ void UIHBoxBase::RecalculateChildBounds()
 
         if (justifyContent == JustifyContent::SPACE_BETWEEN && visibleChildrenCount > 1)
         {
-            currentSpacing = actualSpacing + freeSpace / (visibleChildrenCount - 1);
+            currentSpacing = actualSpacing + freeSpace / static_cast<float>(visibleChildrenCount - 1);
             xOffset = actualPadding.x;
         }
         else if (justifyContent == JustifyContent::SPACE_AROUND && visibleChildrenCount > 0)
         {
-            float extra = freeSpace / visibleChildrenCount;
+            float extra = freeSpace / static_cast<float>(visibleChildrenCount);
             currentSpacing = actualSpacing + extra; // This expands actualSpacing
             xOffset = actualPadding.x + extra / 2.0f;
         }
@@ -164,7 +165,7 @@ glm::vec2 UIHBoxBase::GetAvailableSize() const
 
     // Total space consumed by layout: 2*padding + (n-1)*actualSpacing
     float totalPadding = 2.0f * p;
-    float totalSpacing = (nbChildren > 1) ? s * (nbChildren - 1) : 0.0f;
+    float totalSpacing = (nbChildren > 1) ? s * static_cast<float>(nbChildren - 1) : 0.0f;
 
     // Use the definitive scale - if zero, fall back to computing from raw bounds
     glm::vec2 size = localBounds.scale;

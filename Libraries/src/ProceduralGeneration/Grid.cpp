@@ -55,8 +55,8 @@ void Grid::init(float size_x, float size_z, int resolution_x, int resolution_z)
 
 void Grid::GeneratePoints()
 {
-    float step_x = this->size_x / (this->resolution_x - 1);
-    float step_z = this->size_z / (this->resolution_z - 1);
+    float step_x = this->size_x / static_cast<float>(this->resolution_x - 1);
+    float step_z = this->size_z / static_cast<float>(this->resolution_z - 1);
 
     this->points.clear();
     this->points.resize(this->resolution_x * this->resolution_z);
@@ -66,7 +66,7 @@ void Grid::GeneratePoints()
     {
         for (unsigned int j = 0; j < this->resolution_z; j++)
         {
-            glm::vec3 pos = glm::vec3(i * step_x, 0.0f, j * step_z) - center;
+            glm::vec3 pos = glm::vec3(static_cast<float>(i) * step_x, 0.0f, static_cast<float>(j) * step_z) - center;
             this->points[i * this->resolution_z + j].Position = pos;
         }
     }

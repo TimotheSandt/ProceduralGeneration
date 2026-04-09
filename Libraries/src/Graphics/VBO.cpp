@@ -25,7 +25,7 @@ void VBO::Initialize(std::vector<GLfloat> &vertices)
     GL_CHECK_ERROR();
     glBindBuffer(GL_ARRAY_BUFFER, this->ID);
     GL_CHECK_ERROR();
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(vertices.size() * sizeof(GLfloat)), vertices.data(), GL_STATIC_DRAW);
     GL_CHECK_ERROR();
 }
 

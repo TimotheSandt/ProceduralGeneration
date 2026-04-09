@@ -45,7 +45,7 @@ bool SSBO::Initialize(size_t size, GLuint bindingPoint, Usage usage)
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
     GL_CHECK_ERROR();
-    glBufferData(GL_SHADER_STORAGE_BUFFER, this->size, nullptr, static_cast<GLenum>(usage));
+    glBufferData(GL_SHADER_STORAGE_BUFFER, static_cast<GLsizeiptr>(this->size), nullptr, static_cast<GLenum>(usage));
     GL_CHECK_ERROR();
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, this->bindingPoint, this->ID);
     GL_CHECK_ERROR();
@@ -98,7 +98,7 @@ void SSBO::UploadData(const void *data, size_t size, size_t offset)
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
     GL_CHECK_ERROR();
-    glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, data);
+    glBufferSubData(GL_SHADER_STORAGE_BUFFER, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
     GL_CHECK_ERROR();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     GL_CHECK_ERROR_M("Error uploading data to SSBO");
@@ -111,7 +111,7 @@ void SSBO::DownloadData(void *data, size_t size, size_t offset) const
         return;
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
-    glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, data);
+    glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 #ifdef DEBUG
     GLenum error = glGetError();
@@ -126,7 +126,7 @@ void SSBO::Resize(size_t newSize)
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
     GL_CHECK_ERROR();
-    glBufferData(GL_SHADER_STORAGE_BUFFER, this->size, nullptr, static_cast<GLenum>(this->usage));
+    glBufferData(GL_SHADER_STORAGE_BUFFER, static_cast<GLsizeiptr>(this->size), nullptr, static_cast<GLenum>(this->usage));
     GL_CHECK_ERROR();
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     GL_CHECK_ERROR();
@@ -141,12 +141,12 @@ void SSBO::ResizePreserveData(size_t newSize)
 
     glGenBuffers(1, &this->ID);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, this->size, nullptr, static_cast<GLenum>(this->usage));
+    glBufferData(GL_SHADER_STORAGE_BUFFER, static_cast<GLsizeiptr>(this->size), nullptr, static_cast<GLenum>(this->usage));
 
     size_t copySize = std::min(oldSize, this->size);
     glBindBuffer(GL_COPY_READ_BUFFER, oldID);
     glBindBuffer(GL_COPY_WRITE_BUFFER, this->ID);
-    glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, copySize);
+    glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, static_cast<GLsizeiptr>(copySize));
     glBindBuffer(GL_COPY_READ_BUFFER, 0);
     glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
     glDeleteBuffers(1, &oldID);
@@ -163,7 +163,7 @@ void *SSBO::MapBuffer(GLenum access) const
     }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, this->ID);
     GL_CHECK_ERROR();
-    void *ptr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, this->size, access);
+    void *ptr = glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, static_cast<GLsizeiptr>(this->size), access);
     GL_CHECK_ERROR();
     return ptr;
 }

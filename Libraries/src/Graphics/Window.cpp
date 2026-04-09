@@ -221,8 +221,8 @@ bool Window::NewFrame()
     }
 
     auto now = this->fpsCounter.getTime();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - this->lastTime).count();
-    if (elapsed >= this->parameters.trueEveryms)
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - this->lastTime).count();
+    if (elapsed >= static_cast<decltype(elapsed)>(this->parameters.trueEveryms))
     {
         this->fpsCounter.updateStat();
         this->lastTime = now;

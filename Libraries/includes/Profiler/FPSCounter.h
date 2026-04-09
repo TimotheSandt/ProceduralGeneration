@@ -36,10 +36,10 @@ class FPSCounter
 
     // Elapsed time accessors
     std::chrono::nanoseconds getElapseTime() const noexcept { return this->elapseTime; }
-    double getElapseTimeInSeconds() const noexcept { return this->elapseTime.count() * 1e-9; }
-    double getElapseTimeInMilliseconds() const noexcept { return this->elapseTime.count() * 1e-6; }
-    double getElapseTimeInMicroseconds() const noexcept { return this->elapseTime.count() * 1e-3; }
-    double getElapseTimeInNanoseconds() const noexcept { return this->elapseTime.count(); }
+    double getElapseTimeInSeconds() const noexcept { return static_cast<double>(this->elapseTime.count()) * 1e-9; }
+    double getElapseTimeInMilliseconds() const noexcept { return static_cast<double>(this->elapseTime.count()) * 1e-6; }
+    double getElapseTimeInMicroseconds() const noexcept { return static_cast<double>(this->elapseTime.count()) * 1e-3; }
+    double getElapseTimeInNanoseconds() const noexcept { return static_cast<double>(this->elapseTime.count()); }
 
     // Statistics
     void updateStat();

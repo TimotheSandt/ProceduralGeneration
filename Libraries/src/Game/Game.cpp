@@ -96,6 +96,8 @@ void Game::update()
 
 void Game::render()
 {
+    const auto averageTimeMs = [](const char *name) { return static_cast<double>(Profiler::GetAverageTime(name).count()) * 1e-6; };
+
     // 1. Force Viewport for World Rendering (Reset state for new frame)
     glViewport(0, 0, *window.GetWidthptr(), *window.GetHeightptr());
 
@@ -110,13 +112,13 @@ void Game::render()
     textRenderer->updateScreenSize(*window.GetWidthptr(), *window.GetHeightptr());
     textRenderer->renderText("fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, glm::vec3(1.0f, 0.8f, 1.0f),
                              UI::TextAnchor::TopLeft);
-    textRenderer->renderText(std::format("Render: {:.3f}ms", Profiler::GetAverageTime("Render").count() * 1e-6), 10, 50, 0.3f,
-                             glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    textRenderer->renderText(std::format("Render World: {:.3f}ms", Profiler::GetAverageTime("RenderWorld").count() * 1e-6), 10, 70, 0.3f,
-                             glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    textRenderer->renderText(std::format("Upscale: {:.3f}ms", Profiler::GetAverageTime("Upscale").count() * 1e-6), 10, 90, 0.3f,
-                             glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    textRenderer->renderText(std::format("Swap Buffers: {:.3f}ms", Profiler::GetAverageTime("SwapBuffers").count() * 1e-6), 10, 110, 0.3f,
+    textRenderer->renderText(std::format("Render: {:.3f}ms", averageTimeMs("Render")), 10, 50, 0.3f, glm::vec3(1.0f, 0.8f, 1.0f),
+                             UI::TextAnchor::TopLeft);
+    textRenderer->renderText(std::format("Render World: {:.3f}ms", averageTimeMs("RenderWorld")), 10, 70, 0.3f, glm::vec3(1.0f, 0.8f, 1.0f),
+                             UI::TextAnchor::TopLeft);
+    textRenderer->renderText(std::format("Upscale: {:.3f}ms", averageTimeMs("Upscale")), 10, 90, 0.3f, glm::vec3(1.0f, 0.8f, 1.0f),
+                             UI::TextAnchor::TopLeft);
+    textRenderer->renderText(std::format("Swap Buffers: {:.3f}ms", averageTimeMs("SwapBuffers")), 10, 110, 0.3f,
                              glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
 
     // 4. Transform viewport for UI if needed (UI::Render usually expects window size)

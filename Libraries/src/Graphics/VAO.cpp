@@ -26,7 +26,7 @@ void VAO::Initialize()
 void VAO::LinkAttrib(VBO &VBO, GLuint layout, GLuint numComponents, GLenum type, GLsizeiptr stride, void *offset) const
 {
     VBO.Bind();
-    glVertexAttribPointer(layout, numComponents, type, GL_FALSE, stride, offset);
+    glVertexAttribPointer(layout, static_cast<GLint>(numComponents), type, GL_FALSE, static_cast<GLsizei>(stride), offset);
     GL_CHECK_ERROR_M("VAO attrib pointer");
     glEnableVertexAttribArray(layout);
     GL_CHECK_ERROR_M("VAO enable attrib");

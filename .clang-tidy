@@ -4,6 +4,7 @@ Checks: >
   modernize-use-nullptr,
   bugprone-use-after-move,
   performance-unnecessary-value-param,
+  bugprone-narrowing-conversions,
   bugprone-integer-division,
   bugprone-reserved-identifier
 WarningsAsErrors: '*'

@@ -225,7 +225,8 @@ float Noise::FractalNoise(float x, float scale, int octaves, float persistence, 
     float total = 0.0f, frequency = scale, amplitude = 1.0f, maxAmp = 0.0f;
     for (int i = 0; i < octaves; i++)
     {
-        total += SmoothNoise(x + i * 67, frequency) * amplitude;
+        const float octave = static_cast<float>(i);
+        total += SmoothNoise(x + octave * 67.0f, frequency) * amplitude;
         maxAmp += amplitude;
         amplitude *= persistence;
         frequency *= lacunarity;
@@ -238,7 +239,8 @@ float Noise::FractalNoise(float x, float y, float scale, int octaves, float pers
     float total = 0.0f, frequency = scale, amplitude = 1.0f, maxAmp = 0.0f;
     for (int i = 0; i < octaves; i++)
     {
-        total += SmoothNoise(x + i * 67, y - i * 79, frequency) * amplitude;
+        const float octave = static_cast<float>(i);
+        total += SmoothNoise(x + octave * 67.0f, y - octave * 79.0f, frequency) * amplitude;
         maxAmp += amplitude;
         amplitude *= persistence;
         frequency *= lacunarity;
@@ -251,7 +253,8 @@ float Noise::FractalNoise(float x, float y, float z, float scale, int octaves, f
     float total = 0.0f, frequency = scale, amplitude = 1.0f, maxAmp = 0.0f;
     for (int i = 0; i < octaves; i++)
     {
-        total += SmoothNoise(x + i * 67, y - i * 79, z + i * 97, frequency) * amplitude;
+        const float octave = static_cast<float>(i);
+        total += SmoothNoise(x + octave * 67.0f, y - octave * 79.0f, z + octave * 97.0f, frequency) * amplitude;
         maxAmp += amplitude;
         amplitude *= persistence;
         frequency *= lacunarity;
@@ -264,7 +267,8 @@ float Noise::FractalNoise(float x, float y, float z, float w, float scale, int o
     float total = 0.0f, frequency = scale, amplitude = 1.0f, maxAmp = 0.0f;
     for (int i = 0; i < octaves; i++)
     {
-        total += SmoothNoise(x + i * 67, y - i * 79, z + i * 97, w - i * 137, frequency) * amplitude;
+        const float octave = static_cast<float>(i);
+        total += SmoothNoise(x + octave * 67.0f, y - octave * 79.0f, z + octave * 97.0f, w - octave * 137.0f, frequency) * amplitude;
         maxAmp += amplitude;
         amplitude *= persistence;
         frequency *= lacunarity;

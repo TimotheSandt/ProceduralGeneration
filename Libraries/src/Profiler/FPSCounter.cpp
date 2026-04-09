@@ -119,7 +119,7 @@ void FPSCounter::newFrame(unsigned int maxFPS)
     auto totalElapsed = currentTime - this->lastTime;
 
     // Calculate FPS with safety check
-    double newFps = (totalElapsed.count() > 0) ? 1.0e9 / totalElapsed.count() : 0.0;
+    double newFps = (totalElapsed.count() > 0) ? 1.0e9 / static_cast<double>(totalElapsed.count()) : 0.0;
     this->fps.store(newFps, std::memory_order_relaxed);
 
     // Check for dropped frames
@@ -199,7 +199,7 @@ void FPSCounter::adaptiveSleep(std::chrono::nanoseconds sleepTime)
         if (this->adaptiveCounter >= 10)
         {
             this->sleepOffset = std::chrono::duration_cast<std::chrono::nanoseconds>(this->sleepOffset * 0.9 + sleepError * 0.1);
-            this->sleepAccuracy = std::abs(sleepError.count()) / static_cast<double>(sleepTime.count());
+            this->sleepAccuracy = static_cast<double>(std::abs(sleepError.count())) / static_cast<double>(sleepTime.count());
             this->adaptiveCounter = 0;
         }
     }

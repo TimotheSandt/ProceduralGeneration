@@ -43,7 +43,7 @@ bool UBO::initialize(size_t size, GLuint bindingPoint, GLenum usage)
 
     glBindBuffer(GL_UNIFORM_BUFFER, this->ID);
     GL_CHECK_ERROR_M("UBO bind");
-    glBufferData(GL_UNIFORM_BUFFER, this->size, nullptr, this->usage);
+    glBufferData(GL_UNIFORM_BUFFER, static_cast<GLsizeiptr>(this->size), nullptr, this->usage);
     GL_CHECK_ERROR_M("UBO buffer data");
     glBindBufferBase(GL_UNIFORM_BUFFER, this->bindingPoint, this->ID);
     GL_CHECK_ERROR_M("UBO bind base");
@@ -95,7 +95,7 @@ void UBO::uploadData(const void *data, size_t size, size_t offset) const
     }
     glBindBuffer(GL_UNIFORM_BUFFER, this->ID);
     GL_CHECK_ERROR_M("UBO upload bind");
-    glBufferSubData(GL_UNIFORM_BUFFER, offset, size, data);
+    glBufferSubData(GL_UNIFORM_BUFFER, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
     GL_CHECK_ERROR_M("UBO upload subdata");
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     GL_CHECK_ERROR_M("UBO upload unbind");
@@ -108,7 +108,7 @@ void *UBO::mapBuffer(GLenum access) const
         return nullptr;
     }
     glBindBuffer(GL_UNIFORM_BUFFER, this->ID);
-    return glMapBufferRange(GL_UNIFORM_BUFFER, 0, this->size, access);
+    return glMapBufferRange(GL_UNIFORM_BUFFER, 0, static_cast<GLsizeiptr>(this->size), access);
 }
 
 void UBO::unmapBuffer() const

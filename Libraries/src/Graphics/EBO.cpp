@@ -24,7 +24,7 @@ void EBO::Initialize(std::vector<GLuint> &indices)
     GL_CHECK_ERROR();
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ID);
     GL_CHECK_ERROR();
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(indices.size() * sizeof(GLuint)), indices.data(), GL_STATIC_DRAW);
     GL_CHECK_ERROR();
 }
 

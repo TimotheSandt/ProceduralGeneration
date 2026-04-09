@@ -186,7 +186,7 @@ bool TextRenderer::loadFont(const std::string &fontPath, const std::string &font
     // Charger les 128 premiers caractères ASCII
     for (unsigned char c = 0; c < 128; c++)
     {
-        fontData.characters[c] = loadCharacter(face, c);
+        fontData.characters[static_cast<char>(c)] = loadCharacter(face, static_cast<char>(c));
     }
 
     fonts[fontName] = fontData;
@@ -212,8 +212,8 @@ Character TextRenderer::loadCharacter(FT_Face face, char c)
     unsigned int texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width, face->glyph->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE,
-                 face->glyph->bitmap.buffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, static_cast<GLsizei>(face->glyph->bitmap.width), static_cast<GLsizei>(face->glyph->bitmap.rows),
+                 0, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -297,7 +297,7 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
     }
 
     auto &fontData = fonts[activeFontName];
-    float lineHeight = fontData.fontSize * scale;
+    float lineHeight = static_cast<float>(fontData.fontSize) * scale;
 
     // Calculer l'offset basé sur l'ancre
     glm::vec2 anchorOffset = calculateAnchorOffset(text, scale, anchor);
@@ -336,7 +336,7 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
         Character ch = fontData.characters[c];
 
         // Position X en pixels écran
-        float xpos = cursorX + ch.bearing.x * scale;
+        float xpos = cursorX + static_cast<float>(ch.bearing.x) * scale;
 
         // Position Y:
         // - cursorY est la position du HAUT de la ligne en coordonnées UI
@@ -352,16 +352,16 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
         // Conversion en OpenGL (origine en bas):
         // ypos_opengl = screenHeight - ypos_ui
 
-        float baselineY_UI = cursorY + fontData.fontSize * scale; // Baseline en UI
-        float glyphTop_UI = baselineY_UI - ch.bearing.y * scale;  // Haut du glyphe en UI
-        float glyphBottom_UI = glyphTop_UI + ch.size.y * scale;   // Bas du glyphe en UI
+        float baselineY_UI = cursorY + static_cast<float>(fontData.fontSize) * scale; // Baseline en UI
+        float glyphTop_UI = baselineY_UI - static_cast<float>(ch.bearing.y) * scale;  // Haut du glyphe en UI
+        float glyphBottom_UI = glyphTop_UI + static_cast<float>(ch.size.y) * scale;   // Bas du glyphe en UI
 
         // Conversion en OpenGL
-        float glyphBottom_GL = screenHeight - glyphBottom_UI; // Bas du glyphe en OpenGL
-        float ypos = glyphBottom_GL;                          // ypos = bas du quad
+        float glyphBottom_GL = static_cast<float>(screenHeight) - glyphBottom_UI; // Bas du glyphe en OpenGL
+        float ypos = glyphBottom_GL;                                              // ypos = bas du quad
 
-        float w = ch.size.x * scale;
-        float h = ch.size.y * scale;
+        float w = static_cast<float>(ch.size.x) * scale;
+        float h = static_cast<float>(ch.size.y) * scale;
 
         // OpenGL: ypos est le bas du quad, ypos + h est le haut
         float vertices[6][4] = {{xpos, ypos + h, 0.0f, 0.0f}, {xpos, ypos, 0.0f, 1.0f},     {xpos + w, ypos, 1.0f, 1.0f},
@@ -374,7 +374,7 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
 
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        cursorX += (ch.advance >> 6) * scale;
+        cursorX += static_cast<float>(ch.advance >> 6U) * scale;
     }
 
     glBindVertexArray(0);
@@ -404,7 +404,7 @@ float TextRenderer::measureTextWidth(const std::string &text, float scale)
         }
 
         Character ch = fontData.characters[c];
-        width += (ch.advance >> 6) * scale;
+        width += static_cast<float>(ch.advance >> 6U) * scale;
     }
 
     return width;
@@ -435,12 +435,12 @@ glm::vec2 TextRenderer::measureText(const std::string &text, float scale)
         if (fontData.characters.find(c) != fontData.characters.end())
         {
             Character ch = fontData.characters[c];
-            currentWidth += (ch.advance >> 6) * scale;
+            currentWidth += static_cast<float>(ch.advance >> 6U) * scale;
         }
     }
 
     maxWidth = std::max(maxWidth, currentWidth);
-    float height = fontData.fontSize * scale * lineCount * 1.2f;
+    float height = static_cast<float>(fontData.fontSize) * scale * static_cast<float>(lineCount) * 1.2f;
 
     return {maxWidth, height};
 }
@@ -479,7 +479,7 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
                 if (fontData.characters.find(c) != fontData.characters.end())
                 {
                     Character ch = fontData.characters[c];
-                    float charWidth = (ch.advance >> 6) * scale;
+                    float charWidth = static_cast<float>(ch.advance >> 6U) * scale;
 
                     if (width + charWidth > maxWidth && i > 0)
                     {
@@ -529,7 +529,7 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
             if (fontData.characters.find(c) != fontData.characters.end())
             {
                 Character ch = fontData.characters[c];
-                float charWidth = (ch.advance >> 6) * scale;
+                float charWidth = static_cast<float>(ch.advance >> 6U) * scale;
 
                 if (width + charWidth > maxWidth && i > 0)
                 {
@@ -659,7 +659,7 @@ TextLayout TextRenderer::calculateLayout(const std::string &text, float scale, c
     }
 
     auto &fontData = fonts[activeFontName];
-    float lineHeight = fontData.fontSize * scale * params.lineSpacing;
+    float lineHeight = static_cast<float>(fontData.fontSize) * scale * params.lineSpacing;
 
     std::vector<std::string> textLines;
     if (params.wordWrap && params.maxWidth > 0.0f)
@@ -726,7 +726,7 @@ void TextRenderer::renderTextAdvanced(const std::string &text, float x, float y,
     {
         glEnable(GL_SCISSOR_TEST);
         // En OpenGL, scissor commence en bas à gauche
-        int scissorY = static_cast<int>(screenHeight - (y + params.maxHeight));
+        int scissorY = static_cast<int>(static_cast<float>(screenHeight) - (y + params.maxHeight));
         glScissor(static_cast<int>(x), scissorY, static_cast<int>(params.maxWidth), static_cast<int>(params.maxHeight));
     }
 
@@ -769,7 +769,7 @@ glm::vec2 TextRenderer::calculateMinSize(const std::string &text, float scale, b
             }
         }
 
-        return {maxWordWidth, fonts[activeFontName].fontSize * scale};
+        return {maxWordWidth, static_cast<float>(fonts[activeFontName].fontSize) * scale};
     }
 
     return measureText(text, scale);

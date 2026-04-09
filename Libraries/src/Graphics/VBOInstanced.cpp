@@ -28,7 +28,7 @@ void VBOInstanced::Initialize(std::vector<glm::mat4> &mat4)
     GL_CHECK_ERROR();
     glBindBuffer(GL_ARRAY_BUFFER, this->ID);
     GL_CHECK_ERROR();
-    glBufferData(GL_ARRAY_BUFFER, mat4.size() * sizeof(glm::mat4), mat4.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(mat4.size() * sizeof(glm::mat4)), mat4.data(), GL_STATIC_DRAW);
     GL_CHECK_ERROR();
 }
 
@@ -37,7 +37,7 @@ void VBOInstanced::UploadData(const void *data, GLsizeiptr size) const { this->U
 void VBOInstanced::UploadData(const void *data, GLsizeiptr size, size_t offset) const
 {
     this->Bind();
-    glBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
+    glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(offset), size, data);
     GL_CHECK_ERROR();
     this->Unbind();
 }

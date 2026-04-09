@@ -37,8 +37,8 @@ void Window::EnableUpscaling(bool enable)
 
 void Window::UpdateFBOResotution()
 {
-    parameters.renderWidth = static_cast<int>(parameters.width * parameters.renderScale);
-    parameters.renderHeight = static_cast<int>(parameters.height * parameters.renderScale);
+    parameters.renderWidth = static_cast<int>(static_cast<float>(parameters.width) * parameters.renderScale);
+    parameters.renderHeight = static_cast<int>(static_cast<float>(parameters.height) * parameters.renderScale);
     FBORendering.Resize(parameters.renderWidth, parameters.renderHeight);
     FBOUpscaled.Resize(parameters.width, parameters.height);
 }
