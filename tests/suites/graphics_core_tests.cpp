@@ -63,6 +63,19 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(capabilities.supportsWindowPresentation, "OpenGL should support presenting to a window");
             });
 
+    AddTest(suite, "opengl backend creates a graphics device with matching capabilities",
+            []
+            {
+                const OpenGLGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
+
+                Assert(device != nullptr, "OpenGL should be able to create a graphics device");
+                AssertEqual(device->GetAPI(), GraphicsAPI::OpenGL, "OpenGL devices should report the OpenGL API");
+                Assert(device->SupportsShaderStages(ShaderStageBit(ShaderStage::Vertex) | ShaderStageBit(ShaderStage::Fragment)),
+                       "OpenGL devices should support vertex and fragment shader stages");
+                Assert(!device->SupportsShaderStages(1u << 31u), "OpenGL devices should reject unknown shader stage bits");
+            });
+
     AddTest(suite, "vulkan backend capabilities reflect explicit pipeline expectations",
             []
             {
@@ -84,6 +97,16 @@ TestSuite CreateGraphicsCoreSuite()
                 AssertEqual(capabilities.api, GraphicsAPI::Metal, "Metal capabilities should identify the Metal API");
                 Assert(capabilities.supportsComputeShaders, "Metal should expose compute shader support");
                 Assert(!capabilities.supportsWireframeRendering, "Metal should keep wireframe support conservative by default");
+            });
+
+    AddTest(suite, "stub backends do not create devices yet",
+            []
+            {
+                const VulkanGraphicsBackend vulkanBackend;
+                const MetalGraphicsBackend metalBackend;
+
+                Assert(vulkanBackend.CreateDevice({}) == nullptr, "Vulkan should not create a device before implementation");
+                Assert(metalBackend.CreateDevice({}) == nullptr, "Metal should not create a device before implementation");
             });
 
     return suite;

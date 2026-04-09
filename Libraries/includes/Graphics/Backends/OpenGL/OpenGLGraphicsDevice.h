@@ -1,0 +1,17 @@
+#pragma once
+
+#include "Graphics/Core/GraphicsDevice.h"
+
+class OpenGLGraphicsDevice final : public IGraphicsDevice
+{
+  public:
+    explicit OpenGLGraphicsDevice(GraphicsCapabilities capabilities);
+
+    GraphicsAPI GetAPI() const noexcept override;
+    std::string_view GetDeviceName() const noexcept override;
+    const GraphicsCapabilities &GetCapabilities() const noexcept override;
+    bool SupportsShaderStages(ShaderStageMask stages) const noexcept override;
+
+  private:
+    GraphicsCapabilities capabilities;
+};

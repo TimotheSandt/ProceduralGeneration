@@ -31,3 +31,9 @@ std::string MetalGraphicsBackend::DescribeAvailability() const
 }
 
 const GraphicsCapabilities &MetalGraphicsBackend::GetCapabilities() const noexcept { return capabilities; }
+
+std::unique_ptr<IGraphicsDevice> MetalGraphicsBackend::CreateDevice(const GraphicsDeviceCreateInfo &createInfo) const
+{
+    static_cast<void>(createInfo);
+    return nullptr;
+}

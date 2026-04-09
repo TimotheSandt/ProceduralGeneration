@@ -6,6 +6,7 @@
 #include <windows.h>
 #endif
 
+#include "Graphics/Backends/OpenGL/OpenGLGraphicsDevice.h"
 #include "Logger.h"
 
 GraphicsAPI OpenGLGraphicsBackend::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
@@ -60,6 +61,12 @@ bool OpenGLGraphicsBackend::IsAvailable() const noexcept { return true; }
 std::string OpenGLGraphicsBackend::DescribeAvailability() const { return "OpenGL backend is available."; }
 
 const GraphicsCapabilities &OpenGLGraphicsBackend::GetCapabilities() const noexcept { return capabilities; }
+
+std::unique_ptr<IGraphicsDevice> OpenGLGraphicsBackend::CreateDevice(const GraphicsDeviceCreateInfo &createInfo) const
+{
+    static_cast<void>(createInfo);
+    return std::make_unique<OpenGLGraphicsDevice>(capabilities);
+}
 
 void OpenGLGraphicsBackend::SetupErrorHandling() const
 {

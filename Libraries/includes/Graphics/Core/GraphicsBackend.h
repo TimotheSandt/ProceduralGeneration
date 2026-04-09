@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Graphics/Backend/GraphicsAPI.h"
+#include "Graphics/Core/GraphicsDevice.h"
 #include "Graphics/Core/GraphicsTypes.h"
 
 #include <memory>
@@ -22,6 +23,7 @@ class IGraphicsBackend
     virtual bool IsAvailable() const noexcept = 0;
     virtual std::string DescribeAvailability() const = 0;
     virtual const GraphicsCapabilities &GetCapabilities() const noexcept = 0;
+    virtual std::unique_ptr<IGraphicsDevice> CreateDevice(const GraphicsDeviceCreateInfo &createInfo) const = 0;
 };
 
 std::unique_ptr<IGraphicsBackend> CreateGraphicsBackend(const GraphicsBackendCreateInfo &createInfo);

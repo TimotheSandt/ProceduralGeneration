@@ -20,3 +20,9 @@ std::string VulkanGraphicsBackend::DescribeAvailability() const
 }
 
 const GraphicsCapabilities &VulkanGraphicsBackend::GetCapabilities() const noexcept { return capabilities; }
+
+std::unique_ptr<IGraphicsDevice> VulkanGraphicsBackend::CreateDevice(const GraphicsDeviceCreateInfo &createInfo) const
+{
+    static_cast<void>(createInfo);
+    return nullptr;
+}

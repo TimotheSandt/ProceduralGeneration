@@ -11,6 +11,7 @@ class MetalGraphicsBackend final : public IGraphicsBackend
     bool IsAvailable() const noexcept override;
     std::string DescribeAvailability() const override;
     const GraphicsCapabilities &GetCapabilities() const noexcept override;
+    std::unique_ptr<IGraphicsDevice> CreateDevice(const GraphicsDeviceCreateInfo &createInfo) const override;
 
   private:
     GraphicsCapabilities capabilities = {.api = GraphicsAPI::Metal,
