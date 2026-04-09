@@ -620,15 +620,5 @@ bool Window::IsWindowHealthy() const
         OpenGLWindowContext::EnsureContextCurrent(this->window);
     }
 
-#ifdef DEBUG
-    // Vérifier les erreurs OpenGL*
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR)
-    {
-        LOG_ERROR(error, "OpenGL Error detected");
-        return false;
-    }
-#endif
-
     return true;
 }

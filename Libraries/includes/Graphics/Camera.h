@@ -1,7 +1,7 @@
 #ifndef PROCEDURAL_GENERATION_GRAPHICS_CAMERA_H
 #define PROCEDURAL_GENERATION_GRAPHICS_CAMERA_H
 
-#include <glad/glad.h>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>

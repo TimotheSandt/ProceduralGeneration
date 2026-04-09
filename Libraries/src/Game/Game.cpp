@@ -67,7 +67,6 @@ void Game::stop()
 
 void Game::run()
 {
-    glGetError();
     while (!window.ShouldClose())
     {
 

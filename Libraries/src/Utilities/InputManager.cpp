@@ -10,8 +10,8 @@
 #undef DELETE
 
 KeyLayout InputManager::keyLayout = KeyLayout::UNDEFINED;
-std::unordered_map<KeyButton, GLint> InputManager::keyMap;
-std::unordered_map<MouseButton, GLint> InputManager::mouseButtonMap;
+std::unordered_map<KeyButton, int> InputManager::keyMap;
+std::unordered_map<MouseButton, int> InputManager::mouseButtonMap;
 std::unordered_map<std::string, InputAction> InputManager::mapActionToInputAction;
 
 std::unordered_map<GLFWwindow *, std::unique_ptr<InputManager>> InputManager::inputManagers;
