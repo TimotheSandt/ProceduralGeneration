@@ -2,12 +2,14 @@
 
 #include <glad/glad.h>
 
+#include "Graphics/Core/GraphicsResources.h"
 #include "Logger.h"
 
-#include <string>
-#include <fstream>
-#include <sstream>
 #include <cerrno>
+#include <fstream>
+#include <memory>
+#include <sstream>
+#include <string>
 
 std::string get_file_contents(const char *filename);
 
@@ -37,6 +39,7 @@ class Shader
 
   private:
     GLuint ID = 0;
+    std::unique_ptr<IShaderProgramResource> backendResource;
 
     const char *vertexShaderPath;
     const char *fragmentShaderPath;

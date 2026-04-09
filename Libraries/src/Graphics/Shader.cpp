@@ -1,4 +1,8 @@
 #include "Shader.h"
+
+#include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
+#include "Graphics/Core/GraphicsRuntime.h"
+
 #include <cstring>
 #include <utility>
 
@@ -55,6 +59,7 @@ Shader &Shader::operator=(Shader &&shader) noexcept
 void Shader::Swap(Shader &other) noexcept
 {
     std::swap(this->ID, other.ID);
+    std::swap(this->backendResource, other.backendResource);
     std::swap(this->vertexShaderPath, other.vertexShaderPath);
     std::swap(this->fragmentShaderPath, other.fragmentShaderPath);
     std::swap(this->vertexSource, other.vertexSource);
@@ -114,6 +119,27 @@ void Shader::CompileShader()
 {
     this->Destroy();
 
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    {
+        ShaderProgramCreateInfo createInfo;
+        createInfo.desc.stages = ShaderStageBit(ShaderStage::Vertex) | ShaderStageBit(ShaderStage::Fragment);
+        createInfo.debugName = this->vertexShaderPath != nullptr ? this->vertexShaderPath : "runtime_opengl_shader";
+        createInfo.stageSources.push_back({.stage = ShaderStage::Vertex, .sourceCode = this->vertexSource});
+        createInfo.stageSources.push_back({.stage = ShaderStage::Fragment, .sourceCode = this->fragmentSource});
+
+        std::unique_ptr<IShaderProgramResource> resource = device->CreateShaderProgram(createInfo);
+        if (auto *openGLResource = dynamic_cast<OpenGLShaderProgramResource *>(resource.get()); openGLResource != nullptr)
+        {
+            this->ID = openGLResource->GetProgramID();
+            this->backendResource = std::move(resource);
+            if (this->ID != 0)
+            {
+                return;
+            }
+            this->backendResource.reset();
+        }
+    }
+
     const char *vSource = this->vertexSource.c_str();
     const char *fSource = this->fragmentSource.c_str();
 
@@ -157,6 +183,13 @@ void Shader::Unbind() const { glUseProgram(0); }
 
 void Shader::Destroy()
 {
+    if (this->backendResource != nullptr)
+    {
+        this->backendResource.reset();
+        this->ID = 0;
+        return;
+    }
+
     if (this->ID == 0)
     {
         return;

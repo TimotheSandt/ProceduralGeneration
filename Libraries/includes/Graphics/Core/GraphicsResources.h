@@ -2,14 +2,24 @@
 
 #include "Graphics/Core/GraphicsTypes.h"
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
+
+struct ShaderStageSource
+{
+    ShaderStage stage = ShaderStage::Vertex;
+    std::string sourceCode;
+    std::string entryPoint = "main";
+};
 
 struct ShaderProgramCreateInfo
 {
     ShaderProgramDesc desc{};
     std::string debugName;
+    std::vector<ShaderStageSource> stageSources;
 };
 
 struct TextureCreateInfo
