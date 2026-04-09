@@ -72,9 +72,6 @@ class Window
     void SwapBuffers();
     void Close();
 
-    static bool InitOpenGL();
-    static void TerminateOpenGL();
-
     void Clear() const;
 
     // Window state
@@ -148,8 +145,6 @@ class Window
     void CallbackPosition(GLFWwindow *window, int x, int y);
 
     void ClearCallbacks();
-
-    // Error handling
     static void SetupErrorHandling();
     bool IsWindowHealthy() const;
 
@@ -166,8 +161,4 @@ class Window
     FPSCounter fpsCounter;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> lastTime;
-
-    static bool isOpenGLInitialized;
-    static GLint GLFW_MAJOR_VERSION;
-    static GLint GLFW_MINOR_VERSION;
 };

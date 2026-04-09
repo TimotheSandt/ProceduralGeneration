@@ -7,10 +7,6 @@
 #include "Logger.h"
 #include "utilities.h"
 
-bool Window::isOpenGLInitialized = false;
-GLint Window::GLFW_MAJOR_VERSION = 4;
-GLint Window::GLFW_MINOR_VERSION = 3;
-
 Window::Window()
 {
     this->window = nullptr;
@@ -138,52 +134,6 @@ void Window::Close()
 #ifdef _WIN32
     ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_SHOW);
 #endif
-}
-
-bool Window::InitOpenGL()
-{
-    if (isOpenGLInitialized)
-    {
-        return isOpenGLInitialized;
-    }
-
-    // Initialize GLFW
-    if (!glfwInit())
-    {
-        LOG_FATAL(-1, "Failed to initialize GLFW");
-        return isOpenGLInitialized = false;
-    }
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, GLFW_MAJOR_VERSION);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, GLFW_MINOR_VERSION);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
-    glfwWindowHint(GLFW_CENTER_CURSOR, GLFW_TRUE);
-    glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
-    glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-    glfwWindowHint(GLFW_FOCUSED, GLFW_TRUE);
-
-    glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
-    glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_TRUE);
-
-#ifdef DEBUG
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-#endif
-
-    SetupErrorHandling();
-
-    return isOpenGLInitialized = true;
-}
-
-void Window::TerminateOpenGL()
-{
-    if (!isOpenGLInitialized)
-    {
-        return;
-    }
-    glfwSetErrorCallback(nullptr);
-    glfwTerminate();
-    isOpenGLInitialized = false;
 }
 
 void Window::Clear() const

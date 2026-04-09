@@ -10,4 +10,12 @@ class OpenGLGraphicsBackend final : public IGraphicsBackend
     void Shutdown() noexcept override;
     bool IsAvailable() const noexcept override;
     std::string DescribeAvailability() const override;
+
+  private:
+    void SetupErrorHandling() const;
+
+  private:
+    bool initialized = false;
+    int majorVersion = 4;
+    int minorVersion = 3;
 };
