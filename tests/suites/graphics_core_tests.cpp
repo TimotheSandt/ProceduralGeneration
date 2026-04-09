@@ -3,11 +3,115 @@
 #include "Graphics/Backends/Metal/MetalGraphicsBackend.h"
 #include "Graphics/Backends/OpenGL/OpenGLGraphicsBackend.h"
 #include "Graphics/Backends/Vulkan/VulkanGraphicsBackend.h"
+#include "Graphics/Core/GraphicsDevice.h"
+#include "Graphics/Core/GraphicsResources.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Graphics/Core/GraphicsTypes.h"
 
 namespace tests
 {
+
+namespace
+{
+
+class FakeAccelerationStructureResource final : public IAccelerationStructureResource
+{
+  public:
+    explicit FakeAccelerationStructureResource(AccelerationStructureCreateInfo createInfo)
+        : desc(createInfo.desc), debugName(std::move(createInfo.debugName))
+    {
+    }
+
+    GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
+    std::string_view GetDebugName() const noexcept override { return debugName; }
+    const AccelerationStructureDesc &GetDescription() const noexcept override { return desc; }
+
+  private:
+    AccelerationStructureDesc desc;
+    std::string debugName;
+};
+
+class FakeShaderProgramResource final : public IShaderProgramResource
+{
+  public:
+    explicit FakeShaderProgramResource(ShaderProgramCreateInfo createInfo)
+        : desc(createInfo.desc), debugName(std::move(createInfo.debugName))
+    {
+    }
+
+    GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
+    std::string_view GetDebugName() const noexcept override { return debugName; }
+    const ShaderProgramDesc &GetDescription() const noexcept override { return desc; }
+
+  private:
+    ShaderProgramDesc desc;
+    std::string debugName;
+};
+
+class FakeTextureResource final : public ITextureResource
+{
+  public:
+    explicit FakeTextureResource(TextureCreateInfo createInfo) : desc(createInfo.desc), debugName(std::move(createInfo.debugName)) {}
+
+    GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
+    std::string_view GetDebugName() const noexcept override { return debugName; }
+    const TextureDesc &GetDescription() const noexcept override { return desc; }
+
+  private:
+    TextureDesc desc;
+    std::string debugName;
+};
+
+class FakeRayTracingDevice final : public IGraphicsDevice
+{
+  public:
+    GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
+    std::string_view GetDeviceName() const noexcept override { return "Fake Ray Tracing Device"; }
+    const GraphicsCapabilities &GetCapabilities() const noexcept override { return capabilities; }
+
+    bool SupportsShaderStages(ShaderStageMask stages) const noexcept override { return (stages & supportedStages) == stages; }
+
+    std::unique_ptr<IShaderProgramResource> CreateShaderProgram(const ShaderProgramCreateInfo &createInfo) const override
+    {
+        if (!SupportsShaderStages(createInfo.desc.stages))
+        {
+            return nullptr;
+        }
+
+        return std::make_unique<FakeShaderProgramResource>(createInfo);
+    }
+
+    std::unique_ptr<ITextureResource> CreateTexture(const TextureCreateInfo &createInfo) const override
+    {
+        return std::make_unique<FakeTextureResource>(createInfo);
+    }
+
+    std::unique_ptr<IAccelerationStructureResource> CreateAccelerationStructure(
+        const AccelerationStructureCreateInfo &createInfo) const override
+    {
+        return std::make_unique<FakeAccelerationStructureResource>(createInfo);
+    }
+
+  private:
+    static constexpr ShaderStageMask supportedStages =
+        ShaderStageBit(ShaderStage::RayGeneration) | ShaderStageBit(ShaderStage::Miss) | ShaderStageBit(ShaderStage::ClosestHit);
+
+    GraphicsCapabilities capabilities = {.api = GraphicsAPI::Vulkan,
+                                         .supportsRuntimeShaderCompilation = false,
+                                         .supportsComputeShaders = true,
+                                         .supportsGeometryShaders = false,
+                                         .supportsTessellationShaders = false,
+                                         .supportsFramebufferBlit = true,
+                                         .supportsWireframeRendering = true,
+                                         .supportsWindowPresentation = true,
+                                         .supportsRayTracingPipelines = true,
+                                         .supportsAccelerationStructures = true,
+                                         .supportsRayQueries = true,
+                                         .maxColorAttachments = 8,
+                                         .maxAccelerationStructureInstances = 1024};
+};
+
+} // namespace
 
 TestSuite CreateGraphicsCoreSuite()
 {
@@ -20,6 +124,7 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(HasShaderStage(mask, ShaderStage::Vertex), "Vertex stage should be flagged in the mask");
                 Assert(HasShaderStage(mask, ShaderStage::Fragment), "Fragment stage should be flagged in the mask");
                 Assert(!HasShaderStage(mask, ShaderStage::Compute), "Compute stage should stay absent from the mask");
+                Assert(!HasShaderStage(mask, ShaderStage::RayGeneration), "Ray generation stage should stay absent from the mask");
             });
 
     AddTest(suite, "graphics pipeline defaults stay raster friendly",
@@ -51,6 +156,20 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(!bufferDesc.cpuWritable, "Buffers should default to GPU-only ownership");
             });
 
+    AddTest(suite, "acceleration structure description defaults to conservative tracing",
+            []
+            {
+                const AccelerationStructureDesc desc{};
+                AssertEqual(desc.type, AccelerationStructureType::BottomLevel,
+                            "Acceleration structures should default to bottom-level builds");
+                AssertEqual(desc.buildHint, AccelerationStructureBuildHint::PreferFastTrace,
+                            "Acceleration structures should default to fast tracing");
+                AssertEqual(desc.primitiveCount, 0u, "Acceleration structures should default to zero primitives");
+                AssertEqual(desc.instanceCount, 0u, "Acceleration structures should default to zero instances");
+                Assert(!desc.allowUpdate, "Acceleration structures should default to immutable builds");
+                Assert(!desc.allowCompaction, "Acceleration structures should default to uncompacted builds");
+            });
+
     AddTest(suite, "opengl backend reports runtime shader and window support",
             []
             {
@@ -62,6 +181,8 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(capabilities.supportsFramebufferBlit, "OpenGL should support framebuffer blits");
                 Assert(capabilities.supportsWireframeRendering, "OpenGL should support wireframe rendering");
                 Assert(capabilities.supportsWindowPresentation, "OpenGL should support presenting to a window");
+                Assert(!capabilities.supportsAccelerationStructures, "OpenGL should not report acceleration structures");
+                Assert(!capabilities.supportsRayTracingPipelines, "OpenGL should not report ray tracing pipelines");
             });
 
     AddTest(suite, "opengl backend creates a graphics device with matching capabilities",
@@ -111,6 +232,53 @@ TestSuite CreateGraphicsCoreSuite()
                        "OpenGL should reject shader programs with unsupported stage masks");
             });
 
+    AddTest(suite, "opengl device rejects acceleration structure creation",
+            []
+            {
+                const OpenGLGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
+                const std::unique_ptr<IAccelerationStructureResource> accelerationStructure = device->CreateAccelerationStructure(
+                    {.desc = {.type = AccelerationStructureType::BottomLevel, .primitiveCount = 12}, .debugName = "mesh_blas"});
+
+                Assert(accelerationStructure == nullptr, "OpenGL should reject acceleration structure creation");
+            });
+
+    AddTest(
+        suite, "fake ray tracing device exercises fully implemented acceleration structure flow",
+        []
+        {
+            const FakeRayTracingDevice device;
+            const std::unique_ptr<IShaderProgramResource> rayTracingProgram =
+                device.CreateShaderProgram({.desc = {.stages = ShaderStageBit(ShaderStage::RayGeneration) |
+                                                               ShaderStageBit(ShaderStage::Miss) | ShaderStageBit(ShaderStage::ClosestHit),
+                                                     .runtimeCompilation = false},
+                                            .debugName = "path_trace_pipeline"});
+            const std::unique_ptr<IAccelerationStructureResource> accelerationStructure =
+                device.CreateAccelerationStructure({.desc = {.type = AccelerationStructureType::TopLevel,
+                                                             .buildHint = AccelerationStructureBuildHint::PreferFastTrace,
+                                                             .instanceCount = 64,
+                                                             .allowUpdate = true,
+                                                             .allowCompaction = true},
+                                                    .debugName = "scene_tlas"});
+
+            Assert(device.GetCapabilities().supportsAccelerationStructures,
+                   "The fake device should simulate acceleration-structure support");
+            Assert(device.GetCapabilities().supportsRayTracingPipelines, "The fake device should simulate ray tracing pipeline support");
+            Assert(rayTracingProgram != nullptr, "The fake device should create a ray tracing shader program");
+            Assert(accelerationStructure != nullptr, "The fake device should create an acceleration structure resource");
+            AssertEqual(rayTracingProgram->GetDescription().stages,
+                        ShaderStageBit(ShaderStage::RayGeneration) | ShaderStageBit(ShaderStage::Miss) |
+                            ShaderStageBit(ShaderStage::ClosestHit),
+                        "The fake shader resource should preserve ray tracing shader stages");
+            AssertEqual(accelerationStructure->GetDescription().type, AccelerationStructureType::TopLevel,
+                        "The fake acceleration structure should preserve the TLAS type");
+            AssertEqual(accelerationStructure->GetDescription().instanceCount, 64u,
+                        "The fake acceleration structure should preserve instance counts");
+            Assert(accelerationStructure->GetDescription().allowUpdate, "The fake acceleration structure should preserve update flags");
+            AssertEqual(accelerationStructure->GetDebugName(), std::string_view("scene_tlas"),
+                        "The fake acceleration structure should preserve debug names");
+        });
+
     AddTest(suite, "vulkan backend capabilities reflect explicit pipeline expectations",
             []
             {
@@ -121,6 +289,8 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(!capabilities.supportsRuntimeShaderCompilation, "Vulkan should not rely on runtime shader compilation");
                 Assert(capabilities.supportsComputeShaders, "Vulkan should expose compute shader support");
                 Assert(capabilities.supportsFramebufferBlit, "Vulkan should support blit-style transfers");
+                Assert(!capabilities.supportsAccelerationStructures,
+                       "Vulkan should keep acceleration structures disabled until the backend is implemented");
             });
 
     AddTest(suite, "metal backend capabilities keep wireframe optional",

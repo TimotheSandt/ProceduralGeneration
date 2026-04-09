@@ -18,6 +18,12 @@ struct TextureCreateInfo
     std::string debugName;
 };
 
+struct AccelerationStructureCreateInfo
+{
+    AccelerationStructureDesc desc{};
+    std::string debugName;
+};
+
 class IGraphicsResource
 {
   public:
@@ -41,4 +47,12 @@ class ITextureResource : public IGraphicsResource
     ~ITextureResource() override = default;
 
     virtual const TextureDesc &GetDescription() const noexcept = 0;
+};
+
+class IAccelerationStructureResource : public IGraphicsResource
+{
+  public:
+    ~IAccelerationStructureResource() override = default;
+
+    virtual const AccelerationStructureDesc &GetDescription() const noexcept = 0;
 };

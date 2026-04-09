@@ -22,5 +22,8 @@ class MetalGraphicsBackend final : public IGraphicsBackend
                                          .supportsFramebufferBlit = true,
                                          .supportsWireframeRendering = false,
                                          .supportsWindowPresentation = true,
+                                         .supportsRayTracingPipelines = false,
+                                         .supportsAccelerationStructures = false,
+                                         .supportsRayQueries = false,
                                          .maxColorAttachments = 8};
 };

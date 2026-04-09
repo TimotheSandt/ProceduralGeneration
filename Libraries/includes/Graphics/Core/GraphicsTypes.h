@@ -12,7 +12,13 @@ enum class ShaderStage : std::uint8_t
     Geometry,
     TessellationControl,
     TessellationEvaluation,
-    Compute
+    Compute,
+    RayGeneration,
+    AnyHit,
+    ClosestHit,
+    Miss,
+    Intersection,
+    Callable
 };
 
 enum class BufferUsage : std::uint8_t
@@ -31,6 +37,18 @@ enum class TextureFormat : std::uint8_t
     Depth24Stencil8,
     Depth32Float,
     R8
+};
+
+enum class AccelerationStructureType : std::uint8_t
+{
+    BottomLevel = 0,
+    TopLevel
+};
+
+enum class AccelerationStructureBuildHint : std::uint8_t
+{
+    PreferFastTrace = 0,
+    PreferFastBuild
 };
 
 enum class PrimitiveTopology : std::uint8_t
@@ -94,6 +112,16 @@ struct ShaderProgramDesc
     bool runtimeCompilation = true;
 };
 
+struct AccelerationStructureDesc
+{
+    AccelerationStructureType type = AccelerationStructureType::BottomLevel;
+    AccelerationStructureBuildHint buildHint = AccelerationStructureBuildHint::PreferFastTrace;
+    std::uint32_t primitiveCount = 0;
+    std::uint32_t instanceCount = 0;
+    bool allowUpdate = false;
+    bool allowCompaction = false;
+};
+
 struct RasterStateDesc
 {
     PolygonFillMode fillMode = PolygonFillMode::Fill;
@@ -120,5 +148,9 @@ struct GraphicsCapabilities
     bool supportsFramebufferBlit = false;
     bool supportsWireframeRendering = false;
     bool supportsWindowPresentation = false;
+    bool supportsRayTracingPipelines = false;
+    bool supportsAccelerationStructures = false;
+    bool supportsRayQueries = false;
     std::uint32_t maxColorAttachments = 1;
+    std::uint32_t maxAccelerationStructureInstances = 0;
 };
