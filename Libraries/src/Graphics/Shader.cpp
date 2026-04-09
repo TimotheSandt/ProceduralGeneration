@@ -29,9 +29,9 @@ Shader::Shader(const char *vertexFile, const char *fragmentFile) : vertexShaderP
 
 Shader::~Shader() { this->Destroy(); }
 
-Shader::Shader(const Shader &shader) noexcept { this->SetShader(shader.vertexShaderPath, shader.fragmentShaderPath); }
+Shader::Shader(const Shader &shader) { this->SetShader(shader.vertexShaderPath, shader.fragmentShaderPath); }
 
-Shader &Shader::operator=(const Shader &shader) noexcept
+Shader &Shader::operator=(const Shader &shader)
 {
     if (this != &shader)
     {

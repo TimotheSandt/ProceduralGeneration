@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <array>
+#include <memory>
 #include <unordered_map>
 #include <string>
 
@@ -23,8 +24,8 @@ class Mesh
     Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib, std::vector<GLfloat> instances,
          std::vector<GLuint> SizeAttribInstance);
 
-    Mesh(const Mesh &) noexcept;
-    Mesh &operator=(const Mesh &) noexcept;
+    Mesh(const Mesh &);
+    Mesh &operator=(const Mesh &);
 
     Mesh(Mesh &&) noexcept;
     Mesh &operator=(Mesh &&) noexcept;
@@ -99,7 +100,8 @@ class Mesh
 
         UniformCache() : data({0}), size(0), location(-2), shaderID(0) {}
     };
-    std::unordered_map<std::string, UniformCache> uniformCache{};
+    std::unique_ptr<std::unordered_map<std::string, UniformCache>> uniformCache;
+    std::unordered_map<std::string, UniformCache> &GetOrCreateUniformCache();
     bool CacheUniform(const std::string &uniform, void *data, size_t size);
     GLint CachedUniformLocation(const std::string &uniform);
     void FreeCache();

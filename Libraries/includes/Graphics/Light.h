@@ -225,8 +225,8 @@ class LightManager
     LightManager();
     LightManager(glm::vec3 color, float strength);
 
-    LightManager(const LightManager &) noexcept;
-    LightManager &operator=(const LightManager &) noexcept;
+    LightManager(const LightManager &);
+    LightManager &operator=(const LightManager &);
 
     LightManager(LightManager &&) noexcept;
     LightManager &operator=(LightManager &&) noexcept;

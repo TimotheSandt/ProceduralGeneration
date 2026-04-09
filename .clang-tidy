@@ -5,6 +5,7 @@ Checks: >
   bugprone-use-after-move,
   performance-unnecessary-value-param,
   performance-enum-size,
+  bugprone-exception-escape,
   bugprone-narrowing-conversions,
   bugprone-integer-division,
   bugprone-reserved-identifier

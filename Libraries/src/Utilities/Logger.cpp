@@ -127,79 +127,86 @@ LogLevel Logger::GetMinimumLevel()
     return lLevelPrinted;
 }
 
-void Logger::FlushToFile()
+void Logger::FlushToFile() noexcept
 {
-    if (!isLoggingToFile)
+    try
     {
-        return;
-    }
-
-    bool flushFailed = false;
-    bool wroteLogs = false;
-    std::lock_guard<std::mutex> lock(logMutex);
-
-    if (!logFile || !logFile->is_open())
-    {
-        std::cerr << "Logger file is not available for flushing" << std::endl;
-        return;
-    }
-
-    if (lastFlushedIndex >= logs.size())
-    {
-        return;
-    }
-
-    for (size_t i = lastFlushedIndex; i < logs.size(); ++i)
-    {
-        const LogMessage &log = logs[i];
-
-#ifdef DEBUG
-        if (log.level == L_DEBUGGING)
+        if (!isLoggingToFile)
         {
-            continue;
-        }
-#endif
-
-        *logFile << "[" << FormatTimestamp(log.time) << "] ";
-        *logFile << "[" << LevelToString(log.level) << "] ";
-
-#ifdef DEBUG
-        if (!log.stackTrace.empty())
-        {
-            *logFile << log.stackTrace << " ";
-        }
-#endif
-
-#ifdef DEBUG
-        *logFile << log.file << ":" << log.line << ": ";
-#endif
-
-        *logFile << log.message;
-
-        if (log.errorCode != 0)
-        {
-            *logFile << " (Error: " << log.errorCode << ")";
+            return;
         }
 
-        *logFile << std::endl;
-        wroteLogs = true;
-    }
-    lastFlushedIndex = logs.size();
+        bool flushFailed = false;
+        bool wroteLogs = false;
+        std::lock_guard<std::mutex> lock(logMutex);
 
-    logFile->flush();
-    flushFailed = logFile->fail();
+        if (!logFile || !logFile->is_open())
+        {
+            std::cerr << "Logger file is not available for flushing" << std::endl;
+            return;
+        }
+
+        if (lastFlushedIndex >= logs.size())
+        {
+            return;
+        }
+
+        for (size_t i = lastFlushedIndex; i < logs.size(); ++i)
+        {
+            const LogMessage &log = logs[i];
+
 #ifdef DEBUG
-    if (flushFailed)
-    {
-        std::cerr << "ERROR: Failed to write to log file!" << std::endl;
-    }
-    else if (wroteLogs)
-    {
-        std::cout << "\033[32m";
-        std::cout << "Successfully flushed logs to file";
-        std::cout << "\033[0m" << std::endl;
-    }
+            if (log.level == L_DEBUGGING)
+            {
+                continue;
+            }
 #endif
+
+            *logFile << "[" << FormatTimestamp(log.time) << "] ";
+            *logFile << "[" << LevelToString(log.level) << "] ";
+
+#ifdef DEBUG
+            if (!log.stackTrace.empty())
+            {
+                *logFile << log.stackTrace << " ";
+            }
+#endif
+
+#ifdef DEBUG
+            *logFile << log.file << ":" << log.line << ": ";
+#endif
+
+            *logFile << log.message;
+
+            if (log.errorCode != 0)
+            {
+                *logFile << " (Error: " << log.errorCode << ")";
+            }
+
+            *logFile << std::endl;
+            wroteLogs = true;
+        }
+        lastFlushedIndex = logs.size();
+
+        logFile->flush();
+        flushFailed = logFile->fail();
+#ifdef DEBUG
+        if (flushFailed)
+        {
+            std::cerr << "ERROR: Failed to write to log file!" << std::endl;
+        }
+        else if (wroteLogs)
+        {
+            std::cout << "\033[32m";
+            std::cout << "Successfully flushed logs to file";
+            std::cout << "\033[0m" << std::endl;
+        }
+#endif
+    }
+    catch (...)
+    {
+        std::fputs("Logger::FlushToFile failed\n", stderr);
+    }
 }
 
 size_t getTerminalWidth()

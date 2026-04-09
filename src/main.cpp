@@ -7,32 +7,33 @@
 
 int main()
 {
-    SetWorkingDirectoryToExe();
-
-#ifdef DEBUG
-    SET_LOG_FILE("logs/log.log");
-#else
-    SET_LOG_FILE_DEFAULT;
-#endif
-
-    const std::vector<std::string> requiredAssets = {
-        GET_RESOURCE_PATH("fonts/Roboto-Regular.ttf"),      GET_RESOURCE_PATH("shader/default.vert"),
-        GET_RESOURCE_PATH("shader/default.frag"),           GET_RESOURCE_PATH("shader/upscaling/upscale.vert"),
-        GET_RESOURCE_PATH("shader/upscaling/upscale.frag"), GET_RESOURCE_PATH("shader/UI/default.vert"),
-        GET_RESOURCE_PATH("shader/UI/default.frag"),        GET_RESOURCE_PATH("shader/UI/container.vert"),
-        GET_RESOURCE_PATH("shader/UI/container.frag")};
-
-    if (!ValidateAssets(requiredAssets))
-    {
-        FLUSH_LOG_TO_FILE;
-        return EXIT_FAILURE;
-    }
-
     bool openGLInitialized = false;
-    int exitCode = EXIT_SUCCESS;
 
     try
     {
+        SetWorkingDirectoryToExe();
+
+#ifdef DEBUG
+        SET_LOG_FILE("logs/log.log");
+#else
+        SET_LOG_FILE_DEFAULT;
+#endif
+
+        const std::vector<std::string> requiredAssets = {
+            GET_RESOURCE_PATH("fonts/Roboto-Regular.ttf"),      GET_RESOURCE_PATH("shader/default.vert"),
+            GET_RESOURCE_PATH("shader/default.frag"),           GET_RESOURCE_PATH("shader/upscaling/upscale.vert"),
+            GET_RESOURCE_PATH("shader/upscaling/upscale.frag"), GET_RESOURCE_PATH("shader/UI/default.vert"),
+            GET_RESOURCE_PATH("shader/UI/default.frag"),        GET_RESOURCE_PATH("shader/UI/container.vert"),
+            GET_RESOURCE_PATH("shader/UI/container.frag")};
+
+        if (!ValidateAssets(requiredAssets))
+        {
+            FLUSH_LOG_TO_FILE;
+            return EXIT_FAILURE;
+        }
+
+        int exitCode = EXIT_SUCCESS;
+
         if (!Window::InitOpenGL())
         {
             exitCode = EXIT_FAILURE;
@@ -49,22 +50,32 @@ int main()
             game.run();
             LOG_INFO("Game stopped");
         }
+
+        if (openGLInitialized)
+        {
+            Window::TerminateOpenGL();
+        }
+        FLUSH_LOG_TO_FILE;
+        return exitCode;
     }
     catch (const std::exception &e)
     {
+        if (openGLInitialized)
+        {
+            Window::TerminateOpenGL();
+        }
         LOG_ERROR(1, "Unhandled exception: ", e.what());
-        exitCode = EXIT_FAILURE;
+        FLUSH_LOG_TO_FILE;
+        return EXIT_FAILURE;
     }
     catch (...)
     {
+        if (openGLInitialized)
+        {
+            Window::TerminateOpenGL();
+        }
         LOG_ERROR(1, "Unhandled non-standard exception");
-        exitCode = EXIT_FAILURE;
+        FLUSH_LOG_TO_FILE;
+        return EXIT_FAILURE;
     }
-
-    if (openGLInitialized)
-    {
-        Window::TerminateOpenGL();
-    }
-    FLUSH_LOG_TO_FILE;
-    return exitCode;
 }

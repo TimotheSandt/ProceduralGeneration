@@ -14,7 +14,7 @@ Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vect
     this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib), std::move(instances), std::move(SizeAttribInstance));
 }
 
-Mesh::Mesh(const Mesh &mesh) noexcept
+Mesh::Mesh(const Mesh &mesh)
 {
     this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.SizeAttribInstance);
     for (const Texture &texture : mesh.textures)
@@ -27,7 +27,7 @@ Mesh::Mesh(const Mesh &mesh) noexcept
     this->rotation = mesh.rotation;
 }
 
-Mesh &Mesh::operator=(const Mesh &mesh) noexcept
+Mesh &Mesh::operator=(const Mesh &mesh)
 {
     if (this == &mesh)
     {
@@ -46,7 +46,15 @@ Mesh &Mesh::operator=(const Mesh &mesh) noexcept
     return *this;
 }
 
-Mesh::Mesh(Mesh &&mesh) noexcept : position(0.0f), scale(1.0f), rotation(0.0f), instancing(1) { this->Swap(mesh); }
+Mesh::Mesh(Mesh &&mesh) noexcept
+    : vertices(std::move(mesh.vertices)), indices(std::move(mesh.indices)), sizeAttrib(std::move(mesh.sizeAttrib)),
+      textures(std::move(mesh.textures)), shader(std::move(mesh.shader)), position(std::move(mesh.position)), scale(std::move(mesh.scale)),
+      rotation(std::move(mesh.rotation)), instancing(mesh.instancing), instances(std::move(mesh.instances)),
+      SizeAttribInstance(std::move(mesh.SizeAttribInstance)), bVAO(std::move(mesh.bVAO)), bUBO(std::move(mesh.bUBO)),
+      uniformCache(std::move(mesh.uniformCache))
+{
+    mesh.instancing = 1;
+}
 
 Mesh &Mesh::operator=(Mesh &&mesh) noexcept
 {

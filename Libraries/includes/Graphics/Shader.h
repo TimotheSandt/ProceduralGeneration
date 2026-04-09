@@ -18,8 +18,8 @@ class Shader
     Shader(const char *vertexPath, const char *fragmentPath);
     ~Shader();
 
-    Shader(const Shader &shader) noexcept;
-    Shader &operator=(const Shader &) noexcept;
+    Shader(const Shader &shader);
+    Shader &operator=(const Shader &);
 
     Shader(Shader &&) noexcept;
     Shader &operator=(Shader &&) noexcept;

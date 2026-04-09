@@ -12,7 +12,7 @@ LightManager::LightManager() { this->ResetAmbientLight(); }
 
 LightManager::LightManager(glm::vec3 color, float strength) { this->SetAmbientLight(color, strength); }
 
-LightManager::LightManager(const LightManager &other) noexcept
+LightManager::LightManager(const LightManager &other)
 {
     this->lLight = other.lLight;
     this->ambientLight = other.ambientLight;
@@ -24,7 +24,7 @@ LightManager::LightManager(const LightManager &other) noexcept
     this->updateSSBO();
 }
 
-LightManager &LightManager::operator=(const LightManager &other) noexcept
+LightManager &LightManager::operator=(const LightManager &other)
 {
     if (this != &other)
     {

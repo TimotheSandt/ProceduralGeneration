@@ -157,7 +157,11 @@ template <typename Type> class RingBuffer
             Type sum = GetSum();
             return sum / static_cast<Type>(this->size);
         }
-        LOG_ERROR(-1, "Unsupported type");
+        static_assert(std::is_arithmetic_v<Type> || std::is_same_v<Type, std::chrono::nanoseconds> ||
+                          std::is_same_v<Type, std::chrono::microseconds> || std::is_same_v<Type, std::chrono::milliseconds> ||
+                          std::is_same_v<Type, std::chrono::seconds> || std::is_same_v<Type, std::chrono::minutes> ||
+                          std::is_same_v<Type, std::chrono::hours>,
+                      "RingBuffer::GetAverage only supports arithmetic and chrono types");
         return Type();
     };
 

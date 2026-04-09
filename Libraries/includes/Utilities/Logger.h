@@ -5,6 +5,7 @@
 #include <string>
 #include <mutex>
 #include <chrono>
+#include <cstdio>
 #include <fstream>
 #include <memory>
 #include <sstream>
@@ -61,21 +62,21 @@ class Logger
     static void Print();
     static void SetMinimumLevel(LogLevel level);
     static LogLevel GetMinimumLevel();
-    static void FlushToFile();
+    static void FlushToFile() noexcept;
 
     template <typename... Args>
     static void Log(LogLevel level,
 #ifdef DEBUG
                     const std::string &file, int line,
 #endif
-                    Args &&...args);
+                    Args &&...args) noexcept;
 
     template <typename... Args>
     static void LogError(LogLevel level,
 #ifdef DEBUG
                          const std::string &file, int line,
 #endif
-                         int errorCode, Args &&...args);
+                         int errorCode, Args &&...args) noexcept;
 
   private:
     static void AddLog(LogMessage &&msg);
@@ -106,7 +107,7 @@ void Logger::Log(LogLevel level,
 #ifdef DEBUG
                  const std::string &file, int line,
 #endif
-                 Args &&...args)
+                 Args &&...args) noexcept
 {
     Logger::LogError(level,
 #ifdef DEBUG
@@ -120,25 +121,32 @@ void Logger::LogError(LogLevel level,
 #ifdef DEBUG
                       const std::string &file, int line,
 #endif
-                      int errorCode, Args &&...args)
+                      int errorCode, Args &&...args) noexcept
 {
-    std::ostringstream oss;
-    ((oss << args), ...);
+    try
+    {
+        std::ostringstream oss;
+        ((oss << args), ...);
 
-    LogMessage msg;
-    msg.level = level;
-    msg.time = std::chrono::system_clock::now();
+        LogMessage msg;
+        msg.level = level;
+        msg.time = std::chrono::system_clock::now();
 #ifdef DEBUG
-    msg.file = file;
-    msg.line = line;
+        msg.file = file;
+        msg.line = line;
 #endif
-    msg.message = oss.str();
-    msg.errorCode = errorCode;
+        msg.message = oss.str();
+        msg.errorCode = errorCode;
 #ifdef DEBUG
-    msg.stackTrace = CaptureStackTrace();
+        msg.stackTrace = CaptureStackTrace();
 #endif
 
-    Logger::AddLog(std::move(msg));
+        Logger::AddLog(std::move(msg));
+    }
+    catch (...)
+    {
+        std::fputs("Logger::LogError failed\n", stderr);
+    }
 }
 
 #define LOG_LEVEL Logger::GetMinimumLevel()

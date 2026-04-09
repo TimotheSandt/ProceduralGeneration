@@ -99,9 +99,18 @@ void Mesh::InitUniformMatrix4f(const char *uniform, const GLfloat *data)
     glUniformMatrix4fv(CachedUniformLocation(sUni), 1, GL_FALSE, data);
 }
 
+std::unordered_map<std::string, Mesh::UniformCache> &Mesh::GetOrCreateUniformCache()
+{
+    if (!this->uniformCache)
+    {
+        this->uniformCache = std::make_unique<std::unordered_map<std::string, UniformCache>>();
+    }
+    return *this->uniformCache;
+}
+
 GLint Mesh::CachedUniformLocation(const std::string &uniform)
 {
-    auto &cache = this->uniformCache[uniform];
+    auto &cache = GetOrCreateUniformCache()[uniform];
     GLuint ID = this->shader.GetID();
     if (cache.location != -2 && cache.shaderID == ID)
     {
@@ -118,7 +127,7 @@ GLint Mesh::CachedUniformLocation(const std::string &uniform)
 
 bool Mesh::CacheUniform(const std::string &uniform, void *data, size_t size)
 {
-    auto &cache = this->uniformCache[uniform];
+    auto &cache = GetOrCreateUniformCache()[uniform];
     size = size > 64 ? 64 : size;
     if (cache.location > -1 && cache.shaderID == this->shader.GetID() && cache.size == size && memcmp(cache.data.data(), data, size) == 0)
     {
@@ -131,4 +140,10 @@ bool Mesh::CacheUniform(const std::string &uniform, void *data, size_t size)
     return true;
 }
 
-void Mesh::FreeCache() { this->uniformCache.clear(); }
+void Mesh::FreeCache()
+{
+    if (this->uniformCache)
+    {
+        this->uniformCache->clear();
+    }
+}
