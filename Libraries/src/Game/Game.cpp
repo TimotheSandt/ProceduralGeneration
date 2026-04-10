@@ -109,7 +109,10 @@ void Game::render()
     const int windowHeight = *window.GetHeightptr();
     int renderWidth = windowWidth;
     int renderHeight = windowHeight;
+    int uiRenderWidth = windowWidth;
+    int uiRenderHeight = windowHeight;
     this->window.GetRenderResolution(renderWidth, renderHeight);
+    this->window.GetUIRenderResolution(uiRenderWidth, uiRenderHeight);
 
     renderer3D.BeginPass(renderWidth, renderHeight);
 
@@ -123,7 +126,13 @@ void Game::render()
         window.PresentSceneToScreen();
     }
 
-    renderer2D.BeginPass(windowWidth, windowHeight);
+    if (window.IsUIUpscalingEnabled())
+    {
+        window.BindUIRenderTarget();
+        OpenGLRenderState::ClearTransparentColorBuffer();
+    }
+
+    renderer2D.BeginPass(uiRenderWidth, uiRenderHeight);
     renderer2D.RenderText(*textRenderer, "fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, glm::vec3(1.0f, 0.8f, 1.0f),
                           UI::TextAnchor::TopLeft);
     renderer2D.RenderText(*textRenderer, std::format("Render: {:.3f}ms", averageTimeMs("Render")), 10, 50, 0.3f,
@@ -132,9 +141,16 @@ void Game::render()
                           glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
     renderer2D.RenderText(*textRenderer, std::format("Upscale: {:.3f}ms", averageTimeMs("Upscale")), 10, 90, 0.3f,
                           glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    renderer2D.RenderText(*textRenderer, std::format("Swap Buffers: {:.3f}ms", averageTimeMs("SwapBuffers")), 10, 110, 0.3f,
+    renderer2D.RenderText(*textRenderer, std::format("UI Upscale: {:.3f}ms", averageTimeMs("UIUpscale")), 10, 110, 0.3f,
+                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    renderer2D.RenderText(*textRenderer, std::format("Swap Buffers: {:.3f}ms", averageTimeMs("SwapBuffers")), 10, 130, 0.3f,
                           glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
 
     UI::UIManager::Instance().Render(renderer2D, windowWidth, windowHeight);
     renderer2D.EndPass();
+
+    if (window.IsUIUpscalingEnabled())
+    {
+        window.PresentUIToScreen();
+    }
 }

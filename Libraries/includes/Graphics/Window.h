@@ -49,6 +49,9 @@ struct WindowParameters
     float renderScale;
     int renderWidth, renderHeight;
     bool enableUpscaling;
+    float uiRenderScale;
+    int uiRenderWidth, uiRenderHeight;
+    bool enableUIUpscaling;
 };
 
 class Window
@@ -85,12 +88,30 @@ class Window
     float GetRenderScale() const { return parameters.renderScale; }
     bool IsUpscalingEnabled() const { return parameters.enableUpscaling; }
     void PresentSceneToScreen();
+    void SetUIRenderScale(float scale);
+    void EnableUIUpscaling(bool enable);
+    float GetUIRenderScale() const { return parameters.uiRenderScale; }
+    bool IsUIUpscalingEnabled() const { return parameters.enableUIUpscaling; }
+    void BindUIRenderTarget() const;
+    void PresentUIToScreen();
     void GetRenderResolution(int &width, int &height) const
     {
         if (parameters.enableUpscaling)
         {
             width = parameters.renderWidth;
             height = parameters.renderHeight;
+            return;
+        }
+
+        width = parameters.width;
+        height = parameters.height;
+    }
+    void GetUIRenderResolution(int &width, int &height) const
+    {
+        if (parameters.enableUIUpscaling)
+        {
+            width = parameters.uiRenderWidth;
+            height = parameters.uiRenderHeight;
             return;
         }
 
@@ -147,6 +168,8 @@ class Window
     void BindSceneRenderTarget() const;
     void PresentRenderTarget() const;
     void UpdateRenderTargetResolution();
+    void UpdateUIRenderTargetResolution();
+    void PresentUIRenderTarget() const;
 
     // Callbacks
     void SetupCallbacks();
@@ -163,6 +186,7 @@ class Window
 
     RenderTarget sceneRenderTarget;
     RenderTarget upscaledRenderTarget;
+    RenderTarget uiRenderTarget;
 
     WindowParameters parameters;
 
@@ -172,4 +196,5 @@ class Window
 
     std::chrono::time_point<std::chrono::high_resolution_clock> lastTime;
     bool scenePresentedThisFrame = false;
+    bool uiPresentedThisFrame = false;
 };
