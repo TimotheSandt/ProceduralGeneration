@@ -26,7 +26,7 @@ void World::Destroy()
 
 void World::Update() {}
 
-void World::Render(const Renderer3D &renderer3D, Camera &camera)
+void World::Render(Renderer3D &renderer3D, Camera &camera)
 {
     this->lightManager.BindSSBO();
     this->terrain.Render(renderer3D, camera);

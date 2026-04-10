@@ -4,12 +4,10 @@
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Mesh.h"
-#include "Window.h"
-#include "World.h"
 
 bool Renderer3D::IsRuntimeCompatible() const noexcept { return IsGraphicsAPIActive(GraphicsAPI::OpenGL); }
 
-void Renderer3D::BeginFrame(int width, int height)
+void Renderer3D::BeginPass(int width, int height)
 {
     frameWidth = width;
     frameHeight = height;
@@ -22,15 +20,18 @@ void Renderer3D::BeginFrame(int width, int height)
     OpenGLRenderState::PrepareScreenPass(frameWidth, frameHeight);
 }
 
-void Renderer3D::Clear(const Window &window) const
+void Renderer3D::EndPass() const noexcept {}
+
+void Renderer3D::Clear(const glm::vec4 &clearColor, bool clearDepth) const
 {
     if (IsRuntimeCompatible() && HasValidFrameExtent())
     {
-        window.Clear();
+        OpenGLRenderState::ClearColor(clearColor);
+        OpenGLRenderState::Clear(clearDepth ? (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT) : GL_COLOR_BUFFER_BIT);
     }
 }
 
-void Renderer3D::BindCamera(Camera &camera) const
+void Renderer3D::SetCamera(Camera &camera) const
 {
     if (IsRuntimeCompatible())
     {
@@ -38,18 +39,10 @@ void Renderer3D::BindCamera(Camera &camera) const
     }
 }
 
-void Renderer3D::RenderMesh(Mesh &mesh, Camera &camera) const
+void Renderer3D::DrawMesh(Mesh &mesh, Camera &camera) const
 {
     if (IsRuntimeCompatible())
     {
         mesh.Render(camera);
-    }
-}
-
-void Renderer3D::RenderWorld(World &world, Camera &camera) const
-{
-    if (IsRuntimeCompatible())
-    {
-        world.Render(*this, camera);
     }
 }

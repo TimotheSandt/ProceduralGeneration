@@ -20,7 +20,7 @@ class World
 
     void Update();
 
-    void Render(const Renderer3D &renderer3D, Camera &camera);
+    void Render(Renderer3D &renderer3D, Camera &camera);
 
   private:
     TerrainGenerator terrain;

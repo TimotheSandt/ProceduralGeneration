@@ -1,6 +1,5 @@
 #include "UIManager.h"
 #include "Renderer2D.h"
-#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "UIHBox.h"
 #include "UIVBox.h"
 #include <iostream>
@@ -87,23 +86,12 @@ void UIManager::Render(Renderer2D &renderer2D, int w, int h)
         Init(w, h);
     }
 
-    renderer2D.BeginFrame(w, h);
-
-    // Save GL state
-    const OpenGLRenderState::FramebufferState previousState = OpenGLRenderState::CaptureFramebufferState();
-
-    // Setup GL state for UI rendering
-    OpenGLRenderState::PrepareScreenPass(w, h);
-    OpenGLRenderState::SetDepthTest(false);
-    OpenGLRenderState::SetBlend(true);
-    OpenGLRenderState::SetAlphaBlend();
+    renderer2D.BeginCanvasPass();
 
     // Draw root container with screen as container size
     glm::vec2 screenSize = {static_cast<float>(w), static_cast<float>(h)};
     rootContainer->Draw(screenSize, {0, 0});
-
-    // Restore GL state
-    OpenGLRenderState::RestoreFramebufferState(previousState);
+    renderer2D.EndCanvasPass();
 }
 
 } // namespace UI

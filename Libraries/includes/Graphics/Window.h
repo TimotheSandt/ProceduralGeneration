@@ -97,6 +97,7 @@ class Window
     // Getters
     int GetWidth() const { return this->parameters.width; }
     int GetHeight() const { return this->parameters.height; }
+    glm::vec4 GetClearColor() const { return this->parameters.clearColor; }
     int *GetWidthptr() { return &this->parameters.width; }
     int *GetHeightptr() { return &this->parameters.height; }
     bool ShouldClose() const { return glfwWindowShouldClose(this->window); }
