@@ -9,6 +9,11 @@ namespace OpenGLDiagnostics
 
 void LogErrors(std::string_view context) noexcept
 {
+    if (glad_glGetError == nullptr)
+    {
+        return;
+    }
+
     GLenum errorCode = GL_NO_ERROR;
     while ((errorCode = glGetError()) != GL_NO_ERROR)
     {

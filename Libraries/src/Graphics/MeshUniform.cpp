@@ -118,10 +118,6 @@ int Mesh::CachedUniformLocation(const std::string &uniform)
     }
     cache.shaderProgramID = ID;
     cache.location = this->shaderProgram.GetUniformLocation(uniform);
-    if (cache.location == -1)
-    {
-        LOG_ERROR(1, "Uniform ", uniform, " not found");
-    }
     return cache.location;
 }
 

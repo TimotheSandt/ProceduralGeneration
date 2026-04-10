@@ -18,6 +18,9 @@ void Renderer3D::BeginPass(int width, int height)
     }
 
     OpenGLRenderState::PrepareScreenPass(frameWidth, frameHeight);
+    OpenGLRenderState::SetDepthTest(true);
+    OpenGLRenderState::SetBlend(false);
+    OpenGLRenderState::SetScissorTest(false);
 }
 
 void Renderer3D::EndPass() const noexcept {}

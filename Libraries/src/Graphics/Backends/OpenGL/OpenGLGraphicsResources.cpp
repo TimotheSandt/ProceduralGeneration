@@ -643,13 +643,28 @@ OpenGLTextureResource::OpenGLTextureResource(TextureCreateInfo createInfo)
     const GLenum dataFormat = ToOpenGLDataFormat(desc.format);
     const GLenum dataType = ToOpenGLDataType(desc.format);
     const void *initialData = createInfo.initialData.empty() ? nullptr : createInfo.initialData.data();
+    const bool isSingleChannelTexture = desc.format == TextureFormat::R8;
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, desc.renderTarget ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                    (desc.renderTarget || !createInfo.generateMipmaps) ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, desc.renderTarget ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, desc.renderTarget ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (desc.renderTarget || isSingleChannelTexture) ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (desc.renderTarget || isSingleChannelTexture) ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+
+    GLint previousUnpackAlignment = 4;
+    if (isSingleChannelTexture)
+    {
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &previousUnpackAlignment);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    }
+
     glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, static_cast<GLsizei>(desc.extent.width), static_cast<GLsizei>(desc.extent.height), 0,
                  dataFormat, dataType, initialData);
+
+    if (isSingleChannelTexture)
+    {
+        glPixelStorei(GL_UNPACK_ALIGNMENT, previousUnpackAlignment);
+    }
 
     if (createInfo.generateMipmaps && !desc.renderTarget && initialData != nullptr)
     {

@@ -27,6 +27,8 @@ void Renderer2D::EndPass() const
     }
 
     OpenGLRenderState::SetScissorTest(false);
+    OpenGLRenderState::SetBlend(false);
+    OpenGLRenderState::SetDepthTest(true);
 }
 
 void Renderer2D::BeginCanvasPass() const
@@ -51,6 +53,7 @@ void Renderer2D::EndCanvasPass() const
 
     OpenGLRenderState::SetScissorTest(false);
     OpenGLRenderState::SetBlend(false);
+    OpenGLRenderState::SetDepthTest(true);
 }
 
 void Renderer2D::PushClipRect(float x, float y, float width, float height) const

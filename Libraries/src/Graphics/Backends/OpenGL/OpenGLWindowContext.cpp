@@ -22,13 +22,18 @@ void EnsureContextCurrent(GLFWwindow *window) noexcept
     }
 
     glfwMakeContextCurrent(window);
-    GRAPHICS_CHECK_ERRORS_M("glfwMakeContextCurrent");
 }
 
 bool Initialize(GLFWwindow *window, bool enableVsync, int width, int height)
 {
+#ifdef DEBUG
+    LOG_DEBUGGING("OpenGLWindowContext::Initialize step 1: ensure context current");
+#endif
     EnsureContextCurrent(window);
 
+#ifdef DEBUG
+    LOG_DEBUGGING("OpenGLWindowContext::Initialize step 2: load GLAD");
+#endif
     if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)))
     {
         LOG_FATAL(-1, "Failed to initialize GLAD");
@@ -36,12 +41,25 @@ bool Initialize(GLFWwindow *window, bool enableVsync, int width, int height)
     }
     GRAPHICS_CHECK_ERRORS_M("gladLoadGL");
 
+#ifdef DEBUG
+    LOG_DEBUGGING("OpenGLWindowContext::Initialize step 3: set viewport");
+#endif
     OpenGLRenderState::SetViewport(0, 0, width, height);
 
+#ifdef DEBUG
+    LOG_DEBUGGING("OpenGLWindowContext::Initialize step 4: set swap interval");
+#endif
     glfwSwapInterval(enableVsync ? 1 : 0);
     GRAPHICS_CHECK_ERRORS_M("glfwSwapInterval");
 
+#ifdef DEBUG
+    LOG_DEBUGGING("OpenGLWindowContext::Initialize step 5: enable depth test");
+#endif
     OpenGLRenderState::SetDepthTest(true);
+
+#ifdef DEBUG
+    LOG_DEBUGGING("OpenGLWindowContext::Initialize step 6: complete");
+#endif
 
     return true;
 }
@@ -58,16 +76,18 @@ void ApplyDefaultFramebufferState(GLFWwindow *window, bool enableVsync, const gl
     glfwSwapInterval(enableVsync ? 1 : 0);
     GRAPHICS_CHECK_ERRORS_M("glfwSwapInterval");
 
+    int framebufferWidth = 0;
+    int framebufferHeight = 0;
+    glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+    GRAPHICS_CHECK_ERRORS_M("glfwGetFramebufferSize");
+
+    if (framebufferWidth > 0 && framebufferHeight > 0)
+    {
+        OpenGLRenderState::SetViewport(0, 0, framebufferWidth, framebufferHeight);
+    }
+
     OpenGLRenderState::SetDepthTest(true);
-
     OpenGLRenderState::ClearColor(clearColor);
-    OpenGLRenderState::Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glfwSwapBuffers(window);
-    GRAPHICS_CHECK_ERRORS_M("glfwSwapBuffers");
-
-    glfwFocusWindow(window);
-    GRAPHICS_CHECK_ERRORS_M("glfwFocusWindow");
 }
 
 } // namespace OpenGLWindowContext
