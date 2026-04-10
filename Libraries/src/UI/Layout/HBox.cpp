@@ -1,9 +1,9 @@
-#include "UIHBox.h"
+#include "Layout/HBox.h"
 
 namespace UI
 {
 
-void UIHBoxBase::RecalculateChildBounds()
+void HBoxBase::RecalculateChildBounds()
 {
     float padding = GetPadding();
     float spacing = GetSpacing();
@@ -157,7 +157,7 @@ void UIHBoxBase::RecalculateChildBounds()
     }
 }
 
-glm::vec2 UIHBoxBase::GetAvailableSize() const
+glm::vec2 HBoxBase::GetAvailableSize() const
 {
     float p = GetPadding();
     float s = GetSpacing();
@@ -190,13 +190,13 @@ glm::vec2 UIHBoxBase::GetAvailableSize() const
     return available;
 }
 
-void UIHBoxBase::DoSetChildAlignment(VAlign align)
+void HBoxBase::DoSetChildAlignment(VAlign align)
 {
     childAlignment = align;
     MarkChildLayoutDirty();
 }
 
-void UIHBoxBase::DoSetJustifyContent(JustifyContent j)
+void HBoxBase::DoSetJustifyContent(JustifyContent j)
 {
     justifyContent = j;
     MarkChildLayoutDirty();

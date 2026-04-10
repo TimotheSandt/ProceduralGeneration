@@ -1,41 +1,50 @@
-#include "UIManager.h"
-#include "UIHBox.h"
-#include "UIVBox.h"
+#include "Manager.h"
+#include "Layout/HBox.h"
+#include "Layout/VBox.h"
+#include "Utilities.h"
 #include <iostream>
 #include <glad/glad.h>
 
 namespace UI
 {
 
-UIManager &UIManager::Instance()
+Manager &Manager::Instance()
 {
-    static UIManager instance;
+    static Manager instance;
     return instance;
 }
 
-void UIManager::Init(int w, int h)
+void Manager::Init(int w, int h)
 {
+    textRenderer = std::make_shared<TextRenderer>();
+    textRenderer->init(static_cast<unsigned int>(w), static_cast<unsigned int>(h));
+    textRenderer->loadFont(GET_RESOURCE_PATH("fonts/Roboto-Regular.ttf"), "default", 48);
+
     CreateUI(w, h);
     lastWidth = w;
     lastHeight = h;
 }
 
-void UIManager::CreateUI(int w, int h)
+void Manager::CreateUI(int w, int h)
 {
     // Create root with actual window size (not percentage)
-    rootContainer = Container(
+    rootContainer = CreateContainer(
         Bounds({static_cast<float>(w), ValueType::PIXEL}, {static_cast<float>(h), ValueType::PIXEL}),
-        {VBox(Bounds(200_px, 200_px, Anchor::CENTER), {Box(Bounds(150_px, 50_px), {1.0f, 0.2f, 0.2f, 1.0f}),
-                                                       HBox(Bounds(150_px, 75_px), {Box(Bounds(40_pct, 100_pct), {0.2f, 0.2f, 1.0f, 1.0f}),
-                                                                                    Box(Bounds(40_pct, 100_pct), {1.0f, 0.2f, 0.2f, 1.0f}),
-                                                                                    Box(Bounds(40_pct, 100_pct), {0.2f, 1.0f, 0.2f, 1.0f})})
-                                                           ->SetColor(glm::vec4{0.3f, 0.9f, 0.4f, 1.0f})
-                                                           ->SetPadding(10.0f)
-                                                           ->SetJustifyContent(UI::JustifyContent::CENTER)
-                                                           ->SetOverflowMode(UI::OverflowMode::WRAP)
-                                                           ->SetChildrenDeform(true)
-                                                           ->SetChildAlignment(UI::VAlign::CENTER),
-                                                       Box(Bounds(100_px, 50_px), {0.2f, 1.0f, 0.2f, 1.0f})})
+        {
+            CreateVBox(Bounds(200_px, 200_px, Anchor::CENTER), {
+                CreateBox(Bounds(150_px, 50_px), {1.0f, 0.2f, 0.2f, 1.0f}),
+                CreateHBox(Bounds(150_px, 75_px), {
+                    CreateBox(Bounds(40_pct, 100_pct), {0.2f, 0.2f, 1.0f, 1.0f}),
+                    CreateBox(Bounds(40_pct, 100_pct), {1.0f, 0.2f, 0.2f, 1.0f}),
+                    CreateBox(Bounds(40_pct, 100_pct), {0.2f, 1.0f, 0.2f, 1.0f})})
+                        ->SetColor(glm::vec4{0.3f, 0.9f, 0.4f, 1.0f})
+                        ->SetPadding(10.0f)
+                        ->SetJustifyContent(UI::JustifyContent::CENTER)
+                        ->SetOverflowMode(UI::OverflowMode::WRAP)
+                        ->SetChildrenDeform(true)
+                        ->SetChildAlignment(UI::VAlign::CENTER),
+                    CreateBox(Bounds(100_px, 50_px), {0.2f, 1.0f, 0.2f, 1.0f})
+                })
              ->SetPadding(10.0f)
              ->SetSpacing(5.0f)
              ->SetColor(glm::vec4{0.3f, 0.6f, 1.0f, 0.5f})
@@ -48,9 +57,9 @@ void UIManager::CreateUI(int w, int h)
     rootContainer->Initialize();
 }
 
-void UIManager::Shutdown() { rootContainer.reset(); }
+void Manager::Shutdown() { rootContainer.reset(); }
 
-void UIManager::Update(float dt, int w, int h)
+void Manager::Update(float dt, int w, int h)
 {
     (void)dt;
 
@@ -65,6 +74,8 @@ void UIManager::Update(float dt, int w, int h)
     if (lastWidth != w || lastHeight != h)
     {
         rootContainer->SetSize({static_cast<float>(w), static_cast<float>(h)});
+        if (textRenderer)
+            textRenderer->updateScreenSize(static_cast<unsigned int>(w), static_cast<unsigned int>(h));
         lastWidth = w;
         lastHeight = h;
     }
@@ -73,7 +84,7 @@ void UIManager::Update(float dt, int w, int h)
     rootContainer->Update();
 }
 
-void UIManager::Render(int w, int h)
+void Manager::Render(int w, int h)
 {
     if (!active)
     {

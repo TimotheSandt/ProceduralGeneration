@@ -10,25 +10,25 @@
 #include "Mesh.h"
 
 #include "Bounds.h"
-#include "UITheme.h"
+#include "../Rendering/Theme.h"
 #include "DeferredValue.h"
 
 // Forward declaration to avoid circular dependency
 namespace UI
 {
-class UIContainerBase;
+class ContainerBase;
 }
 
 namespace UI
 {
 
-class UIComponentBase : public std::enable_shared_from_this<UIComponentBase>
+class ComponentBase : public std::enable_shared_from_this<ComponentBase>
 {
   protected:
     Bounds localBounds;
     Mesh mesh;
 
-    std::weak_ptr<UIContainerBase> parent;
+    std::weak_ptr<ContainerBase> parent;
 
     DeferredValue<bool> visible = true;
 
@@ -37,7 +37,7 @@ class UIComponentBase : public std::enable_shared_from_this<UIComponentBase>
     bool dirtyChildLayout = false; // Child size/position - cascade/full clear
     bool dirtySelfLayout = true;   // Own size - full FBO reset
 
-    std::weak_ptr<UITheme> theme;
+    std::weak_ptr<Theme> theme;
     DeferredValue<IdentifierKind> kind;
 
     DeferredValue<glm::vec4> color;
@@ -52,7 +52,7 @@ class UIComponentBase : public std::enable_shared_from_this<UIComponentBase>
     glm::vec4 cachedBoundsInParent = {0, 0, 0, 0};
 
   public:
-    UIComponentBase(Bounds bounds);
+    ComponentBase(Bounds bounds);
 
     virtual void Initialize();
     virtual void Update();
@@ -78,7 +78,7 @@ class UIComponentBase : public std::enable_shared_from_this<UIComponentBase>
     bool IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const;
 
     // Hierarchy
-    void SetParent(std::weak_ptr<UIContainerBase> p)
+    void SetParent(std::weak_ptr<ContainerBase> p)
     {
         parent = std::move(p);
         CalculatePixelSize();
@@ -90,7 +90,7 @@ class UIComponentBase : public std::enable_shared_from_this<UIComponentBase>
 
     // DoSet... methods (impl in .cpp)
     void DoSetColor(glm::vec4 c);
-    void DoSetTheme(std::weak_ptr<UITheme> t);
+    void DoSetTheme(std::weak_ptr<Theme> t);
     void DoSetIdentifierKind(IdentifierKind k);
     void DoSetAllowDeform(bool allow);
 
@@ -135,7 +135,7 @@ class UIComponentBase : public std::enable_shared_from_this<UIComponentBase>
 };
 
 // Helper template for chaining
-template <typename Base, typename Derived> class Chainable : public Base
+template <typename Base, typename Derived> class ChainableComponent : public Base
 {
   public:
     using Base::Base;
@@ -146,7 +146,7 @@ template <typename Base, typename Derived> class Chainable : public Base
         return std::static_pointer_cast<Derived>(this->shared_from_this());
     }
 
-    std::shared_ptr<Derived> SetTheme(std::weak_ptr<UITheme> t)
+    std::shared_ptr<Derived> SetTheme(std::weak_ptr<Theme> t)
     {
         this->DoSetTheme(t);
         return std::static_pointer_cast<Derived>(this->shared_from_this());
@@ -172,13 +172,13 @@ template <typename Base, typename Derived> class Chainable : public Base
 };
 
 // Concrete UIComponent
-class UIComponent : public Chainable<UIComponentBase, UIComponent>
+class Component : public ChainableComponent<ComponentBase, Component>
 {
   public:
-    using Chainable<UIComponentBase, UIComponent>::Chainable;
+    using ChainableComponent<ComponentBase, Component>::ChainableComponent;
 };
 
 // Factory
-inline std::shared_ptr<UIComponent> Component(Bounds bounds = Bounds()) { return std::make_shared<UIComponent>(bounds); }
+inline std::shared_ptr<Component> CreateComponent(Bounds bounds = Bounds()) { return std::make_shared<Component>(bounds); }
 
 } // namespace UI

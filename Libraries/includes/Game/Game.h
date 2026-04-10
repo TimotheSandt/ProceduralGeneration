@@ -5,8 +5,8 @@
 #include "World.h"
 #include "Camera.h"
 #include "Window.h"
-#include "UIManager.h"
-#include "TextRenderer.h"
+#include "Manager.h"
+#include "Rendering/TextRenderer.h"
 #include "InputManager.h"
 
 class Game

@@ -1,4 +1,4 @@
-#include "UIContainer.h"
+#include "Core/Container.h"
 #include "utilities.h"
 #include <glad/glad.h>
 #include "Logger.h"
@@ -6,7 +6,7 @@
 namespace UI
 {
 
-UIContainerBase::UIContainerBase(Bounds bounds) : UIComponentBase(bounds)
+ContainerBase::ContainerBase(Bounds bounds) : ComponentBase(bounds)
 {
     contentSize = localBounds.scale;
     // Use container-specific shader with texture and scroll support
@@ -14,15 +14,15 @@ UIContainerBase::UIContainerBase(Bounds bounds) : UIComponentBase(bounds)
     UpdateTheme();
 }
 
-void UIContainerBase::AddChild(const std::shared_ptr<UIComponentBase> &child)
+void ContainerBase::AddChild(const std::shared_ptr<ComponentBase> &child)
 {
     children.push_back(child);
-    child->SetParent(std::static_pointer_cast<UIContainerBase>(shared_from_this()));
+    child->SetParent(std::static_pointer_cast<ContainerBase>(shared_from_this()));
 }
 
-void UIContainerBase::Initialize()
+void ContainerBase::Initialize()
 {
-    UIComponentBase::Initialize();
+    ComponentBase::Initialize();
 
     for (auto &child : children)
     {
@@ -32,9 +32,9 @@ void UIContainerBase::Initialize()
     RecalculateChildBounds();
 }
 
-void UIContainerBase::Update()
+void ContainerBase::Update()
 {
-    UIComponentBase::Update();
+    ComponentBase::Update();
 
     // Apply deferred layout properties
     bool layoutChanged = false;
@@ -72,7 +72,7 @@ void UIContainerBase::Update()
 }
 
 // FBO helper functions
-void UIContainerBase::InitializedFBO()
+void ContainerBase::InitializedFBO()
 {
     if (contentSize.x <= 0 || contentSize.y <= 0)
     {
@@ -115,7 +115,7 @@ void RestoreFBOState(GLint oldFBO, GLint viewport[4])
     glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 }
 
-void UIContainerBase::ClearZone(glm::vec4 bounds)
+void ContainerBase::ClearZone(glm::vec4 bounds)
 {
     glEnable(GL_SCISSOR_TEST);
     // Flip Y for OpenGL (Bottom-Left origin)
@@ -128,7 +128,7 @@ void UIContainerBase::ClearZone(glm::vec4 bounds)
     glDisable(GL_SCISSOR_TEST);
 }
 
-void UIContainerBase::RenderChildren()
+void ContainerBase::RenderChildren()
 {
     GLint oldFBO;
     GLint viewport[4];
@@ -188,7 +188,7 @@ void UIContainerBase::RenderChildren()
     GL_CHECK_ERROR_M("RenderDirtyChildren Restore");
 }
 
-void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
+void ContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
 {
     if (!visible.Get())
     {
@@ -228,7 +228,7 @@ void UIContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
     ClearDirty();
 }
 
-void UIContainerBase::MarkFullDirty()
+void ContainerBase::MarkFullDirty()
 {
     MarkSelfLayoutDirty();
     for (auto &child : children)
@@ -239,7 +239,7 @@ void UIContainerBase::MarkFullDirty()
     NotifyParentChildLayoutDirty();
 }
 
-void UIContainerBase::RecalculateChildBounds()
+void ContainerBase::RecalculateChildBounds()
 {
     CalculatePixelSize();
     float p = GetPadding();
@@ -258,9 +258,9 @@ void UIContainerBase::RecalculateChildBounds()
     contentSize.y = localBounds.scale.y;
 }
 
-void UIContainerBase::UpdateTheme()
+void ContainerBase::UpdateTheme()
 {
-    UIComponentBase::UpdateTheme();
+    ComponentBase::UpdateTheme();
     if (auto t = theme.lock())
     {
         padding.ForceSet(t->GetPadding());
@@ -268,13 +268,13 @@ void UIContainerBase::UpdateTheme()
     }
 }
 
-void UIContainerBase::DoSetPadding(float p) { padding.Set(p); }
+void ContainerBase::DoSetPadding(float p) { padding.Set(p); }
 
-void UIContainerBase::DoSetSpacing(float s) { spacing.Set(s); }
+void ContainerBase::DoSetSpacing(float s) { spacing.Set(s); }
 
-void UIContainerBase::DoSetOverflowMode(OverflowMode mode) { overflowMode.Set(mode); }
+void ContainerBase::DoSetOverflowMode(OverflowMode mode) { overflowMode.Set(mode); }
 
-void UIContainerBase::DoSetChildrenAllowDeform(bool deform)
+void ContainerBase::DoSetChildrenAllowDeform(bool deform)
 {
     for (auto &child : children)
     {

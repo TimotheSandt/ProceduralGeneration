@@ -1,6 +1,7 @@
-#include "UIComponent.h"
+#include "Core/Bounds.h"
 
 #include <algorithm>
+#include <stdexcept>
 
 namespace UI
 {

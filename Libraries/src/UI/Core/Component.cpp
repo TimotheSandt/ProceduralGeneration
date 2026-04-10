@@ -1,14 +1,14 @@
-#include "UIComponent.h"
+#include "Core/Component.h"
 
 #include <utility>
-#include "UIContainer.h"
+#include "Core/Container.h"
 
 #include "utilities.h"
 
 namespace UI
 {
 
-std::vector<GLfloat> UIComponentBase::GetVertices() const
+std::vector<GLfloat> ComponentBase::GetVertices() const
 {
     // Unit quad (0-1 range) - shader will multiply by scale and add offset
     return {
@@ -19,7 +19,7 @@ std::vector<GLfloat> UIComponentBase::GetVertices() const
     };
 }
 
-UIComponentBase::UIComponentBase(Bounds bounds) : localBounds(bounds)
+ComponentBase::ComponentBase(Bounds bounds) : localBounds(bounds)
 {
     std::vector<GLfloat> vertices = GetVertices();
     std::vector<GLuint> indices = {0, 1, 2, 2, 3, 0};
@@ -27,18 +27,18 @@ UIComponentBase::UIComponentBase(Bounds bounds) : localBounds(bounds)
     this->mesh.SetShader(GET_RESOURCE_PATH("shader/UI/default.vert"), GET_RESOURCE_PATH("shader/UI/default.frag"));
 
     // Direct initialization with ForceSet to avoid deferred behavior
-    this->theme = UITheme::GetTheme("default");
+    this->theme = Theme::GetTheme("default");
     this->kind.ForceSet(IdentifierKind::PRIMARY);
     UpdateTheme();
 }
 
-void UIComponentBase::Initialize()
+void ComponentBase::Initialize()
 {
     MarkSelfLayoutDirty();
     CalculatePixelSize();
 }
 
-void UIComponentBase::Update()
+void ComponentBase::Update()
 {
     // Apply deferred values and mark dirty if they changed
     if (kind.Apply())
@@ -65,7 +65,7 @@ void UIComponentBase::Update()
     }
 }
 
-glm::vec2 UIComponentBase::CalculatePixelSize()
+glm::vec2 ComponentBase::CalculatePixelSize()
 {
     if (auto p = parent.lock())
     {
@@ -80,7 +80,7 @@ glm::vec2 UIComponentBase::CalculatePixelSize()
     return this->localBounds.scale;
 }
 
-void UIComponentBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
+void ComponentBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
 {
     if (!visible.Get())
     {
@@ -105,29 +105,29 @@ void UIComponentBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
     ClearDirty();
 }
 
-bool UIComponentBase::IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const { return localBounds.isHover(mousePos - offset); }
+bool ComponentBase::IsMouseOver(glm::vec2 mousePos, glm::vec2 offset) const { return localBounds.isHover(mousePos - offset); }
 
-void UIComponentBase::DoSetColor(glm::vec4 c)
+void ComponentBase::DoSetColor(glm::vec4 c)
 {
     color.Set(c);
     MarkAppearanceDirty();
 }
 
-void UIComponentBase::DoSetTheme(std::weak_ptr<UITheme> t)
+void ComponentBase::DoSetTheme(std::weak_ptr<Theme> t)
 {
     theme = std::move(t);
     UpdateTheme();
     MarkAppearanceDirty();
 }
 
-void UIComponentBase::DoSetIdentifierKind(IdentifierKind k)
+void ComponentBase::DoSetIdentifierKind(IdentifierKind k)
 {
     kind.Set(k);
     UpdateTheme();
     MarkAppearanceDirty();
 }
 
-void UIComponentBase::DoSetAllowDeform(bool allow)
+void ComponentBase::DoSetAllowDeform(bool allow)
 {
     allowDeform.Set(allow);
     if (!isDeformed && allowDeform.Get())
@@ -137,20 +137,20 @@ void UIComponentBase::DoSetAllowDeform(bool allow)
 }
 
 // Three-tier dirty system implementation
-void UIComponentBase::MarkAppearanceDirty()
+void ComponentBase::MarkAppearanceDirty()
 {
     dirtyAppearance = true;
     NotifyParentChildLayoutDirty();
 }
 
-void UIComponentBase::MarkChildLayoutDirty()
+void ComponentBase::MarkChildLayoutDirty()
 {
     dirtyChildLayout = true;
     dirtyAppearance = true; // Layout implies appearance
     NotifyParentChildLayoutDirty();
 }
 
-void UIComponentBase::MarkSelfLayoutDirty()
+void ComponentBase::MarkSelfLayoutDirty()
 {
     dirtySelfLayout = true;
     dirtyChildLayout = true;
@@ -158,9 +158,9 @@ void UIComponentBase::MarkSelfLayoutDirty()
     NotifyParentChildLayoutDirty();
 }
 
-void UIComponentBase::MarkFullDirty() { MarkSelfLayoutDirty(); }
+void ComponentBase::MarkFullDirty() { MarkSelfLayoutDirty(); }
 
-void UIComponentBase::NotifyParentChildLayoutDirty()
+void ComponentBase::NotifyParentChildLayoutDirty()
 {
     if (auto p = parent.lock())
     {
@@ -168,7 +168,7 @@ void UIComponentBase::NotifyParentChildLayoutDirty()
     }
 }
 
-void UIComponentBase::NotifyParentFullDirty()
+void ComponentBase::NotifyParentFullDirty()
 {
     if (auto p = parent.lock())
     {
@@ -176,7 +176,7 @@ void UIComponentBase::NotifyParentFullDirty()
     }
 }
 
-void UIComponentBase::UpdateTheme()
+void ComponentBase::UpdateTheme()
 {
     if (auto t = theme.lock())
     {

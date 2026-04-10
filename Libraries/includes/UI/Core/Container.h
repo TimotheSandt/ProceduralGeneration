@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include "UIComponent.h"
+#include "Component.h"
 #include "FBO.h"
 #include "Utilities.h"
 
@@ -35,10 +35,10 @@ enum class JustifyContent : std::uint8_t
     SPACE_AROUND
 };
 
-class UIContainerBase : public UIComponentBase
+class ContainerBase : public ComponentBase
 {
   protected:
-    std::vector<std::shared_ptr<UIComponentBase>> children;
+    std::vector<std::shared_ptr<ComponentBase>> children;
 
     FBO fbo;
     bool fboInitialized = false;
@@ -49,7 +49,7 @@ class UIContainerBase : public UIComponentBase
 
   public:
     // Basic constructor
-    UIContainerBase(Bounds bounds);
+    ContainerBase(Bounds bounds);
 
     void Initialize() override;
     void Update() override;
@@ -94,7 +94,7 @@ class UIContainerBase : public UIComponentBase
     void DoSetChildrenAllowDeform(bool deform);
 
     // Children
-    void AddChild(const std::shared_ptr<UIComponentBase> &child);
+    void AddChild(const std::shared_ptr<ComponentBase> &child);
 
   protected:
     DeferredValue<float> padding = 0.0f;
@@ -113,10 +113,10 @@ class UIContainerBase : public UIComponentBase
 };
 
 // Chainable Container Wrapper
-template <typename Base, typename Derived> class ChainableContainer : public Chainable<Base, Derived>
+template <typename Base, typename Derived> class ChainableContainer : public ChainableComponent<Base, Derived>
 {
   public:
-    using Chainable<Base, Derived>::Chainable;
+    using ChainableComponent<Base, Derived>::ChainableComponent;
 
     std::shared_ptr<Derived> SetPadding(float p)
     {
@@ -144,18 +144,18 @@ template <typename Base, typename Derived> class ChainableContainer : public Cha
 };
 
 // Concrete UIContainer
-class UIContainer : public ChainableContainer<UIContainerBase, UIContainer>
+class Container : public ChainableContainer<ContainerBase, Container>
 {
   public:
-    using ChainableContainer<UIContainerBase, UIContainer>::ChainableContainer;
+    using ChainableContainer<ContainerBase, Container>::ChainableContainer;
 };
 
 // ============ SwiftUI-style Factory Functions ============
 
 // Factory for Container
-inline std::shared_ptr<UIContainer> Container(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<UIComponentBase>> &children = {})
+inline std::shared_ptr<Container> CreateContainer(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<ComponentBase>> &children = {})
 {
-    auto container = std::make_shared<UIContainer>(bounds);
+    auto container = std::make_shared<Container>(bounds);
     container->SetColor(glm::vec4{0.0f, 0.0f, 0.0f, 0.0f}); // Transparent by default
     for (auto &child : children)
     {
@@ -165,9 +165,9 @@ inline std::shared_ptr<UIContainer> Container(Bounds bounds = Bounds(), const st
 }
 
 // Factory for colored box (simple colored rectangle)
-inline std::shared_ptr<UIComponent> Box(Bounds bounds, glm::vec4 color)
+inline std::shared_ptr<Component> CreateBox(Bounds bounds, glm::vec4 color)
 {
-    auto box = std::make_shared<UIComponent>(bounds);
+    auto box = std::make_shared<Component>(bounds);
     box->SetColor(color);
     return box;
 }

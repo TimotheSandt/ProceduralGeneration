@@ -30,7 +30,7 @@ enum class PresetTheme : std::uint8_t
     DARK,
 };
 
-struct UIColors
+struct Colors
 {
     glm::vec4 transparent = {0.0f, 0.0f, 0.0f, 0.0f};
     glm::vec4 background = {0.15f, 0.15f, 0.2f, 1.0f};
@@ -45,10 +45,10 @@ struct UIColors
     glm::vec4 success = {0.3f, 1.0f, 0.5f, 1.0f};
 };
 
-class UITheme
+class Theme
 {
   public:
-    UIColors GetColors() const { return colors; }
+    Colors GetColors() const { return colors; }
     glm::vec4 GetColor(IdentifierKind kind) const;
     std::string GetName() const { return name; }
     float GetCornerRadius() const { return cornerRadius; }
@@ -56,19 +56,19 @@ class UITheme
     float GetSpacing() const { return spacing; }
 
   public:
-    static std::weak_ptr<UITheme> GetTheme(const std::string &themeName);
-    static void CreateTheme(const std::string &name, UIColors colors, float cornerRadius, float padding, float spacing);
+    static std::weak_ptr<Theme> GetTheme(const std::string &themeName);
+    static void CreateTheme(const std::string &name, Colors colors, float cornerRadius, float padding, float spacing);
 
   private:
     std::string name;
-    UIColors colors;
+    Colors colors;
     float cornerRadius;
     float padding;
     float spacing;
 
-    UITheme(std::string name, UIColors colors, float cornerRadius, float padding, float spacing);
+    Theme(std::string name, Colors colors, float cornerRadius, float padding, float spacing);
 
-    static std::unordered_map<std::string, std::shared_ptr<UITheme>> themes;
+    static std::unordered_map<std::string, std::shared_ptr<Theme>> themes;
 };
 
 } // namespace UI

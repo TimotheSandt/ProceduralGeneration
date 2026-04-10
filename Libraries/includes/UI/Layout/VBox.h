@@ -1,22 +1,22 @@
 #pragma once
-#include "UIContainer.h"
+#include "../Core/Container.h"
 
 namespace UI
 {
 
-class UIHBoxBase : public UIContainerBase
+class VBoxBase : public ContainerBase
 {
   protected:
-    VAlign childAlignment = VAlign::TOP;
+    HAlign childAlignment = HAlign::LEFT;
     JustifyContent justifyContent = JustifyContent::START;
 
   public:
-    using UIContainerBase::UIContainerBase;
+    using ContainerBase::ContainerBase;
 
-    VAlign GetChildAlignment() const { return childAlignment; }
+    HAlign GetChildAlignment() const { return childAlignment; }
     JustifyContent GetJustifyContent() const { return justifyContent; }
 
-    void DoSetChildAlignment(VAlign align);
+    void DoSetChildAlignment(HAlign align);
     void DoSetJustifyContent(JustifyContent j);
 
     glm::vec2 GetAvailableSize() const override;
@@ -25,12 +25,12 @@ class UIHBoxBase : public UIContainerBase
     void RecalculateChildBounds() override;
 };
 
-template <typename Base, typename Derived> class ChainableHBox : public ChainableContainer<Base, Derived>
+template <typename Base, typename Derived> class ChainableVBox : public ChainableContainer<Base, Derived>
 {
   public:
     using ChainableContainer<Base, Derived>::ChainableContainer;
 
-    std::shared_ptr<Derived> SetChildAlignment(VAlign align)
+    std::shared_ptr<Derived> SetChildAlignment(HAlign align)
     {
         this->DoSetChildAlignment(align);
         return std::static_pointer_cast<Derived>(this->shared_from_this());
@@ -43,21 +43,21 @@ template <typename Base, typename Derived> class ChainableHBox : public Chainabl
     }
 };
 
-class UIHBox : public ChainableHBox<UIHBoxBase, UIHBox>
+class VBox : public ChainableVBox<VBoxBase, VBox>
 {
   public:
-    using ChainableHBox<UIHBoxBase, UIHBox>::ChainableHBox;
+    using ChainableVBox<VBoxBase, VBox>::ChainableVBox;
 };
 
-// Factory for HBox
-inline std::shared_ptr<UIHBox> HBox(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<UIComponentBase>> &children = {})
+// Factory for VBox
+inline std::shared_ptr<VBox> CreateVBox(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<ComponentBase>> &children = {})
 {
-    auto hbox = std::make_shared<UIHBox>(bounds);
+    auto vbox = std::make_shared<VBox>(bounds);
     for (auto &child : children)
     {
-        hbox->AddChild(child);
+        vbox->AddChild(child);
     }
-    return hbox;
+    return vbox;
 }
 
 } // namespace UI

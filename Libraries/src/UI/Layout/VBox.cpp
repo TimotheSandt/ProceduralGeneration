@@ -1,11 +1,11 @@
-#include "UIVBox.h"
+#include "Layout/VBox.h"
 
 namespace UI
 {
 
 // ============ UIVBoxBase Implementation ============
 
-void UIVBoxBase::RecalculateChildBounds()
+void VBoxBase::RecalculateChildBounds()
 {
     float padding = GetPadding();
     float spacing = GetSpacing();
@@ -153,7 +153,7 @@ void UIVBoxBase::RecalculateChildBounds()
     }
 }
 
-glm::vec2 UIVBoxBase::GetAvailableSize() const
+glm::vec2 VBoxBase::GetAvailableSize() const
 {
     float p = GetPadding();
     float s = GetSpacing();
@@ -186,13 +186,13 @@ glm::vec2 UIVBoxBase::GetAvailableSize() const
     return available;
 }
 
-void UIVBoxBase::DoSetChildAlignment(HAlign align)
+void VBoxBase::DoSetChildAlignment(HAlign align)
 {
     childAlignment = align;
     MarkChildLayoutDirty();
 }
 
-void UIVBoxBase::DoSetJustifyContent(JustifyContent j)
+void VBoxBase::DoSetJustifyContent(JustifyContent j)
 {
     justifyContent = j;
     MarkChildLayoutDirty();

@@ -1,42 +1,42 @@
-#include "UITheme.h"
+#include "Rendering/Theme.h"
 
 #include <utility>
 
 namespace UI
 {
 
-std::unordered_map<std::string, std::shared_ptr<UITheme>> UITheme::themes = {
-    std::make_pair("default", std::shared_ptr<UITheme>(new UITheme("default", UIColors(), 5.0f, 15.0f, 15.0f))),
+std::unordered_map<std::string, std::shared_ptr<Theme>> Theme::themes = {
+    std::make_pair("default", std::shared_ptr<Theme>(new Theme("default", Colors(), 5.0f, 15.0f, 15.0f))),
     std::make_pair("dark",
-                   std::shared_ptr<UITheme>(new UITheme("dark",
-                                                        UIColors(glm::vec4(0.15f, 0.15f, 0.2f, 1.0f), glm::vec4(0.3f, 0.6f, 1.0f, 1.0f),
+                   std::shared_ptr<Theme>(new Theme("dark",
+                                                        Colors(glm::vec4(0.15f, 0.15f, 0.2f, 1.0f), glm::vec4(0.3f, 0.6f, 1.0f, 1.0f),
                                                                  glm::vec4(0.5f, 0.5f, 0.6f, 1.0f), glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                                                                  glm::vec4(0.7f, 0.7f, 0.7f, 1.0f), glm::vec4(0.4f, 0.7f, 1.0f, 1.0f),
                                                                  glm::vec4(0.2f, 0.5f, 0.9f, 1.0f), glm::vec4(0.3f, 0.3f, 0.3f, 1.0f),
                                                                  glm::vec4(1.0f, 0.3f, 0.3f, 1.0f), glm::vec4(0.3f, 1.0f, 0.5f, 1.0f)),
                                                         5.0f, 15.0f, 15.0f)))};
 
-UITheme::UITheme(std::string name, UIColors colors, float cornerRadius, float padding, float spacing)
+Theme::Theme(std::string name, Colors colors, float cornerRadius, float padding, float spacing)
     : name(std::move(name)), colors(colors), cornerRadius(cornerRadius), padding(padding), spacing(spacing)
 {
 }
 
-void UITheme::CreateTheme(const std::string &name, UIColors colors, float cornerRadius, float padding, float spacing)
+void Theme::CreateTheme(const std::string &name, Colors colors, float cornerRadius, float padding, float spacing)
 {
-    themes[name] = std::shared_ptr<UITheme>(new UITheme(name, colors, cornerRadius, padding, spacing));
+    themes[name] = std::shared_ptr<Theme>(new Theme(name, colors, cornerRadius, padding, spacing));
 }
 
-std::weak_ptr<UITheme> UITheme::GetTheme(const std::string &themeName)
+std::weak_ptr<Theme> Theme::GetTheme(const std::string &themeName)
 {
-    auto it = UITheme::themes.find(themeName);
-    if (it != UITheme::themes.end())
+    auto it = Theme::themes.find(themeName);
+    if (it != Theme::themes.end())
     {
         return it->second;
     }
-    return std::weak_ptr<UITheme>();
+    return std::weak_ptr<Theme>();
 }
 
-glm::vec4 UITheme::GetColor(IdentifierKind kind) const
+glm::vec4 Theme::GetColor(IdentifierKind kind) const
 {
     switch (kind)
     {

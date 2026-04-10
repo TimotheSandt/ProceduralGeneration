@@ -30,7 +30,7 @@ void Game::init()
     textRenderer->loadFont(GET_RESOURCE_PATH("fonts/Roboto-Regular.ttf"), "default", 48);
 
     // Initialize UI system
-    UI::UIManager::Instance().Init(*window.GetWidthptr(), *window.GetHeightptr());
+    UI::Manager::Instance().Init(*window.GetWidthptr(), *window.GetHeightptr());
 }
 
 void Game::stop()
@@ -51,7 +51,7 @@ void Game::stop()
         this->world.reset();
     }
     this->textRenderer.reset();
-    UI::UIManager::Instance().Shutdown();
+    UI::Manager::Instance().Shutdown();
     this->camera.Destroy();
     this->window.Close();
 }
@@ -91,7 +91,7 @@ void Game::update()
 
     this->world->Update();
 
-    UI::UIManager::Instance().Update(deltaTime, *window.GetWidthptr(), *window.GetHeightptr());
+    UI::Manager::Instance().Update(deltaTime, *window.GetWidthptr(), *window.GetHeightptr());
 }
 
 void Game::render()
@@ -125,5 +125,5 @@ void Game::render()
     glViewport(0, 0, *window.GetWidthptr(), *window.GetHeightptr());
 
     // Render UI
-    UI::UIManager::Instance().Render(*window.GetWidthptr(), *window.GetHeightptr());
+    UI::Manager::Instance().Render(*window.GetWidthptr(), *window.GetHeightptr());
 }
