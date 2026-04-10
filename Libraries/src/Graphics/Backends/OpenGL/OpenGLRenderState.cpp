@@ -116,7 +116,6 @@ void RestoreFramebufferState(const FramebufferState &state) noexcept
 
 void PrepareScreenPass(int width, int height) noexcept
 {
-    BindFramebuffer(GL_FRAMEBUFFER, 0);
     SetViewport(0, 0, width, height);
 }
 
