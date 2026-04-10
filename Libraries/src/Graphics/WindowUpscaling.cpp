@@ -58,10 +58,11 @@ void Window::BindSceneRenderTarget() const { sceneRenderTarget.Bind(); }
 void Window::PresentRenderTarget() const
 {
     OpenGLRenderState::SetViewport(0, 0, parameters.width, parameters.height);
+    OpenGLRenderState::SetScissorTest(false);
+    OpenGLRenderState::SetBlend(false);
 
     sceneRenderTarget.Unbind();
-    sceneRenderTarget.RenderScreenQuad(parameters.width, parameters.height);
-    // sceneRenderTarget.BlitToScreen(parameters.width, parameters.height);
+    sceneRenderTarget.BlitToScreen(parameters.width, parameters.height);
     // upscaledRenderTarget.BlitToRenderTarget(sceneRenderTarget);
     // upscaledRenderTarget.BlitToScreen(parameters.width, parameters.height);
     // upscaledRenderTarget.Unbind();
