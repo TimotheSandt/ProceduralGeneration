@@ -138,6 +138,7 @@ void Window::Clear() const
 
 bool Window::NewFrame()
 {
+    this->scenePresentedThisFrame = false;
     Profiler::Profile("PollEvents", &glfwPollEvents);
     Profiler::Process();
     this->inputManager->Update();
@@ -184,6 +185,7 @@ void Window::SwapBuffers()
     if (this->parameters.enableUpscaling)
     {
         Profiler::ProfileGPU("Upscale", &Window::PresentRenderTarget, this);
+        this->scenePresentedThisFrame = true;
     }
 
     glfwSwapBuffers(this->window);

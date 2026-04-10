@@ -27,6 +27,8 @@ void Window::EnableUpscaling(bool enable)
     parameters.enableUpscaling = enable;
     if (!enable)
     {
+        parameters.renderWidth = parameters.width;
+        parameters.renderHeight = parameters.height;
         OpenGLRenderState::SetViewport(0, 0, parameters.width, parameters.height);
     }
     else
@@ -55,6 +57,17 @@ void Window::InitRenderTargets()
 }
 
 void Window::BindSceneRenderTarget() const { sceneRenderTarget.Bind(); }
+void Window::PresentSceneToScreen()
+{
+    if (!parameters.enableUpscaling || scenePresentedThisFrame)
+    {
+        return;
+    }
+
+    PresentRenderTarget();
+    scenePresentedThisFrame = true;
+}
+
 void Window::PresentRenderTarget() const
 {
     OpenGLRenderState::SetViewport(0, 0, parameters.width, parameters.height);

@@ -105,14 +105,11 @@ void Game::update()
 void Game::render()
 {
     const auto averageTimeMs = [](const char *name) { return static_cast<double>(Profiler::GetAverageTime(name).count()) * 1e-6; };
-    int renderWidth = 0;
-    int renderHeight = 0;
+    const int windowWidth = *window.GetWidthptr();
+    const int windowHeight = *window.GetHeightptr();
+    int renderWidth = windowWidth;
+    int renderHeight = windowHeight;
     this->window.GetRenderResolution(renderWidth, renderHeight);
-    if (renderWidth <= 0 || renderHeight <= 0)
-    {
-        renderWidth = *window.GetWidthptr();
-        renderHeight = *window.GetHeightptr();
-    }
 
     renderer3D.BeginPass(renderWidth, renderHeight);
 
@@ -121,7 +118,12 @@ void Game::render()
     Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), std::ref(renderer3D), std::ref(this->camera));
     renderer3D.EndPass();
 
-    renderer2D.BeginPass(renderWidth, renderHeight);
+    if (window.IsUpscalingEnabled())
+    {
+        window.PresentSceneToScreen();
+    }
+
+    renderer2D.BeginPass(windowWidth, windowHeight);
     renderer2D.RenderText(*textRenderer, "fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, glm::vec3(1.0f, 0.8f, 1.0f),
                           UI::TextAnchor::TopLeft);
     renderer2D.RenderText(*textRenderer, std::format("Render: {:.3f}ms", averageTimeMs("Render")), 10, 50, 0.3f,
@@ -133,6 +135,6 @@ void Game::render()
     renderer2D.RenderText(*textRenderer, std::format("Swap Buffers: {:.3f}ms", averageTimeMs("SwapBuffers")), 10, 110, 0.3f,
                           glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
 
-    UI::UIManager::Instance().Render(renderer2D, *window.GetWidthptr(), *window.GetHeightptr());
+    UI::UIManager::Instance().Render(renderer2D, windowWidth, windowHeight);
     renderer2D.EndPass();
 }

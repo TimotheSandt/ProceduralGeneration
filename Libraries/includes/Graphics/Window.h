@@ -83,10 +83,19 @@ class Window
     void SetRenderScale(float scale);
     void EnableUpscaling(bool enable);
     float GetRenderScale() const { return parameters.renderScale; }
+    bool IsUpscalingEnabled() const { return parameters.enableUpscaling; }
+    void PresentSceneToScreen();
     void GetRenderResolution(int &width, int &height) const
     {
-        width = parameters.renderWidth;
-        height = parameters.renderHeight;
+        if (parameters.enableUpscaling)
+        {
+            width = parameters.renderWidth;
+            height = parameters.renderHeight;
+            return;
+        }
+
+        width = parameters.width;
+        height = parameters.height;
     }
 
     // Setters
@@ -162,4 +171,5 @@ class Window
     FPSCounter fpsCounter;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> lastTime;
+    bool scenePresentedThisFrame = false;
 };
