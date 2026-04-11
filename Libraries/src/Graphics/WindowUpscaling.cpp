@@ -31,12 +31,8 @@ void Window::SetUIRenderScale(float scale)
     }
 
     parameters.uiRenderScale = scale;
+    parameters.enableUIUpscaling = scale != 1.0f;
     this->UpdateUIRenderTargetResolution();
-
-    if (scale != 1.0f)
-    {
-        this->EnableUIUpscaling(true);
-    }
 
     LOG_DEBUGGING("UI render scale set to ", scale, " (", parameters.uiRenderWidth, "x", parameters.uiRenderHeight, ")");
 }
@@ -60,7 +56,7 @@ void Window::EnableUpscaling(bool enable)
 
 void Window::EnableUIUpscaling(bool enable)
 {
-    parameters.enableUIUpscaling = enable;
+    parameters.enableUIUpscaling = enable && parameters.uiRenderScale != 1.0f;
     if (!enable)
     {
         parameters.uiRenderWidth = parameters.width;
@@ -113,7 +109,7 @@ void Window::PresentUIRenderTarget() const
     OpenGLRenderState::SetScissorTest(false);
     OpenGLRenderState::SetDepthTest(false);
     OpenGLRenderState::SetBlend(true);
-    OpenGLRenderState::SetAlphaBlend();
+    OpenGLRenderState::SetPremultipliedAlphaBlend();
 
     uiRenderTarget.Unbind();
     uiRenderTarget.RenderScreenQuad(parameters.width, parameters.height);

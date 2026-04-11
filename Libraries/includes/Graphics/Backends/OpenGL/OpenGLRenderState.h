@@ -24,6 +24,7 @@ void SetDepthTest(bool enabled) noexcept;
 void SetWireframe(bool enabled) noexcept;
 void SetBlend(bool enabled) noexcept;
 void SetAlphaBlend() noexcept;
+void SetPremultipliedAlphaBlend() noexcept;
 void SetScissorTest(bool enabled) noexcept;
 void SetScissor(GLint x, GLint y, GLsizei width, GLsizei height) noexcept;
 

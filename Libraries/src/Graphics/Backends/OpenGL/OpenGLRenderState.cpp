@@ -74,6 +74,12 @@ void SetAlphaBlend() noexcept
     GRAPHICS_CHECK_ERRORS_M("glBlendFunc");
 }
 
+void SetPremultipliedAlphaBlend() noexcept
+{
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    GRAPHICS_CHECK_ERRORS_M("glBlendFunc");
+}
+
 void SetScissorTest(bool enabled) noexcept
 {
     if (enabled)
