@@ -42,10 +42,6 @@ Window::Window()
     this->parameters.enableUpscaling = false;
     this->parameters.renderWidth = this->parameters.width;
     this->parameters.renderHeight = this->parameters.height;
-    this->parameters.uiRenderScale = 1.0f;
-    this->parameters.enableUIUpscaling = false;
-    this->parameters.uiRenderWidth = this->parameters.width;
-    this->parameters.uiRenderHeight = this->parameters.height;
 }
 
 Window::~Window() { this->Close(); }
@@ -65,7 +61,6 @@ Window &Window::operator=(Window &&other) noexcept
 void Window::Swap(Window &other) noexcept
 {
     std::swap(this->window, other.window);
-    std::swap(this->uiRenderTarget, other.uiRenderTarget);
     std::swap(this->parameters, other.parameters);
     std::swap(this->inputManager, other.inputManager);
     std::swap(this->fpsCounter, other.fpsCounter);
@@ -103,8 +98,6 @@ int Window::Init()
     this->SetupCallbacks();
 
     this->ChangeWindowState(this->parameters.windowState);
-    this->InitRenderTargets();
-
     this->inputManager = &InputManager::GetInstance(this->window);
 
     return 0;
@@ -118,8 +111,6 @@ void Window::Close()
     }
 
     this->ClearCallbacks();
-
-    this->uiRenderTarget.Destroy();
 
     InputManager::RemoveInstance(this->window);
     this->inputManager = nullptr;
@@ -140,7 +131,6 @@ void Window::Clear() const
 
 bool Window::NewFrame()
 {
-    this->uiPresentedThisFrame = false;
     Profiler::Profile("PollEvents", &glfwPollEvents);
     Profiler::Process();
     this->inputManager->Update();
@@ -153,12 +143,6 @@ bool Window::NewFrame()
     }
 
     this->fpsCounter.newFrame(this->parameters.maxFPS);
-
-    if (this->parameters.enableUIUpscaling)
-    {
-        OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, 0);
-        OpenGLRenderState::SetViewport(0, 0, this->parameters.width, this->parameters.height);
-    }
 
     if (this->parameters.trueEveryms == 0)
     {
@@ -183,12 +167,6 @@ void Window::SwapBuffers()
     if (!this->window)
     {
         return;
-    }
-
-    if (this->parameters.enableUIUpscaling)
-    {
-        Profiler::ProfileGPU("UIUpscale", &Window::PresentUIRenderTarget, this);
-        this->uiPresentedThisFrame = true;
     }
 
     glfwSwapBuffers(this->window);
@@ -230,22 +208,6 @@ void Window::HandleInput()
     if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_5))
     {
         this->EnableUpscaling(!parameters.enableUpscaling);
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_6))
-    {
-        this->SetUIRenderScale(0.5f);
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_7))
-    {
-        this->SetUIRenderScale(0.75f);
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_8))
-    {
-        this->SetUIRenderScale(1.0f);
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_9))
-    {
-        this->EnableUIUpscaling(!parameters.enableUIUpscaling);
     }
 #endif
 }
@@ -523,7 +485,6 @@ void Window::CallbackResize(GLFWwindow *window, int width, int height)
     this->parameters.height = height;
 
     UpdateRenderTargetResolution();
-    UpdateUIRenderTargetResolution();
 
     OpenGLRenderState::SetViewport(0, 0, this->parameters.width, this->parameters.height);
 }

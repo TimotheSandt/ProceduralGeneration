@@ -87,10 +87,33 @@ void Game::run()
     }
 }
 
-void Game::processInput() {}
+void Game::processInput()
+{
+#ifdef DEBUG
+    InputManager &inputManager = InputManager::GetInstance(this->window.GetWindow());
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_6))
+    {
+        renderer2D.SetRenderScale(0.5f);
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_7))
+    {
+        renderer2D.SetRenderScale(0.75f);
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_8))
+    {
+        renderer2D.SetRenderScale(1.0f);
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_9))
+    {
+        renderer2D.EnableUpscaling(!renderer2D.IsUpscalingEnabled());
+    }
+#endif
+}
 
 void Game::update()
 {
+    this->processInput();
+
     const double fps = this->window.GetFPS();
     const float deltaTime = fps > 0.0 ? static_cast<float>(1.0 / fps) : 1.0f / 60.0f;
     this->camera.Inputs(this->window.GetWindow(), deltaTime);
@@ -111,21 +134,16 @@ void Game::render()
     int uiRenderWidth = windowWidth;
     int uiRenderHeight = windowHeight;
     this->window.GetRenderResolution(renderWidth, renderHeight);
-    this->window.GetUIRenderResolution(uiRenderWidth, uiRenderHeight);
 
     renderer3D.ConfigureOutput(windowWidth, windowHeight, window.IsUpscalingEnabled());
+    renderer2D.ConfigureOutput(windowWidth, windowHeight);
+    renderer2D.GetRenderResolution(uiRenderWidth, uiRenderHeight);
     renderer3D.BeginPass(renderWidth, renderHeight);
 
     Profiler::ProfileGPU("Clear", &Renderer3D::Clear, &renderer3D, window.GetClearColor(), true);
     renderer3D.SetCamera(this->camera);
     Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), std::ref(renderer3D), std::ref(this->camera));
     Profiler::ProfileGPU("Upscale", &Renderer3D::EndPass, &renderer3D);
-
-    if (window.IsUIUpscalingEnabled())
-    {
-        window.BindUIRenderTarget();
-        window.GetUIRenderTarget().CopyFromScreen(windowWidth, windowHeight);
-    }
 
     renderer2D.BeginPass(uiRenderWidth, uiRenderHeight);
     renderer2D.RenderText(*textRenderer, "fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, glm::vec3(1.0f, 0.8f, 1.0f),
@@ -143,9 +161,4 @@ void Game::render()
 
     UI::UIManager::Instance().Render(renderer2D, windowWidth, windowHeight);
     renderer2D.EndPass();
-
-    if (window.IsUIUpscalingEnabled())
-    {
-        window.PresentUIToScreen();
-    }
 }

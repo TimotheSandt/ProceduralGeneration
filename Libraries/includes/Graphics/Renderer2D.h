@@ -22,6 +22,10 @@ class Renderer2D : public Renderer
     Renderer2D();
 
     bool IsRuntimeCompatible() const noexcept override;
+    void ConfigureOutput(int outputWidth, int outputHeight);
+    void SetRenderScale(float scale);
+    void EnableUpscaling(bool enable);
+    float GetRenderScale() const noexcept { return renderScale; }
     void BeginPass(int width, int height) override;
     void EndPass() const override;
     void Clear(const glm::vec4 &clearColor, bool clearDepth = true) const override;
@@ -37,6 +41,17 @@ class Renderer2D : public Renderer
                             const glm::vec3 &color, float scale) const;
     void DrawSprite(Sprite &sprite, const SpriteDrawParams &params, const Texture *texture = nullptr) const;
     void PresentRenderTarget(const RenderTarget &renderTarget) const;
+    void GetRenderResolution(int &width, int &height) const;
 
   private:
+    bool NeedsUpscaledCanvasPass() const noexcept;
+    void PrepareUpscaledCanvasPass();
+    void PresentUpscaledCanvasPass() const;
+
+    int outputWidth = 0;
+    int outputHeight = 0;
+    float renderScale = 1.0f;
+    RenderTarget uiRenderTarget;
+
+    friend class Renderer2DCompositeUpscaleMode;
 };

@@ -2,21 +2,8 @@
 
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
+#include "Graphics/Upscaling/Renderer2DUpscaleModes.h"
 #include "UI/TextRenderer.h"
-
-namespace
-{
-
-class Renderer2DCompositeUpscaleMode final : public IUpscaleMode
-{
-  public:
-    std::string_view GetName() const noexcept override { return "composite-blit"; }
-    bool SupportsRenderer(const Renderer &renderer) const noexcept override { return dynamic_cast<const Renderer2D *>(&renderer) != nullptr; }
-    void BeginPass(Renderer &, int, int) const override {}
-    void EndPass(const Renderer &) const override {}
-};
-
-} // namespace
 
 Renderer2D::Renderer2D()
 {
@@ -26,6 +13,38 @@ Renderer2D::Renderer2D()
 
 bool Renderer2D::IsRuntimeCompatible() const noexcept { return IsGraphicsAPIActive(GraphicsAPI::OpenGL); }
 
+void Renderer2D::ConfigureOutput(int width, int height)
+{
+    outputWidth = width;
+    outputHeight = height;
+}
+
+void Renderer2D::SetRenderScale(float scale)
+{
+    if (scale <= 0.0f || scale > 1.0f)
+    {
+        return;
+    }
+
+    renderScale = scale;
+    EnableUpscaling(scale != 1.0f);
+}
+
+void Renderer2D::EnableUpscaling(bool enable) { SetUpscalingEnabled(enable && renderScale != 1.0f); }
+
+void Renderer2D::GetRenderResolution(int &width, int &height) const
+{
+    if (NeedsUpscaledCanvasPass())
+    {
+        width = static_cast<int>(static_cast<float>(outputWidth) * renderScale);
+        height = static_cast<int>(static_cast<float>(outputHeight) * renderScale);
+        return;
+    }
+
+    width = outputWidth;
+    height = outputHeight;
+}
+
 void Renderer2D::BeginPass(int width, int height)
 {
     SetFrameExtent(width, height);
@@ -33,6 +52,11 @@ void Renderer2D::BeginPass(int width, int height)
     if (!IsRuntimeCompatible() || !HasValidFrameExtent())
     {
         return;
+    }
+
+    if (NeedsUpscaledCanvasPass())
+    {
+        BeginUpscalePass(width, height);
     }
 
     OpenGLRenderState::PrepareScreenPass(GetFrameWidth(), GetFrameHeight());
@@ -54,6 +78,11 @@ void Renderer2D::EndPass() const
     if (!IsRuntimeCompatible())
     {
         return;
+    }
+
+    if (NeedsUpscaledCanvasPass())
+    {
+        EndUpscalePass();
     }
 
     OpenGLRenderState::SetScissorTest(false);
@@ -170,4 +199,44 @@ void Renderer2D::PresentRenderTarget(const RenderTarget &renderTarget) const
     }
 
     renderTarget.RenderScreenQuad(GetFrameWidth(), GetFrameHeight());
+}
+
+bool Renderer2D::NeedsUpscaledCanvasPass() const noexcept
+{
+    return IsUpscalingEnabled() && outputWidth > 0 && outputHeight > 0 && (GetFrameWidth() != outputWidth || GetFrameHeight() != outputHeight);
+}
+
+void Renderer2D::PrepareUpscaledCanvasPass()
+{
+    if (!NeedsUpscaledCanvasPass())
+    {
+        return;
+    }
+
+    if (uiRenderTarget.GetID() == 0)
+    {
+        uiRenderTarget.Init(GetFrameWidth(), GetFrameHeight());
+    }
+    else
+    {
+        uiRenderTarget.Resize(GetFrameWidth(), GetFrameHeight());
+    }
+
+    uiRenderTarget.Bind();
+    uiRenderTarget.CopyFromScreen(outputWidth, outputHeight);
+}
+
+void Renderer2D::PresentUpscaledCanvasPass() const
+{
+    if (!NeedsUpscaledCanvasPass())
+    {
+        return;
+    }
+
+    OpenGLRenderState::SetViewport(0, 0, outputWidth, outputHeight);
+    OpenGLRenderState::SetScissorTest(false);
+    OpenGLRenderState::SetDepthTest(false);
+    OpenGLRenderState::SetBlend(false);
+
+    uiRenderTarget.BlitToScreen(outputWidth, outputHeight);
 }

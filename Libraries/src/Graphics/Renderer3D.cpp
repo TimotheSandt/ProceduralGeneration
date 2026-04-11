@@ -3,26 +3,8 @@
 #include "Camera.h"
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
+#include "Graphics/Upscaling/Renderer3DUpscaleModes.h"
 #include "Mesh.h"
-
-class Renderer3DBilinearBlitUpscaleMode final : public IUpscaleMode
-{
-  public:
-    std::string_view GetName() const noexcept override { return "bilinear-blit"; }
-    bool SupportsRenderer(const Renderer &renderer) const noexcept override { return dynamic_cast<const Renderer3D *>(&renderer) != nullptr; }
-
-    void BeginPass(Renderer &renderer, int, int) const override
-    {
-        auto &renderer3D = static_cast<Renderer3D &>(renderer);
-        renderer3D.PrepareUpscaledScenePass();
-    }
-
-    void EndPass(const Renderer &renderer) const override
-    {
-        const auto &renderer3D = static_cast<const Renderer3D &>(renderer);
-        renderer3D.PresentUpscaledScenePass();
-    }
-};
 
 Renderer3D::Renderer3D()
 {

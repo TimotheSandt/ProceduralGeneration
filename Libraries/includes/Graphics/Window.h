@@ -9,8 +9,6 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/vector_angle.hpp>
 
-#include "RenderTarget.h"
-
 #include "FPSCounter.h"
 #include "Profiler.h"
 #include "InputManager.h"
@@ -49,9 +47,6 @@ struct WindowParameters
     float renderScale;
     int renderWidth, renderHeight;
     bool enableUpscaling;
-    float uiRenderScale;
-    int uiRenderWidth, uiRenderHeight;
-    bool enableUIUpscaling;
 };
 
 class Window
@@ -87,32 +82,12 @@ class Window
     void EnableUpscaling(bool enable);
     float GetRenderScale() const { return parameters.renderScale; }
     bool IsUpscalingEnabled() const { return parameters.enableUpscaling; }
-    void SetUIRenderScale(float scale);
-    void EnableUIUpscaling(bool enable);
-    float GetUIRenderScale() const { return parameters.uiRenderScale; }
-    bool IsUIUpscalingEnabled() const { return parameters.enableUIUpscaling; }
-    void BindUIRenderTarget() const;
-    void PresentUIToScreen();
-    RenderTarget &GetUIRenderTarget() { return uiRenderTarget; }
-    const RenderTarget &GetUIRenderTarget() const { return uiRenderTarget; }
     void GetRenderResolution(int &width, int &height) const
     {
         if (parameters.enableUpscaling)
         {
             width = parameters.renderWidth;
             height = parameters.renderHeight;
-            return;
-        }
-
-        width = parameters.width;
-        height = parameters.height;
-    }
-    void GetUIRenderResolution(int &width, int &height) const
-    {
-        if (parameters.enableUIUpscaling)
-        {
-            width = parameters.uiRenderWidth;
-            height = parameters.uiRenderHeight;
             return;
         }
 
@@ -165,10 +140,7 @@ class Window
     void ActivateBorderless();
 
     // Resolution Scaling methods
-    void InitRenderTargets();
     void UpdateRenderTargetResolution();
-    void UpdateUIRenderTargetResolution();
-    void PresentUIRenderTarget() const;
 
     // Callbacks
     void SetupCallbacks();
@@ -183,8 +155,6 @@ class Window
   private:
     GLFWwindow *window = nullptr;
 
-    RenderTarget uiRenderTarget;
-
     WindowParameters parameters;
 
     InputManager *inputManager;
@@ -192,5 +162,4 @@ class Window
     FPSCounter fpsCounter;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> lastTime;
-    bool uiPresentedThisFrame = false;
 };

@@ -2,6 +2,7 @@
 
 #include "Renderer.h"
 #include "RenderTarget.h"
+#include "Graphics/Upscaling/Renderer3DUpscaleModes.h"
 
 #include <glm/vec4.hpp>
 
