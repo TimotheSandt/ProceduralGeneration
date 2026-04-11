@@ -8,6 +8,8 @@
 #include <string_view>
 #include <vector>
 
+class RenderTarget;
+
 class Renderer
 {
   public:
@@ -42,6 +44,14 @@ class Renderer
     void BeginUpscalePass(int width, int height);
     void EndUpscalePass() const;
 
+    virtual bool UsesUpscaleRenderTarget() const noexcept = 0;
+    virtual RenderTarget &GetUpscaleRenderTarget() = 0;
+    virtual const RenderTarget &GetUpscaleRenderTarget() const = 0;
+    virtual int GetUpscaleOutputWidth() const noexcept = 0;
+    virtual int GetUpscaleOutputHeight() const noexcept = 0;
+    virtual void PrepareUpscaleSource(RenderTarget &renderTarget) = 0;
+    virtual void PrepareUpscalePresentState(const RenderTarget &renderTarget) const = 0;
+
   private:
     const IUpscaleMode *FindUpscaleMode(std::string_view mode) const noexcept;
 
@@ -50,4 +60,6 @@ class Renderer
     bool upscalingEnabled = false;
     std::vector<std::unique_ptr<IUpscaleMode>> upscaleModes;
     const IUpscaleMode *activeUpscaleMode = nullptr;
+
+    friend class RenderTargetUpscaleMode;
 };

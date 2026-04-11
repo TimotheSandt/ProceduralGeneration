@@ -44,14 +44,16 @@ class Renderer2D : public Renderer
     void GetRenderResolution(int &width, int &height) const;
 
   private:
-    bool NeedsUpscaledCanvasPass() const noexcept;
-    void PrepareUpscaledCanvasPass();
-    void PresentUpscaledCanvasPass() const;
+    bool UsesUpscaleRenderTarget() const noexcept override;
+    RenderTarget &GetUpscaleRenderTarget() override;
+    const RenderTarget &GetUpscaleRenderTarget() const override;
+    int GetUpscaleOutputWidth() const noexcept override;
+    int GetUpscaleOutputHeight() const noexcept override;
+    void PrepareUpscaleSource(RenderTarget &renderTarget) override;
+    void PrepareUpscalePresentState(const RenderTarget &renderTarget) const override;
 
     int outputWidth = 0;
     int outputHeight = 0;
     float renderScale = 1.0f;
     RenderTarget uiRenderTarget;
-
-    friend class Renderer2DCompositeUpscaleMode;
 };

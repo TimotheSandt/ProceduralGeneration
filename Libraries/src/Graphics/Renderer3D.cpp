@@ -3,12 +3,12 @@
 #include "Camera.h"
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
-#include "Graphics/Upscaling/Renderer3DUpscaleModes.h"
+#include "Graphics/Upscaling/Modes/BilinearBlitUpscaleMode.h"
 #include "Mesh.h"
 
 Renderer3D::Renderer3D()
 {
-    RegisterUpscaleMode(std::make_unique<Renderer3DBilinearBlitUpscaleMode>());
+    RegisterUpscaleMode(std::make_unique<BilinearBlitUpscaleMode>());
     static_cast<void>(SetActiveUpscaleMode("bilinear-blit"));
 }
 
@@ -30,7 +30,7 @@ void Renderer3D::BeginPass(int width, int height)
         return;
     }
 
-    if (!NeedsUpscaledScenePass())
+    if (!UsesUpscaleRenderTarget())
     {
         OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, 0);
     }
@@ -52,7 +52,7 @@ void Renderer3D::EndPass() const
         return;
     }
 
-    if (!NeedsUpscaledScenePass())
+    if (!UsesUpscaleRenderTarget())
     {
         return;
     }
@@ -85,38 +85,23 @@ void Renderer3D::DrawMesh(Mesh &mesh, Camera &camera) const
     }
 }
 
-bool Renderer3D::NeedsUpscaledScenePass() const noexcept
+bool Renderer3D::UsesUpscaleRenderTarget() const noexcept
 {
     return IsUpscalingEnabled() && outputWidth > 0 && outputHeight > 0 && (GetFrameWidth() != outputWidth || GetFrameHeight() != outputHeight);
 }
 
-void Renderer3D::PrepareUpscaledScenePass()
+RenderTarget &Renderer3D::GetUpscaleRenderTarget() { return sceneRenderTarget; }
+
+const RenderTarget &Renderer3D::GetUpscaleRenderTarget() const { return sceneRenderTarget; }
+
+int Renderer3D::GetUpscaleOutputWidth() const noexcept { return outputWidth; }
+
+int Renderer3D::GetUpscaleOutputHeight() const noexcept { return outputHeight; }
+
+void Renderer3D::PrepareUpscaleSource(RenderTarget &) {}
+
+void Renderer3D::PrepareUpscalePresentState(const RenderTarget &) const
 {
-    if (!NeedsUpscaledScenePass())
-    {
-        return;
-    }
-
-    if (sceneRenderTarget.GetID() == 0)
-    {
-        sceneRenderTarget.Init(GetFrameWidth(), GetFrameHeight());
-    }
-    else
-    {
-        sceneRenderTarget.Resize(GetFrameWidth(), GetFrameHeight());
-    }
-    sceneRenderTarget.Bind();
-}
-
-void Renderer3D::PresentUpscaledScenePass() const
-{
-    if (!NeedsUpscaledScenePass())
-    {
-        return;
-    }
-
-    sceneRenderTarget.Unbind();
     OpenGLRenderState::SetScissorTest(false);
     OpenGLRenderState::SetBlend(false);
-    sceneRenderTarget.BlitToScreen(outputWidth, outputHeight);
 }

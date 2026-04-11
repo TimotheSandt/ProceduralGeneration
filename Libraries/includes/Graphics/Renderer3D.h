@@ -2,13 +2,11 @@
 
 #include "Renderer.h"
 #include "RenderTarget.h"
-#include "Graphics/Upscaling/Renderer3DUpscaleModes.h"
 
 #include <glm/vec4.hpp>
 
 class Camera;
 class Mesh;
-class Renderer3DBilinearBlitUpscaleMode;
 
 class Renderer3D : public Renderer
 {
@@ -27,13 +25,15 @@ class Renderer3D : public Renderer
     void RenderMesh(Mesh &mesh, Camera &camera) const { DrawMesh(mesh, camera); }
 
   private:
-    void PrepareUpscaledScenePass();
-    void PresentUpscaledScenePass() const;
-    bool NeedsUpscaledScenePass() const noexcept;
+    bool UsesUpscaleRenderTarget() const noexcept override;
+    RenderTarget &GetUpscaleRenderTarget() override;
+    const RenderTarget &GetUpscaleRenderTarget() const override;
+    int GetUpscaleOutputWidth() const noexcept override;
+    int GetUpscaleOutputHeight() const noexcept override;
+    void PrepareUpscaleSource(RenderTarget &renderTarget) override;
+    void PrepareUpscalePresentState(const RenderTarget &renderTarget) const override;
 
     int outputWidth = 0;
     int outputHeight = 0;
     RenderTarget sceneRenderTarget;
-
-    friend class Renderer3DBilinearBlitUpscaleMode;
 };

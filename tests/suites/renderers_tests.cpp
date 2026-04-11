@@ -77,10 +77,10 @@ TestSuite CreateRenderersSuite()
                 Renderer2D renderer2D;
                 Renderer3D renderer3D;
 
-                AssertEqual(std::string(renderer2D.GetActiveUpscaleMode()), std::string("composite-blit"),
-                            "Renderer2D should default to its UI composition upscale path");
+                AssertEqual(std::string(renderer2D.GetActiveUpscaleMode()), std::string("bilinear-blit"),
+                            "Renderer2D should default to its shared bilinear blit upscale path");
                 AssertEqual(std::string(renderer3D.GetActiveUpscaleMode()), std::string("bilinear-blit"),
-                            "Renderer3D should default to its scene blit upscale path");
+                            "Renderer3D should default to its shared bilinear blit upscale path");
                 AssertEqual(renderer2D.GetRegisteredUpscaleModes().size(), std::size_t(1),
                             "Renderer2D should expose its registered upscale strategies");
                 AssertEqual(renderer3D.GetRegisteredUpscaleModes().size(), std::size_t(1),
@@ -88,8 +88,8 @@ TestSuite CreateRenderersSuite()
 
                 Assert(renderer2D.SetActiveUpscaleMode("disabled"), "Renderer2D should accept the disabled upscale mode");
                 Assert(renderer3D.SetActiveUpscaleMode("disabled"), "Renderer3D should accept the disabled upscale mode");
-                Assert(!renderer2D.SetActiveUpscaleMode("bilinear-blit"), "Renderer2D should reject 3D-only upscale modes");
-                Assert(!renderer3D.SetActiveUpscaleMode("composite-blit"), "Renderer3D should reject 2D-only upscale modes");
+                Assert(!renderer2D.SetActiveUpscaleMode("unknown-mode"), "Renderer2D should reject unknown upscale modes");
+                Assert(!renderer3D.SetActiveUpscaleMode("unknown-mode"), "Renderer3D should reject unknown upscale modes");
             });
 
     return suite;
