@@ -108,12 +108,9 @@ void Window::PresentUIRenderTarget() const
     OpenGLRenderState::SetViewport(0, 0, parameters.width, parameters.height);
     OpenGLRenderState::SetScissorTest(false);
     OpenGLRenderState::SetDepthTest(false);
-    OpenGLRenderState::SetBlend(true);
-    OpenGLRenderState::SetPremultipliedAlphaBlend();
-
-    uiRenderTarget.Unbind();
-    uiRenderTarget.RenderScreenQuad(parameters.width, parameters.height);
-
     OpenGLRenderState::SetBlend(false);
+
+    uiRenderTarget.BlitToScreen(parameters.width, parameters.height);
+
     OpenGLRenderState::SetDepthTest(true);
 }

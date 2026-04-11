@@ -836,6 +836,16 @@ bool OpenGLRenderTargetResource::IsComplete() const
     return status == GL_FRAMEBUFFER_COMPLETE;
 }
 
+void OpenGLRenderTargetResource::BlitFromDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth,
+                                                 std::uint32_t dstHeight) const
+{
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebufferID);
+    glBlitFramebuffer(0, 0, static_cast<GLint>(srcWidth), static_cast<GLint>(srcHeight), 0, 0, static_cast<GLint>(dstWidth),
+                      static_cast<GLint>(dstHeight), GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 void OpenGLRenderTargetResource::BlitTo(const IRenderTargetResource &destination, std::uint32_t srcWidth, std::uint32_t srcHeight,
                                         std::uint32_t dstWidth, std::uint32_t dstHeight) const
 {

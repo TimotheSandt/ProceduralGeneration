@@ -93,6 +93,8 @@ class Window
     bool IsUIUpscalingEnabled() const { return parameters.enableUIUpscaling; }
     void BindUIRenderTarget() const;
     void PresentUIToScreen();
+    RenderTarget &GetUIRenderTarget() { return uiRenderTarget; }
+    const RenderTarget &GetUIRenderTarget() const { return uiRenderTarget; }
     void GetRenderResolution(int &width, int &height) const
     {
         if (parameters.enableUpscaling)

@@ -124,6 +124,7 @@ class OpenGLRenderTargetResource final : public IRenderTargetResource
     void Unbind() const override;
     void Resize(std::uint32_t width, std::uint32_t height) override;
     bool IsComplete() const override;
+    void BlitFromDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth, std::uint32_t dstHeight) const override;
     void BlitTo(const IRenderTargetResource &destination, std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth,
                 std::uint32_t dstHeight) const override;
     void BlitToDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth, std::uint32_t dstHeight) const override;

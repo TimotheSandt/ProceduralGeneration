@@ -158,6 +158,8 @@ class IRenderTargetResource : public IGraphicsResource
     virtual void Unbind() const = 0;
     virtual void Resize(std::uint32_t width, std::uint32_t height) = 0;
     virtual bool IsComplete() const = 0;
+    virtual void BlitFromDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth,
+                                 std::uint32_t dstHeight) const = 0;
     virtual void BlitTo(const IRenderTargetResource &destination, std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth,
                         std::uint32_t dstHeight) const = 0;
     virtual void BlitToDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth, std::uint32_t dstHeight) const = 0;

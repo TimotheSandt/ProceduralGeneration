@@ -131,6 +131,23 @@ void RenderTarget::Resize(int newWidth, int newHeight)
     Unbind();
 }
 
+void RenderTarget::CopyFromScreen(int srcWidth, int srcHeight) const
+{
+    if (ID == 0)
+    {
+        LOG_ERROR(1, "Invalid render target ID");
+        return;
+    }
+
+    if (backendRenderTarget != nullptr)
+    {
+        backendRenderTarget->BlitFromDefault(static_cast<std::uint32_t>(srcWidth), static_cast<std::uint32_t>(srcHeight),
+                                             static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
+    }
+
+    this->Bind();
+}
+
 void RenderTarget::BlitToRenderTarget(RenderTarget &source) const
 {
     const std::uint32_t sourceID = source.GetID();

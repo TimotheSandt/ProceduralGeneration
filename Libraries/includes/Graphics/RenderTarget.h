@@ -26,6 +26,7 @@ class RenderTarget
     void Bind() const;
     void Unbind() const;
 
+    void CopyFromScreen(int srcWidth, int srcHeight) const;
     void BlitToRenderTarget(RenderTarget &destination) const;
     void BlitToScreen(int sWidth, int sHeight) const;
     void RenderScreenQuad() const;

@@ -3,7 +3,6 @@
 #include <stdexcept>
 
 #include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
-#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 
 Game::Game()
@@ -125,7 +124,7 @@ void Game::render()
     if (window.IsUIUpscalingEnabled())
     {
         window.BindUIRenderTarget();
-        OpenGLRenderState::ClearTransparentColorBuffer();
+        window.GetUIRenderTarget().CopyFromScreen(windowWidth, windowHeight);
     }
 
     renderer2D.BeginPass(uiRenderWidth, uiRenderHeight);

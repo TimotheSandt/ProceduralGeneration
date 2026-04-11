@@ -138,6 +138,7 @@ class FakeRenderTargetResource final : public IRenderTargetResource
     void Unbind() const override {}
     void Resize(std::uint32_t width, std::uint32_t height) override { desc.extent = {width, height}; }
     bool IsComplete() const override { return true; }
+    void BlitFromDefault(std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t) const override {}
     void BlitTo(const IRenderTargetResource &, std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t) const override {}
     void BlitToDefault(std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t) const override {}
 

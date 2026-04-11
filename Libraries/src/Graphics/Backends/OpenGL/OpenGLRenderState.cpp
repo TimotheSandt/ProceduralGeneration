@@ -70,14 +70,14 @@ void SetBlend(bool enabled) noexcept
 
 void SetAlphaBlend() noexcept
 {
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    GRAPHICS_CHECK_ERRORS_M("glBlendFunc");
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    GRAPHICS_CHECK_ERRORS_M("glBlendFuncSeparate");
 }
 
 void SetPremultipliedAlphaBlend() noexcept
 {
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    GRAPHICS_CHECK_ERRORS_M("glBlendFunc");
+    glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    GRAPHICS_CHECK_ERRORS_M("glBlendFuncSeparate");
 }
 
 void SetScissorTest(bool enabled) noexcept
