@@ -79,8 +79,6 @@ void Window::UpdateRenderTargetResolution()
 {
     parameters.renderWidth = static_cast<int>(static_cast<float>(parameters.width) * parameters.renderScale);
     parameters.renderHeight = static_cast<int>(static_cast<float>(parameters.height) * parameters.renderScale);
-    sceneRenderTarget.Resize(parameters.renderWidth, parameters.renderHeight);
-    upscaledRenderTarget.Resize(parameters.width, parameters.height);
 }
 
 void Window::UpdateUIRenderTargetResolution()
@@ -92,27 +90,11 @@ void Window::UpdateUIRenderTargetResolution()
 
 void Window::InitRenderTargets()
 {
-    upscaledRenderTarget.Destroy();
-    sceneRenderTarget.Destroy();
     uiRenderTarget.Destroy();
-
-    upscaledRenderTarget.Init(parameters.width, parameters.height);
-    sceneRenderTarget.Init(parameters.renderWidth, parameters.renderHeight);
     uiRenderTarget.Init(parameters.uiRenderWidth, parameters.uiRenderHeight);
 }
 
-void Window::BindSceneRenderTarget() const { sceneRenderTarget.Bind(); }
 void Window::BindUIRenderTarget() const { uiRenderTarget.Bind(); }
-void Window::PresentSceneToScreen()
-{
-    if (!parameters.enableUpscaling || scenePresentedThisFrame)
-    {
-        return;
-    }
-
-    PresentRenderTarget();
-    scenePresentedThisFrame = true;
-}
 
 void Window::PresentUIToScreen()
 {
@@ -123,19 +105,6 @@ void Window::PresentUIToScreen()
 
     PresentUIRenderTarget();
     uiPresentedThisFrame = true;
-}
-
-void Window::PresentRenderTarget() const
-{
-    OpenGLRenderState::SetViewport(0, 0, parameters.width, parameters.height);
-    OpenGLRenderState::SetScissorTest(false);
-    OpenGLRenderState::SetBlend(false);
-
-    sceneRenderTarget.Unbind();
-    sceneRenderTarget.BlitToScreen(parameters.width, parameters.height);
-    // upscaledRenderTarget.BlitToRenderTarget(sceneRenderTarget);
-    // upscaledRenderTarget.BlitToScreen(parameters.width, parameters.height);
-    // upscaledRenderTarget.Unbind();
 }
 
 void Window::PresentUIRenderTarget() const

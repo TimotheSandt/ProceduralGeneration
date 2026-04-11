@@ -1,5 +1,7 @@
 #pragma once
 
+#include "RenderTarget.h"
+
 #include <glm/vec4.hpp>
 
 class Camera;
@@ -9,8 +11,9 @@ class Renderer3D
 {
   public:
     bool IsRuntimeCompatible() const noexcept;
+    void ConfigureOutput(int outputWidth, int outputHeight, bool enableUpscaling);
     void BeginPass(int width, int height);
-    void EndPass() const noexcept;
+    void EndPass() const;
 
     void Clear(const glm::vec4 &clearColor, bool clearDepth = true) const;
     void SetCamera(Camera &camera) const;
@@ -25,6 +28,10 @@ class Renderer3D
     bool HasValidFrameExtent() const noexcept { return frameWidth > 0 && frameHeight > 0; }
 
   private:
+    int outputWidth = 0;
+    int outputHeight = 0;
+    bool upscalingEnabled = false;
     int frameWidth = 0;
     int frameHeight = 0;
+    RenderTarget sceneRenderTarget;
 };

@@ -87,7 +87,6 @@ class Window
     void EnableUpscaling(bool enable);
     float GetRenderScale() const { return parameters.renderScale; }
     bool IsUpscalingEnabled() const { return parameters.enableUpscaling; }
-    void PresentSceneToScreen();
     void SetUIRenderScale(float scale);
     void EnableUIUpscaling(bool enable);
     float GetUIRenderScale() const { return parameters.uiRenderScale; }
@@ -165,8 +164,6 @@ class Window
 
     // Resolution Scaling methods
     void InitRenderTargets();
-    void BindSceneRenderTarget() const;
-    void PresentRenderTarget() const;
     void UpdateRenderTargetResolution();
     void UpdateUIRenderTargetResolution();
     void PresentUIRenderTarget() const;
@@ -184,8 +181,6 @@ class Window
   private:
     GLFWwindow *window = nullptr;
 
-    RenderTarget sceneRenderTarget;
-    RenderTarget upscaledRenderTarget;
     RenderTarget uiRenderTarget;
 
     WindowParameters parameters;
@@ -195,6 +190,5 @@ class Window
     FPSCounter fpsCounter;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> lastTime;
-    bool scenePresentedThisFrame = false;
     bool uiPresentedThisFrame = false;
 };

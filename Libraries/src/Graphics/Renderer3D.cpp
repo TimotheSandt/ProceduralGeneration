@@ -7,6 +7,13 @@
 
 bool Renderer3D::IsRuntimeCompatible() const noexcept { return IsGraphicsAPIActive(GraphicsAPI::OpenGL); }
 
+void Renderer3D::ConfigureOutput(int width, int height, bool enableUpscaling)
+{
+    outputWidth = width;
+    outputHeight = height;
+    upscalingEnabled = enableUpscaling;
+}
+
 void Renderer3D::BeginPass(int width, int height)
 {
     frameWidth = width;
@@ -17,13 +24,46 @@ void Renderer3D::BeginPass(int width, int height)
         return;
     }
 
-    OpenGLRenderState::PrepareScreenPass(frameWidth, frameHeight);
+    if (upscalingEnabled && outputWidth > 0 && outputHeight > 0 && (frameWidth != outputWidth || frameHeight != outputHeight))
+    {
+        if (sceneRenderTarget.GetID() == 0)
+        {
+            sceneRenderTarget.Init(frameWidth, frameHeight);
+        }
+        else
+        {
+            sceneRenderTarget.Resize(frameWidth, frameHeight);
+        }
+        sceneRenderTarget.Bind();
+    }
+    else
+    {
+        OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+
+    OpenGLRenderState::SetViewport(0, 0, frameWidth, frameHeight);
     OpenGLRenderState::SetDepthTest(true);
     OpenGLRenderState::SetBlend(false);
     OpenGLRenderState::SetScissorTest(false);
 }
 
-void Renderer3D::EndPass() const noexcept {}
+void Renderer3D::EndPass() const
+{
+    if (!IsRuntimeCompatible() || !HasValidFrameExtent())
+    {
+        return;
+    }
+
+    if (!upscalingEnabled || outputWidth <= 0 || outputHeight <= 0 || (frameWidth == outputWidth && frameHeight == outputHeight))
+    {
+        return;
+    }
+
+    sceneRenderTarget.Unbind();
+    OpenGLRenderState::SetScissorTest(false);
+    OpenGLRenderState::SetBlend(false);
+    sceneRenderTarget.BlitToScreen(outputWidth, outputHeight);
+}
 
 void Renderer3D::Clear(const glm::vec4 &clearColor, bool clearDepth) const
 {

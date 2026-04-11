@@ -114,17 +114,13 @@ void Game::render()
     this->window.GetRenderResolution(renderWidth, renderHeight);
     this->window.GetUIRenderResolution(uiRenderWidth, uiRenderHeight);
 
+    renderer3D.ConfigureOutput(windowWidth, windowHeight, window.IsUpscalingEnabled());
     renderer3D.BeginPass(renderWidth, renderHeight);
 
     Profiler::ProfileGPU("Clear", &Renderer3D::Clear, &renderer3D, window.GetClearColor(), true);
     renderer3D.SetCamera(this->camera);
     Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), std::ref(renderer3D), std::ref(this->camera));
-    renderer3D.EndPass();
-
-    if (window.IsUpscalingEnabled())
-    {
-        window.PresentSceneToScreen();
-    }
+    Profiler::ProfileGPU("Upscale", &Renderer3D::EndPass, &renderer3D);
 
     if (window.IsUIUpscalingEnabled())
     {

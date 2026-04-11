@@ -65,8 +65,6 @@ Window &Window::operator=(Window &&other) noexcept
 void Window::Swap(Window &other) noexcept
 {
     std::swap(this->window, other.window);
-    std::swap(this->sceneRenderTarget, other.sceneRenderTarget);
-    std::swap(this->upscaledRenderTarget, other.upscaledRenderTarget);
     std::swap(this->uiRenderTarget, other.uiRenderTarget);
     std::swap(this->parameters, other.parameters);
     std::swap(this->inputManager, other.inputManager);
@@ -121,8 +119,6 @@ void Window::Close()
 
     this->ClearCallbacks();
 
-    this->sceneRenderTarget.Destroy();
-    this->upscaledRenderTarget.Destroy();
     this->uiRenderTarget.Destroy();
 
     InputManager::RemoveInstance(this->window);
@@ -144,7 +140,6 @@ void Window::Clear() const
 
 bool Window::NewFrame()
 {
-    this->scenePresentedThisFrame = false;
     this->uiPresentedThisFrame = false;
     Profiler::Profile("PollEvents", &glfwPollEvents);
     Profiler::Process();
@@ -159,11 +154,7 @@ bool Window::NewFrame()
 
     this->fpsCounter.newFrame(this->parameters.maxFPS);
 
-    if (this->parameters.enableUpscaling)
-    {
-        this->BindSceneRenderTarget();
-    }
-    else if (this->parameters.enableUIUpscaling)
+    if (this->parameters.enableUIUpscaling)
     {
         OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, 0);
         OpenGLRenderState::SetViewport(0, 0, this->parameters.width, this->parameters.height);
@@ -194,11 +185,6 @@ void Window::SwapBuffers()
         return;
     }
 
-    if (this->parameters.enableUpscaling)
-    {
-        Profiler::ProfileGPU("Upscale", &Window::PresentRenderTarget, this);
-        this->scenePresentedThisFrame = true;
-    }
     if (this->parameters.enableUIUpscaling)
     {
         Profiler::ProfileGPU("UIUpscale", &Window::PresentUIRenderTarget, this);
