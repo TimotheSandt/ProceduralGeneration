@@ -81,6 +81,10 @@ TestSuite CreateRenderersSuite()
                             "Renderer2D should default to its UI composition upscale path");
                 AssertEqual(std::string(renderer3D.GetActiveUpscaleMode()), std::string("bilinear-blit"),
                             "Renderer3D should default to its scene blit upscale path");
+                AssertEqual(renderer2D.GetRegisteredUpscaleModes().size(), std::size_t(1),
+                            "Renderer2D should expose its registered upscale strategies");
+                AssertEqual(renderer3D.GetRegisteredUpscaleModes().size(), std::size_t(1),
+                            "Renderer3D should expose its registered upscale strategies");
 
                 Assert(renderer2D.SetActiveUpscaleMode("disabled"), "Renderer2D should accept the disabled upscale mode");
                 Assert(renderer3D.SetActiveUpscaleMode("disabled"), "Renderer3D should accept the disabled upscale mode");

@@ -4,7 +4,25 @@
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "UI/TextRenderer.h"
 
-Renderer2D::Renderer2D() { static_cast<void>(SetActiveUpscaleMode("composite-blit")); }
+namespace
+{
+
+class Renderer2DCompositeUpscaleMode final : public IUpscaleMode
+{
+  public:
+    std::string_view GetName() const noexcept override { return "composite-blit"; }
+    bool SupportsRenderer(const Renderer &renderer) const noexcept override { return dynamic_cast<const Renderer2D *>(&renderer) != nullptr; }
+    void BeginPass(Renderer &, int, int) const override {}
+    void EndPass(const Renderer &) const override {}
+};
+
+} // namespace
+
+Renderer2D::Renderer2D()
+{
+    RegisterUpscaleMode(std::make_unique<Renderer2DCompositeUpscaleMode>());
+    static_cast<void>(SetActiveUpscaleMode("composite-blit"));
+}
 
 bool Renderer2D::IsRuntimeCompatible() const noexcept { return IsGraphicsAPIActive(GraphicsAPI::OpenGL); }
 
@@ -153,5 +171,3 @@ void Renderer2D::PresentRenderTarget(const RenderTarget &renderTarget) const
 
     renderTarget.RenderScreenQuad(GetFrameWidth(), GetFrameHeight());
 }
-
-bool Renderer2D::SupportsUpscaleMode(std::string_view mode) const noexcept { return mode == "composite-blit"; }

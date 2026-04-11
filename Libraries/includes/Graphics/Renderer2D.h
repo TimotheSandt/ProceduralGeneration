@@ -39,5 +39,4 @@ class Renderer2D : public Renderer
     void PresentRenderTarget(const RenderTarget &renderTarget) const;
 
   private:
-    bool SupportsUpscaleMode(std::string_view mode) const noexcept override;
 };

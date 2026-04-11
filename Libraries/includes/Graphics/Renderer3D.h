@@ -7,6 +7,7 @@
 
 class Camera;
 class Mesh;
+class Renderer3DBilinearBlitUpscaleMode;
 
 class Renderer3D : public Renderer
 {
@@ -25,9 +26,13 @@ class Renderer3D : public Renderer
     void RenderMesh(Mesh &mesh, Camera &camera) const { DrawMesh(mesh, camera); }
 
   private:
-    bool SupportsUpscaleMode(std::string_view mode) const noexcept override;
+    void PrepareUpscaledScenePass();
+    void PresentUpscaledScenePass() const;
+    bool NeedsUpscaledScenePass() const noexcept;
 
     int outputWidth = 0;
     int outputHeight = 0;
     RenderTarget sceneRenderTarget;
+
+    friend class Renderer3DBilinearBlitUpscaleMode;
 };

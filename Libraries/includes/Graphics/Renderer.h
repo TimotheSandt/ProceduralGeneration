@@ -1,8 +1,23 @@
 #pragma once
 
 #include <glm/vec4.hpp>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
+
+class Renderer;
+
+class IUpscaleMode
+{
+  public:
+    virtual ~IUpscaleMode() = default;
+
+    virtual std::string_view GetName() const noexcept = 0;
+    virtual bool SupportsRenderer(const Renderer &renderer) const noexcept = 0;
+    virtual void BeginPass(Renderer &renderer, int width, int height) const = 0;
+    virtual void EndPass(const Renderer &renderer) const = 0;
+};
 
 class Renderer
 {
@@ -20,8 +35,10 @@ class Renderer
     int GetFrameHeight() const noexcept { return frameHeight; }
     bool HasValidFrameExtent() const noexcept { return frameWidth > 0 && frameHeight > 0; }
 
+    void RegisterUpscaleMode(std::unique_ptr<IUpscaleMode> mode);
     bool SetActiveUpscaleMode(std::string_view mode);
-    std::string_view GetActiveUpscaleMode() const noexcept { return activeUpscaleMode; }
+    std::string_view GetActiveUpscaleMode() const noexcept;
+    std::vector<std::string_view> GetRegisteredUpscaleModes() const;
 
     void SetUpscalingEnabled(bool enabled) noexcept { upscalingEnabled = enabled; }
     bool IsUpscalingEnabled() const noexcept { return upscalingEnabled; }
@@ -33,11 +50,15 @@ class Renderer
         frameHeight = height;
     }
 
-    virtual bool SupportsUpscaleMode(std::string_view mode) const noexcept = 0;
+    void BeginUpscalePass(int width, int height);
+    void EndUpscalePass() const;
 
   private:
+    const IUpscaleMode *FindUpscaleMode(std::string_view mode) const noexcept;
+
     int frameWidth = 0;
     int frameHeight = 0;
     bool upscalingEnabled = false;
-    std::string activeUpscaleMode = "disabled";
+    std::vector<std::unique_ptr<IUpscaleMode>> upscaleModes;
+    const IUpscaleMode *activeUpscaleMode = nullptr;
 };
