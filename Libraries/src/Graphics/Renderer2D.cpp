@@ -4,19 +4,31 @@
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "UI/TextRenderer.h"
 
+Renderer2D::Renderer2D() { static_cast<void>(SetActiveUpscaleMode("composite-blit")); }
+
 bool Renderer2D::IsRuntimeCompatible() const noexcept { return IsGraphicsAPIActive(GraphicsAPI::OpenGL); }
 
 void Renderer2D::BeginPass(int width, int height)
 {
-    frameWidth = width;
-    frameHeight = height;
+    SetFrameExtent(width, height);
 
     if (!IsRuntimeCompatible() || !HasValidFrameExtent())
     {
         return;
     }
 
-    OpenGLRenderState::PrepareScreenPass(frameWidth, frameHeight);
+    OpenGLRenderState::PrepareScreenPass(GetFrameWidth(), GetFrameHeight());
+}
+
+void Renderer2D::Clear(const glm::vec4 &clearColor, bool) const
+{
+    if (!IsRuntimeCompatible() || !HasValidFrameExtent())
+    {
+        return;
+    }
+
+    OpenGLRenderState::ClearColor(clearColor);
+    OpenGLRenderState::Clear(GL_COLOR_BUFFER_BIT);
 }
 
 void Renderer2D::EndPass() const
@@ -38,7 +50,7 @@ void Renderer2D::BeginCanvasPass() const
         return;
     }
 
-    OpenGLRenderState::PrepareScreenPass(frameWidth, frameHeight);
+    OpenGLRenderState::PrepareScreenPass(GetFrameWidth(), GetFrameHeight());
     OpenGLRenderState::SetDepthTest(false);
     OpenGLRenderState::SetBlend(true);
     OpenGLRenderState::SetAlphaBlend();
@@ -63,7 +75,7 @@ void Renderer2D::PushClipRect(float x, float y, float width, float height) const
         return;
     }
 
-    const int scissorY = static_cast<int>(static_cast<float>(frameHeight) - (y + height));
+    const int scissorY = static_cast<int>(static_cast<float>(GetFrameHeight()) - (y + height));
     OpenGLRenderState::SetScissorTest(true);
     OpenGLRenderState::SetScissor(static_cast<int>(x), scissorY, static_cast<int>(width), static_cast<int>(height));
 }
@@ -86,7 +98,7 @@ void Renderer2D::RenderText(UI::TextRenderer &textRenderer, const std::string &t
         return;
     }
 
-    textRenderer.updateScreenSize(static_cast<unsigned int>(frameWidth), static_cast<unsigned int>(frameHeight));
+    textRenderer.updateScreenSize(static_cast<unsigned int>(GetFrameWidth()), static_cast<unsigned int>(GetFrameHeight()));
     BeginCanvasPass();
     textRenderer.renderText(text, x, y, scale, color, anchor);
     EndCanvasPass();
@@ -100,7 +112,7 @@ void Renderer2D::RenderTextAdvanced(UI::TextRenderer &textRenderer, const std::s
         return;
     }
 
-    textRenderer.updateScreenSize(static_cast<unsigned int>(frameWidth), static_cast<unsigned int>(frameHeight));
+    textRenderer.updateScreenSize(static_cast<unsigned int>(GetFrameWidth()), static_cast<unsigned int>(GetFrameHeight()));
     BeginCanvasPass();
 
     const bool useScissor = (params.overflow == UI::TextOverflow::Hidden || params.overflow == UI::TextOverflow::Scroll) &&
@@ -139,5 +151,7 @@ void Renderer2D::PresentRenderTarget(const RenderTarget &renderTarget) const
         return;
     }
 
-    renderTarget.RenderScreenQuad(frameWidth, frameHeight);
+    renderTarget.RenderScreenQuad(GetFrameWidth(), GetFrameHeight());
 }
+
+bool Renderer2D::SupportsUpscaleMode(std::string_view mode) const noexcept { return mode == "composite-blit"; }

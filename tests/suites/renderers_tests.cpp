@@ -71,6 +71,23 @@ TestSuite CreateRenderersSuite()
                 ClearGraphicsRuntime();
             });
 
+    AddTest(suite, "renderers expose runtime-selectable upscale modes",
+            []
+            {
+                Renderer2D renderer2D;
+                Renderer3D renderer3D;
+
+                AssertEqual(std::string(renderer2D.GetActiveUpscaleMode()), std::string("composite-blit"),
+                            "Renderer2D should default to its UI composition upscale path");
+                AssertEqual(std::string(renderer3D.GetActiveUpscaleMode()), std::string("bilinear-blit"),
+                            "Renderer3D should default to its scene blit upscale path");
+
+                Assert(renderer2D.SetActiveUpscaleMode("disabled"), "Renderer2D should accept the disabled upscale mode");
+                Assert(renderer3D.SetActiveUpscaleMode("disabled"), "Renderer3D should accept the disabled upscale mode");
+                Assert(!renderer2D.SetActiveUpscaleMode("bilinear-blit"), "Renderer2D should reject 3D-only upscale modes");
+                Assert(!renderer3D.SetActiveUpscaleMode("composite-blit"), "Renderer3D should reject 2D-only upscale modes");
+            });
+
     return suite;
 }
 

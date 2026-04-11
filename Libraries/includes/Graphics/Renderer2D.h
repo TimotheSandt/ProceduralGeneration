@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Renderer.h"
 #include "Graphics/Core/GraphicsTypes.h"
 #include "RenderTarget.h"
 #include "Sprite.h"
@@ -15,12 +16,15 @@ enum class TextAnchor : std::uint8_t;
 struct TextLayoutParams;
 } // namespace UI
 
-class Renderer2D
+class Renderer2D : public Renderer
 {
   public:
-    bool IsRuntimeCompatible() const noexcept;
-    void BeginPass(int width, int height);
-    void EndPass() const;
+    Renderer2D();
+
+    bool IsRuntimeCompatible() const noexcept override;
+    void BeginPass(int width, int height) override;
+    void EndPass() const override;
+    void Clear(const glm::vec4 &clearColor, bool clearDepth = true) const override;
 
     void BeginCanvasPass() const;
     void EndCanvasPass() const;
@@ -34,13 +38,6 @@ class Renderer2D
     void DrawSprite(Sprite &sprite, const SpriteDrawParams &params, const Texture *texture = nullptr) const;
     void PresentRenderTarget(const RenderTarget &renderTarget) const;
 
-    void BeginFrame(int width, int height) { BeginPass(width, height); }
-
-    int GetFrameWidth() const noexcept { return frameWidth; }
-    int GetFrameHeight() const noexcept { return frameHeight; }
-    bool HasValidFrameExtent() const noexcept { return frameWidth > 0 && frameHeight > 0; }
-
   private:
-    int frameWidth = 0;
-    int frameHeight = 0;
+    bool SupportsUpscaleMode(std::string_view mode) const noexcept override;
 };

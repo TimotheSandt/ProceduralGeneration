@@ -5,34 +5,35 @@
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Mesh.h"
 
+Renderer3D::Renderer3D() { static_cast<void>(SetActiveUpscaleMode("bilinear-blit")); }
+
 bool Renderer3D::IsRuntimeCompatible() const noexcept { return IsGraphicsAPIActive(GraphicsAPI::OpenGL); }
 
 void Renderer3D::ConfigureOutput(int width, int height, bool enableUpscaling)
 {
     outputWidth = width;
     outputHeight = height;
-    upscalingEnabled = enableUpscaling;
+    SetUpscalingEnabled(enableUpscaling);
 }
 
 void Renderer3D::BeginPass(int width, int height)
 {
-    frameWidth = width;
-    frameHeight = height;
+    SetFrameExtent(width, height);
 
     if (!IsRuntimeCompatible() || !HasValidFrameExtent())
     {
         return;
     }
 
-    if (upscalingEnabled && outputWidth > 0 && outputHeight > 0 && (frameWidth != outputWidth || frameHeight != outputHeight))
+    if (IsUpscalingEnabled() && outputWidth > 0 && outputHeight > 0 && (GetFrameWidth() != outputWidth || GetFrameHeight() != outputHeight))
     {
         if (sceneRenderTarget.GetID() == 0)
         {
-            sceneRenderTarget.Init(frameWidth, frameHeight);
+            sceneRenderTarget.Init(GetFrameWidth(), GetFrameHeight());
         }
         else
         {
-            sceneRenderTarget.Resize(frameWidth, frameHeight);
+            sceneRenderTarget.Resize(GetFrameWidth(), GetFrameHeight());
         }
         sceneRenderTarget.Bind();
     }
@@ -41,7 +42,7 @@ void Renderer3D::BeginPass(int width, int height)
         OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
-    OpenGLRenderState::SetViewport(0, 0, frameWidth, frameHeight);
+    OpenGLRenderState::SetViewport(0, 0, GetFrameWidth(), GetFrameHeight());
     OpenGLRenderState::SetDepthTest(true);
     OpenGLRenderState::SetBlend(false);
     OpenGLRenderState::SetScissorTest(false);
@@ -54,7 +55,7 @@ void Renderer3D::EndPass() const
         return;
     }
 
-    if (!upscalingEnabled || outputWidth <= 0 || outputHeight <= 0 || (frameWidth == outputWidth && frameHeight == outputHeight))
+    if (!IsUpscalingEnabled() || outputWidth <= 0 || outputHeight <= 0 || (GetFrameWidth() == outputWidth && GetFrameHeight() == outputHeight))
     {
         return;
     }
@@ -89,3 +90,5 @@ void Renderer3D::DrawMesh(Mesh &mesh, Camera &camera) const
         mesh.Render(camera);
     }
 }
+
+bool Renderer3D::SupportsUpscaleMode(std::string_view mode) const noexcept { return mode == "bilinear-blit"; }
