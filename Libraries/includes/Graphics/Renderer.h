@@ -10,6 +10,24 @@
 
 class RenderTarget;
 
+struct UpscalePassContext
+{
+    RenderTarget *renderTarget = nullptr;
+    int sourceWidth = 0;
+    int sourceHeight = 0;
+    int outputWidth = 0;
+    int outputHeight = 0;
+};
+
+struct ConstUpscalePassContext
+{
+    const RenderTarget *renderTarget = nullptr;
+    int sourceWidth = 0;
+    int sourceHeight = 0;
+    int outputWidth = 0;
+    int outputHeight = 0;
+};
+
 class Renderer
 {
   public:
@@ -34,6 +52,12 @@ class Renderer
     void SetUpscalingEnabled(bool enabled) noexcept { upscalingEnabled = enabled; }
     bool IsUpscalingEnabled() const noexcept { return upscalingEnabled; }
 
+    // Public contract used by upscaling strategies.
+    UpscalePassContext GetUpscalePassContext();
+    ConstUpscalePassContext GetUpscalePassContext() const;
+    virtual void PrepareUpscaleSource(RenderTarget &renderTarget) = 0;
+    virtual void PrepareUpscalePresentState(const RenderTarget &renderTarget) const = 0;
+
   protected:
     void SetFrameExtent(int width, int height) noexcept
     {
@@ -43,14 +67,11 @@ class Renderer
 
     void BeginUpscalePass(int width, int height);
     void EndUpscalePass() const;
-
     virtual bool UsesUpscaleRenderTarget() const noexcept = 0;
     virtual RenderTarget &GetUpscaleRenderTarget() = 0;
     virtual const RenderTarget &GetUpscaleRenderTarget() const = 0;
     virtual int GetUpscaleOutputWidth() const noexcept = 0;
     virtual int GetUpscaleOutputHeight() const noexcept = 0;
-    virtual void PrepareUpscaleSource(RenderTarget &renderTarget) = 0;
-    virtual void PrepareUpscalePresentState(const RenderTarget &renderTarget) const = 0;
 
   private:
     const IUpscaleMode *FindUpscaleMode(std::string_view mode) const noexcept;
@@ -60,6 +81,4 @@ class Renderer
     bool upscalingEnabled = false;
     std::vector<std::unique_ptr<IUpscaleMode>> upscaleModes;
     const IUpscaleMode *activeUpscaleMode = nullptr;
-
-    friend class RenderTargetUpscaleMode;
 };

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Graphics/Upscaling/IUpscaleMode.h"
+#include "Graphics/Renderer.h"
 
 #include <string_view>
 
@@ -17,9 +17,9 @@ class RenderTargetUpscaleMode : public IUpscaleMode
     void EndPass(const Renderer &renderer) const override;
 
   protected:
-    int GetOutputWidth(const Renderer &renderer) const noexcept;
-    int GetOutputHeight(const Renderer &renderer) const noexcept;
-    virtual void PresentUpscaled(const Renderer &renderer, const RenderTarget &renderTarget) const = 0;
+    int GetOutputWidth(const ConstUpscalePassContext &context) const noexcept;
+    int GetOutputHeight(const ConstUpscalePassContext &context) const noexcept;
+    virtual void PresentUpscaled(const ConstUpscalePassContext &context, const RenderTarget &renderTarget) const = 0;
 
   private:
     std::string_view name;

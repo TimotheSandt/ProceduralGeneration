@@ -1,7 +1,7 @@
 #include "Graphics/Upscaling/RenderTargetUpscaleMode.h"
 
-#include "Graphics/RenderTarget.h"
 #include "Graphics/Renderer.h"
+#include "Graphics/RenderTarget.h"
 
 RenderTargetUpscaleMode::RenderTargetUpscaleMode(std::string_view upscaleModeName) noexcept : name(upscaleModeName) {}
 
@@ -9,25 +9,26 @@ std::string_view RenderTargetUpscaleMode::GetName() const noexcept { return name
 
 bool RenderTargetUpscaleMode::SupportsRenderer(const Renderer &) const noexcept { return true; }
 
-int RenderTargetUpscaleMode::GetOutputWidth(const Renderer &renderer) const noexcept { return renderer.GetUpscaleOutputWidth(); }
+int RenderTargetUpscaleMode::GetOutputWidth(const ConstUpscalePassContext &context) const noexcept { return context.outputWidth; }
 
-int RenderTargetUpscaleMode::GetOutputHeight(const Renderer &renderer) const noexcept { return renderer.GetUpscaleOutputHeight(); }
+int RenderTargetUpscaleMode::GetOutputHeight(const ConstUpscalePassContext &context) const noexcept { return context.outputHeight; }
 
 void RenderTargetUpscaleMode::BeginPass(Renderer &renderer, int, int) const
 {
-    if (!renderer.UsesUpscaleRenderTarget())
+    UpscalePassContext context = renderer.GetUpscalePassContext();
+    if (context.renderTarget == nullptr)
     {
         return;
     }
 
-    RenderTarget &renderTarget = renderer.GetUpscaleRenderTarget();
+    RenderTarget &renderTarget = *context.renderTarget;
     if (renderTarget.GetID() == 0)
     {
-        renderTarget.Init(renderer.GetFrameWidth(), renderer.GetFrameHeight());
+        renderTarget.Init(context.sourceWidth, context.sourceHeight);
     }
     else
     {
-        renderTarget.Resize(renderer.GetFrameWidth(), renderer.GetFrameHeight());
+        renderTarget.Resize(context.sourceWidth, context.sourceHeight);
     }
 
     renderTarget.Bind();
@@ -36,12 +37,13 @@ void RenderTargetUpscaleMode::BeginPass(Renderer &renderer, int, int) const
 
 void RenderTargetUpscaleMode::EndPass(const Renderer &renderer) const
 {
-    if (!renderer.UsesUpscaleRenderTarget())
+    ConstUpscalePassContext context = renderer.GetUpscalePassContext();
+    if (context.renderTarget == nullptr)
     {
         return;
     }
 
-    const RenderTarget &renderTarget = renderer.GetUpscaleRenderTarget();
+    const RenderTarget &renderTarget = *context.renderTarget;
     renderer.PrepareUpscalePresentState(renderTarget);
-    PresentUpscaled(renderer, renderTarget);
+    PresentUpscaled(context, renderTarget);
 }

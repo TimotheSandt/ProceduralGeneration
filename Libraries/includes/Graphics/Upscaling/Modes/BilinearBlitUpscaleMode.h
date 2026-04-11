@@ -8,5 +8,5 @@ class BilinearBlitUpscaleMode final : public RenderTargetUpscaleMode
     explicit BilinearBlitUpscaleMode(std::string_view name = "bilinear-blit") noexcept;
 
   protected:
-    void PresentUpscaled(const Renderer &renderer, const RenderTarget &renderTarget) const override;
+    void PresentUpscaled(const ConstUpscalePassContext &context, const RenderTarget &renderTarget) const override;
 };

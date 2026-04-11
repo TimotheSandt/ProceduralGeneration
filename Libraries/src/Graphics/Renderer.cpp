@@ -77,3 +77,35 @@ void Renderer::EndUpscalePass() const
         activeUpscaleMode->EndPass(*this);
     }
 }
+
+UpscalePassContext Renderer::GetUpscalePassContext()
+{
+    if (!UsesUpscaleRenderTarget())
+    {
+        return {};
+    }
+
+    return {
+        .renderTarget = &GetUpscaleRenderTarget(),
+        .sourceWidth = GetFrameWidth(),
+        .sourceHeight = GetFrameHeight(),
+        .outputWidth = GetUpscaleOutputWidth(),
+        .outputHeight = GetUpscaleOutputHeight(),
+    };
+}
+
+ConstUpscalePassContext Renderer::GetUpscalePassContext() const
+{
+    if (!UsesUpscaleRenderTarget())
+    {
+        return {};
+    }
+
+    return {
+        .renderTarget = &GetUpscaleRenderTarget(),
+        .sourceWidth = GetFrameWidth(),
+        .sourceHeight = GetFrameHeight(),
+        .outputWidth = GetUpscaleOutputWidth(),
+        .outputHeight = GetUpscaleOutputHeight(),
+    };
+}

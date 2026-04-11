@@ -5,7 +5,7 @@
 
 BilinearBlitUpscaleMode::BilinearBlitUpscaleMode(std::string_view name) noexcept : RenderTargetUpscaleMode(name) {}
 
-void BilinearBlitUpscaleMode::PresentUpscaled(const Renderer &renderer, const RenderTarget &renderTarget) const
+void BilinearBlitUpscaleMode::PresentUpscaled(const ConstUpscalePassContext &context, const RenderTarget &renderTarget) const
 {
-    renderTarget.BlitToScreen(GetOutputWidth(renderer), GetOutputHeight(renderer));
+    renderTarget.BlitToScreen(GetOutputWidth(context), GetOutputHeight(context));
 }
