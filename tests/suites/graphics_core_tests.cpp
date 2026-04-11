@@ -7,6 +7,7 @@
 #include "Graphics/Core/GraphicsResources.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Graphics/Core/GraphicsTypes.h"
+#include "Graphics/Upscaling/UpscaleTypes.h"
 
 namespace tests
 {
@@ -307,6 +308,8 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(capabilities.supportsWindowPresentation, "OpenGL should support presenting to a window");
                 Assert(!capabilities.supportsAccelerationStructures, "OpenGL should not report acceleration structures");
                 Assert(!capabilities.supportsRayTracingPipelines, "OpenGL should not report ray tracing pipelines");
+                Assert(!capabilities.supportsTemporalUpscaling, "OpenGL should not report temporal upscaling support by default");
+                Assert(!capabilities.supportsFrameGeneration, "OpenGL should not report frame generation support by default");
             });
 
     AddTest(suite, "opengl backend creates a graphics device with matching capabilities",
@@ -320,6 +323,33 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(device->SupportsShaderStages(ShaderStageBit(ShaderStage::Vertex) | ShaderStageBit(ShaderStage::Fragment)),
                        "OpenGL devices should support vertex and fragment shader stages");
                 Assert(!device->SupportsShaderStages(1u << 31u), "OpenGL devices should reject unknown shader stage bits");
+            });
+
+    AddTest(suite, "upscale input defaults stay vendor-ready but optional",
+            []
+            {
+                const UpscaleInput input{};
+                const UpscaleModeDesc desc{};
+
+                Assert(input.color == nullptr, "Upscale input should default to no color texture");
+                AssertEqual(input.alphaMode, UpscaleAlphaMode::Opaque, "Upscale input should default to opaque composition");
+                AssertEqual(desc.quality, UpscaleQualityMode::Native, "Upscale modes should default to native quality");
+                Assert(desc.requirements.needsColor, "Upscale modes should default to requiring color");
+                Assert(!desc.requirements.needsMotionVectors, "Upscale modes should not require motion vectors by default");
+                Assert(!desc.supportsReactiveMask, "Upscale modes should not assume reactive mask support by default");
+            });
+
+    AddTest(suite, "frame generation input defaults to history-driven motion vectors",
+            []
+            {
+                const FrameGenerationInput input{};
+                const FrameGenerationModeDesc desc{};
+
+                Assert(input.currentColor == nullptr, "Frame generation should default to no current color");
+                AssertEqual(desc.quality, FrameGenerationQualityMode::Off, "Frame generation should default to off");
+                Assert(desc.needsMotionVectors, "Frame generation should require motion vectors by default");
+                Assert(desc.needsHistory, "Frame generation should require frame history by default");
+                Assert(!desc.needsDepth, "Frame generation should not require depth by default");
             });
 
     AddTest(suite, "opengl device creates shader and texture resource descriptors",

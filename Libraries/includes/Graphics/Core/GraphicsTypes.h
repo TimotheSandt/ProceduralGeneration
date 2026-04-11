@@ -158,6 +158,9 @@ struct GraphicsCapabilities
     bool supportsRayTracingPipelines = false;
     bool supportsAccelerationStructures = false;
     bool supportsRayQueries = false;
+    bool supportsTemporalUpscaling = false;
+    bool supportsFrameGeneration = false;
+    bool supportsOpticalFlow = false;
     std::uint32_t maxColorAttachments = 1;
     std::uint32_t maxAccelerationStructureInstances = 0;
 };
