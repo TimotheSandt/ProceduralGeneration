@@ -22,7 +22,7 @@ void RenderTargetUpscaleMode::BeginPass(Renderer &renderer, int, int) const
     }
 
     RenderTarget &renderTarget = *context.renderTarget;
-    if (renderTarget.GetID() == 0)
+    if (!renderTarget.IsInitialized())
     {
         renderTarget.Init(context.sourceWidth, context.sourceHeight);
     }

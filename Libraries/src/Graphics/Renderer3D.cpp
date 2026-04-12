@@ -1,7 +1,7 @@
 #include "Renderer3D.h"
 
 #include "Camera.h"
-#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
+#include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Graphics/Upscaling/Modes/BilinearBlitUpscaleMode.h"
 #include "Mesh.h"
@@ -32,17 +32,17 @@ void Renderer3D::BeginPass(int width, int height)
 
     if (!UsesUpscaleRenderTarget())
     {
-        OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, 0);
+        GraphicsRenderState::BindDefaultFramebuffer();
     }
     else
     {
         BeginUpscalePass(width, height);
     }
 
-    OpenGLRenderState::SetViewport(0, 0, GetFrameWidth(), GetFrameHeight());
-    OpenGLRenderState::SetDepthTest(true);
-    OpenGLRenderState::SetBlend(false);
-    OpenGLRenderState::SetScissorTest(false);
+    GraphicsRenderState::SetViewport(0, 0, GetFrameWidth(), GetFrameHeight());
+    GraphicsRenderState::SetDepthTest(true);
+    GraphicsRenderState::SetBlend(false);
+    GraphicsRenderState::SetScissorTest(false);
 }
 
 void Renderer3D::EndPass() const
@@ -64,8 +64,8 @@ void Renderer3D::Clear(const glm::vec4 &clearColor, bool clearDepth) const
 {
     if (IsRuntimeCompatible() && HasValidFrameExtent())
     {
-        OpenGLRenderState::ClearColor(clearColor);
-        OpenGLRenderState::Clear(clearDepth ? (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT) : GL_COLOR_BUFFER_BIT);
+        GraphicsRenderState::ClearColor(clearColor);
+        GraphicsRenderState::ClearBuffers(true, clearDepth);
     }
 }
 
@@ -87,7 +87,8 @@ void Renderer3D::DrawMesh(Mesh &mesh, Camera &camera) const
 
 bool Renderer3D::UsesUpscaleRenderTarget() const noexcept
 {
-    return IsUpscalingEnabled() && outputWidth > 0 && outputHeight > 0 && (GetFrameWidth() != outputWidth || GetFrameHeight() != outputHeight);
+    return IsUpscalingEnabled() && outputWidth > 0 && outputHeight > 0 &&
+           (GetFrameWidth() != outputWidth || GetFrameHeight() != outputHeight);
 }
 
 RenderTarget &Renderer3D::GetUpscaleRenderTarget() { return sceneRenderTarget; }
@@ -102,6 +103,6 @@ void Renderer3D::PrepareUpscaleSource(RenderTarget &) {}
 
 void Renderer3D::PrepareUpscalePresentState(const RenderTarget &) const
 {
-    OpenGLRenderState::SetScissorTest(false);
-    OpenGLRenderState::SetBlend(false);
+    GraphicsRenderState::SetScissorTest(false);
+    GraphicsRenderState::SetBlend(false);
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Graphics/Upscaling/IUpscaleMode.h"
+#include "Graphics/Presentation/PresentationController.h"
 
 #include <glm/vec4.hpp>
 #include <memory>
@@ -49,8 +49,8 @@ class Renderer
     std::string_view GetActiveUpscaleMode() const noexcept;
     std::vector<std::string_view> GetRegisteredUpscaleModes() const;
 
-    void SetUpscalingEnabled(bool enabled) noexcept { upscalingEnabled = enabled; }
-    bool IsUpscalingEnabled() const noexcept { return upscalingEnabled; }
+    void SetUpscalingEnabled(bool enabled) noexcept { presentationController.SetEnabled(enabled); }
+    bool IsUpscalingEnabled() const noexcept { return presentationController.IsEnabled(); }
 
     // Public contract used by upscaling strategies.
     UpscalePassContext GetUpscalePassContext();
@@ -74,11 +74,7 @@ class Renderer
     virtual int GetUpscaleOutputHeight() const noexcept = 0;
 
   private:
-    const IUpscaleMode *FindUpscaleMode(std::string_view mode) const noexcept;
-
     int frameWidth = 0;
     int frameHeight = 0;
-    bool upscalingEnabled = false;
-    std::vector<std::unique_ptr<IUpscaleMode>> upscaleModes;
-    const IUpscaleMode *activeUpscaleMode = nullptr;
+    PresentationController presentationController;
 };

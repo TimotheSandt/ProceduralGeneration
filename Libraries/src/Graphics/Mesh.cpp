@@ -2,7 +2,7 @@
 
 #include <utility>
 
-#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
+#include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 
 Mesh::Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib)
@@ -200,11 +200,11 @@ void Mesh::Draw(bool wireframe) const
 
     if (wireframe)
     {
-        OpenGLRenderState::SetWireframe(true);
+        GraphicsRenderState::SetWireframe(true);
     }
     else
     {
-        OpenGLRenderState::SetWireframe(false);
+        GraphicsRenderState::SetWireframe(false);
     }
 
     if (this->instancing > 1)
@@ -218,8 +218,8 @@ void Mesh::Draw(bool wireframe) const
 
     if (wireframe)
     {
-        OpenGLRenderState::SetWireframe(false);
-        OpenGLRenderState::SetDepthTest(true);
+        GraphicsRenderState::SetWireframe(false);
+        GraphicsRenderState::SetDepthTest(true);
     }
 }
 

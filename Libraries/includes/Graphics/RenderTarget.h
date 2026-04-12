@@ -32,6 +32,7 @@ class RenderTarget
     void RenderScreenQuad() const;
     void RenderScreenQuad(int fWidth, int fHeight) const;
 
+    bool IsInitialized() const noexcept { return backendRenderTarget != nullptr; }
     std::uint32_t GetID() const { return ID; }
     Texture &GetTexture() { return colorTexture; }
     std::uint32_t GetTextureID() const { return colorTexture.GetID(); }

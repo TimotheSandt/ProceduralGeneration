@@ -1,7 +1,7 @@
 #include "RenderTarget.h"
 
 #include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
-#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
+#include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Logger.h"
 #include "utilities.h"
@@ -97,7 +97,7 @@ void RenderTarget::Bind() const
         return;
     }
     backendRenderTarget->Bind();
-    OpenGLRenderState::SetViewport(0, 0, width, height);
+    GraphicsRenderState::SetViewport(0, 0, width, height);
 }
 
 void RenderTarget::Unbind() const
@@ -221,10 +221,9 @@ void RenderTarget::RenderScreenQuad(int fWidth, int fHeight) const
         return;
     }
 
-    OpenGLRenderState::SetViewport(0, 0, fWidth, fHeight);
-
-    OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, 0);
-    OpenGLRenderState::SetDepthTest(false);
+    GraphicsRenderState::SetViewport(0, 0, fWidth, fHeight);
+    GraphicsRenderState::BindDefaultFramebuffer();
+    GraphicsRenderState::SetDepthTest(false);
 
     colorTexture.texUnit(this->screenQuadShaderProgram);
     colorTexture.Bind();
@@ -238,5 +237,5 @@ void RenderTarget::RenderScreenQuad(int fWidth, int fHeight) const
     this->screenQuadShaderProgram.Unbind();
     colorTexture.Unbind();
 
-    OpenGLRenderState::SetDepthTest(true);
+    GraphicsRenderState::SetDepthTest(true);
 }

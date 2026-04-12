@@ -1,6 +1,6 @@
 #include "Renderer2D.h"
 
-#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
+#include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Graphics/Upscaling/Modes/BilinearBlitUpscaleMode.h"
 #include "UI/TextRenderer.h"
@@ -59,7 +59,7 @@ void Renderer2D::BeginPass(int width, int height)
         BeginUpscalePass(width, height);
     }
 
-    OpenGLRenderState::PrepareScreenPass(GetFrameWidth(), GetFrameHeight());
+    GraphicsRenderState::PrepareScreenPass(GetFrameWidth(), GetFrameHeight());
 }
 
 void Renderer2D::Clear(const glm::vec4 &clearColor, bool) const
@@ -69,8 +69,8 @@ void Renderer2D::Clear(const glm::vec4 &clearColor, bool) const
         return;
     }
 
-    OpenGLRenderState::ClearColor(clearColor);
-    OpenGLRenderState::Clear(GL_COLOR_BUFFER_BIT);
+    GraphicsRenderState::ClearColor(clearColor);
+    GraphicsRenderState::ClearColorBuffer();
 }
 
 void Renderer2D::EndPass() const
@@ -85,9 +85,9 @@ void Renderer2D::EndPass() const
         EndUpscalePass();
     }
 
-    OpenGLRenderState::SetScissorTest(false);
-    OpenGLRenderState::SetBlend(false);
-    OpenGLRenderState::SetDepthTest(true);
+    GraphicsRenderState::SetScissorTest(false);
+    GraphicsRenderState::SetBlend(false);
+    GraphicsRenderState::SetDepthTest(true);
 }
 
 void Renderer2D::BeginCanvasPass() const
@@ -97,10 +97,10 @@ void Renderer2D::BeginCanvasPass() const
         return;
     }
 
-    OpenGLRenderState::PrepareScreenPass(GetFrameWidth(), GetFrameHeight());
-    OpenGLRenderState::SetDepthTest(false);
-    OpenGLRenderState::SetBlend(true);
-    OpenGLRenderState::SetAlphaBlend();
+    GraphicsRenderState::PrepareScreenPass(GetFrameWidth(), GetFrameHeight());
+    GraphicsRenderState::SetDepthTest(false);
+    GraphicsRenderState::SetBlend(true);
+    GraphicsRenderState::SetAlphaBlend();
 }
 
 void Renderer2D::EndCanvasPass() const
@@ -110,9 +110,9 @@ void Renderer2D::EndCanvasPass() const
         return;
     }
 
-    OpenGLRenderState::SetScissorTest(false);
-    OpenGLRenderState::SetBlend(false);
-    OpenGLRenderState::SetDepthTest(true);
+    GraphicsRenderState::SetScissorTest(false);
+    GraphicsRenderState::SetBlend(false);
+    GraphicsRenderState::SetDepthTest(true);
 }
 
 void Renderer2D::PushClipRect(float x, float y, float width, float height) const
@@ -123,8 +123,8 @@ void Renderer2D::PushClipRect(float x, float y, float width, float height) const
     }
 
     const int scissorY = static_cast<int>(static_cast<float>(GetFrameHeight()) - (y + height));
-    OpenGLRenderState::SetScissorTest(true);
-    OpenGLRenderState::SetScissor(static_cast<int>(x), scissorY, static_cast<int>(width), static_cast<int>(height));
+    GraphicsRenderState::SetScissorTest(true);
+    GraphicsRenderState::SetScissor(static_cast<int>(x), scissorY, static_cast<int>(width), static_cast<int>(height));
 }
 
 void Renderer2D::PopClipRect() const
@@ -134,7 +134,7 @@ void Renderer2D::PopClipRect() const
         return;
     }
 
-    OpenGLRenderState::SetScissorTest(false);
+    GraphicsRenderState::SetScissorTest(false);
 }
 
 void Renderer2D::RenderText(UI::TextRenderer &textRenderer, const std::string &text, float x, float y, float scale, const glm::vec3 &color,
@@ -203,7 +203,8 @@ void Renderer2D::PresentRenderTarget(const RenderTarget &renderTarget) const
 
 bool Renderer2D::UsesUpscaleRenderTarget() const noexcept
 {
-    return IsUpscalingEnabled() && outputWidth > 0 && outputHeight > 0 && (GetFrameWidth() != outputWidth || GetFrameHeight() != outputHeight);
+    return IsUpscalingEnabled() && outputWidth > 0 && outputHeight > 0 &&
+           (GetFrameWidth() != outputWidth || GetFrameHeight() != outputHeight);
 }
 
 RenderTarget &Renderer2D::GetUpscaleRenderTarget() { return uiRenderTarget; }
@@ -214,15 +215,12 @@ int Renderer2D::GetUpscaleOutputWidth() const noexcept { return outputWidth; }
 
 int Renderer2D::GetUpscaleOutputHeight() const noexcept { return outputHeight; }
 
-void Renderer2D::PrepareUpscaleSource(RenderTarget &renderTarget)
-{
-    renderTarget.CopyFromScreen(outputWidth, outputHeight);
-}
+void Renderer2D::PrepareUpscaleSource(RenderTarget &renderTarget) { renderTarget.CopyFromScreen(outputWidth, outputHeight); }
 
 void Renderer2D::PrepareUpscalePresentState(const RenderTarget &) const
 {
-    OpenGLRenderState::SetViewport(0, 0, outputWidth, outputHeight);
-    OpenGLRenderState::SetScissorTest(false);
-    OpenGLRenderState::SetDepthTest(false);
-    OpenGLRenderState::SetBlend(false);
+    GraphicsRenderState::SetViewport(0, 0, outputWidth, outputHeight);
+    GraphicsRenderState::SetScissorTest(false);
+    GraphicsRenderState::SetDepthTest(false);
+    GraphicsRenderState::SetBlend(false);
 }

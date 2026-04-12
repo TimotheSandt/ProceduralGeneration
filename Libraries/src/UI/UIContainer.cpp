@@ -1,5 +1,5 @@
 #include "UIContainer.h"
-#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
+#include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsDiagnostics.h"
 #include "Logger.h"
 #include "utilities.h"
@@ -88,20 +88,20 @@ void UIContainerBase::InitializeRenderTarget()
         GRAPHICS_CHECK_ERRORS_M("UIContainer RenderTarget Init");
 
         // Clear render target to transparent immediately after init
-        const OpenGLRenderState::FramebufferState previousState = OpenGLRenderState::CaptureFramebufferState();
+        const GraphicsRenderState::FramebufferState previousState = GraphicsRenderState::CaptureFramebufferState();
 
         renderTarget.Bind();
-        OpenGLRenderState::ClearTransparentColorBuffer();
-        OpenGLRenderState::RestoreFramebufferState(previousState);
+        GraphicsRenderState::ClearTransparentColorBuffer();
+        GraphicsRenderState::RestoreFramebufferState(previousState);
 
         // Force re-render on next frame
         MarkFullDirty();
     }
 }
 
-void SaveRenderTargetState(int &oldFramebuffer, int viewport[4])
+void SaveRenderTargetState(std::uint32_t &oldFramebuffer, int viewport[4])
 {
-    const OpenGLRenderState::FramebufferState state = OpenGLRenderState::CaptureFramebufferState();
+    const GraphicsRenderState::FramebufferState state = GraphicsRenderState::CaptureFramebufferState();
     oldFramebuffer = state.framebuffer;
     for (int i = 0; i < 4; ++i)
     {
@@ -109,27 +109,27 @@ void SaveRenderTargetState(int &oldFramebuffer, int viewport[4])
     }
 }
 
-void RestoreRenderTargetState(int oldFramebuffer, int viewport[4])
+void RestoreRenderTargetState(std::uint32_t oldFramebuffer, int viewport[4])
 {
-    OpenGLRenderState::BindFramebuffer(GL_FRAMEBUFFER, static_cast<std::uint32_t>(oldFramebuffer));
-    OpenGLRenderState::SetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    GraphicsRenderState::BindFramebuffer(oldFramebuffer);
+    GraphicsRenderState::SetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 }
 
 void UIContainerBase::ClearZone(glm::vec4 bounds)
 {
-    OpenGLRenderState::SetScissorTest(true);
+    GraphicsRenderState::SetScissorTest(true);
     // Flip Y for OpenGL (Bottom-Left origin)
     // Bounds are (x, y, w, h) in Top-Left origin
     const int yGl = static_cast<int>(contentSize.y - (bounds.y + bounds.w));
 
-    OpenGLRenderState::SetScissor(static_cast<int>(bounds.x), yGl, static_cast<int>(bounds.z), static_cast<int>(bounds.w));
-    OpenGLRenderState::ClearTransparentColorBuffer();
-    OpenGLRenderState::SetScissorTest(false);
+    GraphicsRenderState::SetScissor(static_cast<int>(bounds.x), yGl, static_cast<int>(bounds.z), static_cast<int>(bounds.w));
+    GraphicsRenderState::ClearTransparentColorBuffer();
+    GraphicsRenderState::SetScissorTest(false);
 }
 
 void UIContainerBase::RenderChildren()
 {
-    int oldFramebuffer;
+    std::uint32_t oldFramebuffer = 0;
     int viewport[4];
     SaveRenderTargetState(oldFramebuffer, viewport);
 
@@ -137,7 +137,7 @@ void UIContainerBase::RenderChildren()
     GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Bind");
 
     // Set viewport to render target size
-    OpenGLRenderState::SetViewport(0, 0, static_cast<GLsizei>(contentSize.x), static_cast<GLsizei>(contentSize.y));
+    GraphicsRenderState::SetViewport(0, 0, static_cast<int>(contentSize.x), static_cast<int>(contentSize.y));
 
     // Determine dirty level: layout vs appearance only
     bool hasLayoutDirty = IsSelfLayoutDirty(); // If we resized, we must re-render all (anchors changed)
@@ -158,7 +158,7 @@ void UIContainerBase::RenderChildren()
     if (hasLayoutDirty)
     {
         // Layout changed: clear the full render target and re-render all
-        OpenGLRenderState::ClearTransparentColorBuffer();
+        GraphicsRenderState::ClearTransparentColorBuffer();
 
         for (auto &child : children)
         {
