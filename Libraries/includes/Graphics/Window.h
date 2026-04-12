@@ -2,16 +2,15 @@
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
+#include <chrono>
 #include <cstdint>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/rotate_vector.hpp>
-#include <glm/gtx/vector_angle.hpp>
+#include <string>
+
+#include <glm/vec4.hpp>
 
 #include "FPSCounter.h"
-#include "Profiler.h"
-#include "InputManager.h"
+
+class InputManager;
 
 enum WindowState : std::uint8_t
 {
@@ -42,11 +41,6 @@ struct WindowParameters
     int windowedPosX, windowedPosY;
 
     bool taskbarVisible; // TODO
-
-    // Upscaling
-    float renderScale;
-    int renderWidth, renderHeight;
-    bool enableUpscaling;
 };
 
 class Window
@@ -70,30 +64,10 @@ class Window
     void SwapBuffers();
     void Close();
 
-    void Clear() const;
-
     // Window state
     void ChangeWindowState(WindowState state);
     void ToggleFullscreen();
     void ToggleBorderless();
-
-    // Resolution Scaling methods
-    void SetRenderScale(float scale);
-    void EnableUpscaling(bool enable);
-    float GetRenderScale() const { return parameters.renderScale; }
-    bool IsUpscalingEnabled() const { return parameters.enableUpscaling; }
-    void GetRenderResolution(int &width, int &height) const
-    {
-        if (parameters.enableUpscaling)
-        {
-            width = parameters.renderWidth;
-            height = parameters.renderHeight;
-            return;
-        }
-
-        width = parameters.width;
-        height = parameters.height;
-    }
 
     // Setters
     void SetClearColor(glm::vec4 color) { this->parameters.clearColor = color; }
@@ -128,7 +102,6 @@ class Window
     double GetMinElapseTimeMillisecond() const { return this->fpsCounter.getMinElapseTimeInMilliseconds(); }
 
   private:
-    void HandleInput();
     void Swap(Window &other) noexcept;
 
     // Window state
@@ -139,9 +112,6 @@ class Window
     void ActivateWindowed();
     void ActivateBorderless();
 
-    // Resolution Scaling methods
-    void UpdateRenderTargetResolution();
-
     // Callbacks
     void SetupCallbacks();
     void CallbackFocus(GLFWwindow *window, int focused);
@@ -149,7 +119,6 @@ class Window
     void CallbackPosition(GLFWwindow *window, int x, int y);
 
     void ClearCallbacks();
-    static void SetupErrorHandling();
     bool IsWindowHealthy() const;
 
   private:

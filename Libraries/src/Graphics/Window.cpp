@@ -1,15 +1,17 @@
 #include "Window.h"
 
+#include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
+#include "Graphics/Core/GraphicsDiagnostics.h"
+#include "Graphics/Core/RenderState.h"
+#include "Graphics/Core/GraphicsRuntime.h"
+#include "InputManager.h"
+#include "Profiler.h"
+#include "Logger.h"
+#include "utilities.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
-
-#include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
-#include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
-#include "Graphics/Core/GraphicsDiagnostics.h"
-#include "Graphics/Core/GraphicsRuntime.h"
-#include "Logger.h"
-#include "utilities.h"
 
 Window::Window()
 {
@@ -36,12 +38,6 @@ Window::Window()
     this->parameters.windowedHeight = this->parameters.height;
     this->parameters.windowedPosX = this->parameters.posX;
     this->parameters.windowedPosY = this->parameters.posY;
-
-    // Initialize resolution scaling parameters
-    this->parameters.renderScale = 1.0f;
-    this->parameters.enableUpscaling = false;
-    this->parameters.renderWidth = this->parameters.width;
-    this->parameters.renderHeight = this->parameters.height;
 }
 
 Window::~Window() { this->Close(); }
@@ -123,18 +119,11 @@ void Window::Close()
 #endif
 }
 
-void Window::Clear() const
-{
-    OpenGLRenderState::ClearColor(this->parameters.clearColor);
-    OpenGLRenderState::Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
 bool Window::NewFrame()
 {
     Profiler::Profile("PollEvents", &glfwPollEvents);
     Profiler::Process();
     this->inputManager->Update();
-    this->HandleInput();
 
     if (!Profiler::Profile("HealthCheck", &Window::IsWindowHealthy, this))
     {
@@ -152,14 +141,13 @@ bool Window::NewFrame()
 
     auto now = this->fpsCounter.getTime();
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - this->lastTime).count();
-    if (elapsed >= static_cast<decltype(elapsed)>(this->parameters.trueEveryms))
+    if (elapsed >= static_cast<long long>(this->parameters.trueEveryms))
     {
         this->fpsCounter.updateStat();
         this->lastTime = now;
-        return true;
     }
 
-    return false;
+    return true;
 }
 
 void Window::SwapBuffers()
@@ -171,45 +159,6 @@ void Window::SwapBuffers()
 
     glfwSwapBuffers(this->window);
     GRAPHICS_CHECK_ERRORS_M("glfwSwapBuffers");
-}
-
-void Window::HandleInput()
-{
-    if (this->inputManager->IsKeyJustPressed(KeyButton::ESCAPE))
-    {
-        glfwSetWindowShouldClose(window, true);
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::F11))
-    {
-        this->ToggleBorderless();
-    }
-
-#ifdef DEBUG
-    if (this->inputManager->IsKeyJustPressed(KeyButton::F12))
-    {
-        this->ToggleFullscreen();
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_1))
-    {
-        this->SetRenderScale(0.25f); // 25%
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_2))
-    {
-        this->SetRenderScale(0.5f); // 50%
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_3))
-    {
-        this->SetRenderScale(0.75f); // 75%
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_4))
-    {
-        this->SetRenderScale(1.0f); // 100% (native)
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_5))
-    {
-        this->EnableUpscaling(!parameters.enableUpscaling);
-    }
-#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -483,10 +432,7 @@ void Window::CallbackResize(GLFWwindow *window, int width, int height)
 
     this->parameters.width = width;
     this->parameters.height = height;
-
-    UpdateRenderTargetResolution();
-
-    OpenGLRenderState::SetViewport(0, 0, this->parameters.width, this->parameters.height);
+    GraphicsRenderState::SetViewport(0, 0, this->parameters.width, this->parameters.height);
 }
 
 void Window::CallbackPosition(GLFWwindow *window, int x, int y)
@@ -500,36 +446,20 @@ void Window::CallbackPosition(GLFWwindow *window, int x, int y)
 void Window::CallbackFocus(GLFWwindow *window, int focused)
 {
     UNREFERENCED_PARAMETER(window);
+    UNREFERENCED_PARAMETER(focused);
 
-    if (!focused)
-    {
-        LOG_DEBUGGING("Window lost focus");
-        if (this->parameters.windowState == WindowState::FULLSCREEN)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(75));
-            this->ActivateBorderless();
-            this->parameters.windowState = WindowState::FULLSCREEN_UNFOCUSED;
-        }
+    LOG_DEBUGGING("Window focus changed");
+
 #ifdef _WIN32
-        // Rendre la barre de tâches visible
-        ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_SHOW);
-#endif
+    if (this->parameters.windowState == WindowState::BORDERLESS)
+    {
+        ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_HIDE);
     }
     else
     {
-        LOG_DEBUGGING("Window regained focus");
-        if (this->parameters.windowState == WindowState::FULLSCREEN || this->parameters.windowState == WindowState::FULLSCREEN_UNFOCUSED)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(75));
-            this->ActivateFullscreen();
-        }
-#ifdef _WIN32
-        else if (this->parameters.windowState == WindowState::BORDERLESS)
-        {
-            ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_HIDE);
-        }
-#endif
+        ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_SHOW);
     }
+#endif
 }
 
 void Window::ClearCallbacks()
@@ -542,50 +472,6 @@ void Window::ClearCallbacks()
     glfwSetWindowIconifyCallback(this->window, nullptr);
     glfwSetWindowMaximizeCallback(this->window, nullptr);
     glfwSetWindowCloseCallback(this->window, nullptr);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////     ERROR HANDLING     ///////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////
-
-void Window::SetupErrorHandling()
-{
-#ifdef _WIN32
-    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOALIGNMENTFAULTEXCEPT | SEM_NOOPENFILEERRORBOX);
-#endif
-
-    // Callback d'erreur GLFW global
-    glfwSetErrorCallback(
-        [](int error_code, const char *description)
-        {
-            LOG_ERROR(error_code, "GLFW Error: ", description);
-
-            // Log plus détaillé pour certaines erreurs critiques
-            switch (error_code)
-            {
-                case GLFW_INVALID_ENUM:
-                    LOG_ERROR(error_code, "Invalid enum parameter");
-                    break;
-                case GLFW_INVALID_VALUE:
-                    LOG_ERROR(error_code, "Invalid value parameter");
-                    break;
-                case GLFW_OUT_OF_MEMORY:
-                    LOG_ERROR(error_code, "Out of memory");
-                    break;
-                case GLFW_API_UNAVAILABLE:
-                    LOG_ERROR(error_code, "API unavailable");
-                    break;
-                case GLFW_VERSION_UNAVAILABLE:
-                    LOG_ERROR(error_code, "Version unavailable");
-                    break;
-                case GLFW_PLATFORM_ERROR:
-                    LOG_ERROR(error_code, "Platform error");
-                    break;
-                case GLFW_FORMAT_UNAVAILABLE:
-                    LOG_ERROR(error_code, "Format unavailable");
-                    break;
-            }
-        });
 }
 
 // Fonction pour vérifier l'état de la fenêtre

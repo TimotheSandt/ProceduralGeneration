@@ -68,16 +68,9 @@ void Game::run()
 {
     while (!window.ShouldClose())
     {
-
-        if (this->window.NewFrame())
+        if (!this->window.NewFrame())
         {
-            // std::string title = "fps: " + std::to_string(window.GetFPS()) +
-            //                     ", Avg fps: " + std::to_string(window.GetAverageFPS()) +
-            //                     ", Avg Elapsed Time: " + std::to_string(window.GetAverageElapseTimeMillisecond()) + "ms" +
-            //                     ", Render Time: " + std::to_string(Profiler::GetAverageTime("Render").count() * 1e-6) + "ms" +
-            //                     ", Upscale Time: " + std::to_string(Profiler::GetAverageTime("Upscale").count() * 1e-6) + "ms" +
-            //                     ", Swap Buffers Time: " + std::to_string(Profiler::GetAverageTime("SwapBuffers").count() * 1e-6) + "ms";
-            // glfwSetWindowTitle(window.GetWindow(), title.c_str());
+            continue;
         }
 
         this->update();
@@ -89,8 +82,44 @@ void Game::run()
 
 void Game::processInput()
 {
-#ifdef DEBUG
     InputManager &inputManager = InputManager::GetInstance(this->window.GetWindow());
+    if (inputManager.IsKeyJustPressed(KeyButton::ESCAPE))
+    {
+        glfwSetWindowShouldClose(this->window.GetWindow(), true);
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::F11))
+    {
+        this->window.ToggleBorderless();
+    }
+#ifdef DEBUG
+    if (inputManager.IsKeyJustPressed(KeyButton::F12))
+    {
+        this->window.ToggleFullscreen();
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_1))
+    {
+        sceneRenderScale = 0.25f;
+        sceneUpscalingEnabled = true;
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_2))
+    {
+        sceneRenderScale = 0.5f;
+        sceneUpscalingEnabled = true;
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_3))
+    {
+        sceneRenderScale = 0.75f;
+        sceneUpscalingEnabled = true;
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_4))
+    {
+        sceneRenderScale = 1.0f;
+        sceneUpscalingEnabled = false;
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_5))
+    {
+        sceneUpscalingEnabled = !sceneUpscalingEnabled;
+    }
     if (inputManager.IsKeyJustPressed(KeyButton::NUM_6))
     {
         renderer2D.SetRenderScale(0.5f);
@@ -129,13 +158,12 @@ void Game::render()
     const auto averageTimeMs = [](const char *name) { return static_cast<double>(Profiler::GetAverageTime(name).count()) * 1e-6; };
     const int windowWidth = *window.GetWidthptr();
     const int windowHeight = *window.GetHeightptr();
-    int renderWidth = windowWidth;
-    int renderHeight = windowHeight;
+    const bool sceneUsesUpscaling = sceneUpscalingEnabled && sceneRenderScale != 1.0f;
+    const int renderWidth = sceneUsesUpscaling ? static_cast<int>(static_cast<float>(windowWidth) * sceneRenderScale) : windowWidth;
+    const int renderHeight = sceneUsesUpscaling ? static_cast<int>(static_cast<float>(windowHeight) * sceneRenderScale) : windowHeight;
     int uiRenderWidth = windowWidth;
     int uiRenderHeight = windowHeight;
-    this->window.GetRenderResolution(renderWidth, renderHeight);
-
-    renderer3D.ConfigureOutput(windowWidth, windowHeight, window.IsUpscalingEnabled());
+    renderer3D.ConfigureOutput(windowWidth, windowHeight, sceneUsesUpscaling);
     renderer2D.ConfigureOutput(windowWidth, windowHeight);
     renderer2D.GetRenderResolution(uiRenderWidth, uiRenderHeight);
     renderer3D.BeginPass(renderWidth, renderHeight);
