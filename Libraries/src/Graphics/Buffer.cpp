@@ -43,7 +43,10 @@ bool Buffer::Initialize(BufferUsage usage, size_t size, std::uint32_t bindingPoi
 
     if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
     {
-        std::unique_ptr<IBufferResource> resource = device->CreateBuffer({.desc = this->desc, .debugName = "graphics_buffer"});
+        BufferCreateInfo createInfo{};
+        createInfo.desc = this->desc;
+        createInfo.debugName = "graphics_buffer";
+        std::unique_ptr<IBufferResource> resource = device->CreateBuffer(createInfo);
         if (auto *openGLResource = dynamic_cast<OpenGLBufferResource *>(resource.get()); openGLResource != nullptr)
         {
             this->ID = openGLResource->GetBufferID();

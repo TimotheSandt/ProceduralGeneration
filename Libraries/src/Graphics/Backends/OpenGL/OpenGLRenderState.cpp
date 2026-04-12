@@ -120,9 +120,6 @@ void RestoreFramebufferState(const FramebufferState &state) noexcept
     SetScissorTest(state.scissorTest == GL_TRUE);
 }
 
-void PrepareScreenPass(int width, int height) noexcept
-{
-    SetViewport(0, 0, width, height);
-}
+void PrepareScreenPass(int width, int height) noexcept { SetViewport(0, 0, width, height); }
 
 } // namespace OpenGLRenderState

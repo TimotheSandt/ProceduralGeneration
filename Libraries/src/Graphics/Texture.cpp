@@ -106,6 +106,7 @@ Texture::~Texture() { this->Destroy(); }
 
 void Texture::SetTextureData(void *data, int width, int height, TextureFormat format, TexturePixelType pixelType, TextureFilterMode filter)
 {
+    static_cast<void>(filter);
     this->Destroy();
     this->Width = width;
     this->Height = height;
