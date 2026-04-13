@@ -166,4 +166,4 @@ void Grid::TransformPoints(const std::function<void(Vertex &, unsigned int)> &fu
     GenerateNormals();
 }
 
-void Grid::Render(const Renderer3D &renderer3D, Camera &camera) { renderer3D.RenderMesh(this->mesh, camera); }
+void Grid::Render(const Renderer3D &renderer3D, Camera &camera) { renderer3D.DrawMesh(this->mesh, camera); }

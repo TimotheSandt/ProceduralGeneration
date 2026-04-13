@@ -3,6 +3,7 @@
 #include <string_view>
 
 class Renderer;
+class RenderTarget;
 
 class IUpscaleMode
 {
@@ -11,6 +12,5 @@ class IUpscaleMode
 
     virtual std::string_view GetName() const noexcept = 0;
     virtual bool SupportsRenderer(const Renderer &renderer) const noexcept = 0;
-    virtual void BeginPass(Renderer &renderer, int width, int height) const = 0;
-    virtual void EndPass(const Renderer &renderer) const = 0;
+    virtual void Upscale(const RenderTarget &source, int outputWidth, int outputHeight) const = 0;
 };

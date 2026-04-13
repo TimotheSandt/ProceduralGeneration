@@ -1,11 +1,10 @@
 #include "Graphics/Upscaling/Modes/BilinearBlitUpscaleMode.h"
 
 #include "Graphics/RenderTarget.h"
-#include "Graphics/Renderer.h"
 
-BilinearBlitUpscaleMode::BilinearBlitUpscaleMode(std::string_view name) noexcept : RenderTargetUpscaleMode(name) {}
+BilinearBlitUpscaleMode::BilinearBlitUpscaleMode(std::string_view name) : RenderTargetUpscaleMode(name) {}
 
-void BilinearBlitUpscaleMode::PresentUpscaled(const ConstUpscalePassContext &context, const RenderTarget &renderTarget) const
+void BilinearBlitUpscaleMode::Upscale(const RenderTarget &source, int outputWidth, int outputHeight) const
 {
-    renderTarget.BlitToScreen(GetOutputWidth(context), GetOutputHeight(context));
+    source.BlitToScreen(outputWidth, outputHeight);
 }

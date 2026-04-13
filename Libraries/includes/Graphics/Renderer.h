@@ -1,6 +1,9 @@
 #pragma once
 
-#include "Graphics/Presentation/PresentationController.h"
+#include "Graphics/Backend/GraphicsAPI.h"
+#include "Graphics/Upscaling/IFrameGenerationMode.h"
+#include "Graphics/Upscaling/IPostProcessPass.h"
+#include "Graphics/Upscaling/IUpscaleMode.h"
 
 #include <glm/vec4.hpp>
 #include <memory>
@@ -10,71 +13,92 @@
 
 class RenderTarget;
 
-struct UpscalePassContext
-{
-    RenderTarget *renderTarget = nullptr;
-    int sourceWidth = 0;
-    int sourceHeight = 0;
-    int outputWidth = 0;
-    int outputHeight = 0;
-};
-
-struct ConstUpscalePassContext
-{
-    const RenderTarget *renderTarget = nullptr;
-    int sourceWidth = 0;
-    int sourceHeight = 0;
-    int outputWidth = 0;
-    int outputHeight = 0;
-};
-
 class Renderer
 {
   public:
+    Renderer();
     virtual ~Renderer() = default;
 
-    virtual bool IsRuntimeCompatible() const noexcept = 0;
-    virtual void BeginPass(int width, int height) = 0;
-    virtual void EndPass() const = 0;
-    virtual void Clear(const glm::vec4 &clearColor, bool clearDepth = true) const = 0;
+    bool IsRuntimeCompatible() const noexcept;
 
-    void BeginFrame(int width, int height) { BeginPass(width, height); }
+    // -------------------------------------------------------------------------
+    // Output configuration — call once on startup, again on window resize.
+    // -------------------------------------------------------------------------
+    void SetOutputResolution(int width, int height) noexcept;
+    int GetOutputWidth() const noexcept { return outputWidth; }
+    int GetOutputHeight() const noexcept { return outputHeight; }
 
+    // -------------------------------------------------------------------------
+    // Render scale — values in (0, 1) enable upscaling; 1.0 disables it.
+    // -------------------------------------------------------------------------
+    void SetRenderScale(float scale) noexcept;
+    float GetRenderScale() const noexcept { return renderScale; }
+    void SetUpscalingEnabled(bool enabled) noexcept;
+    bool IsUpscalingEnabled() const noexcept { return upscalingEnabled; }
+
+    // -------------------------------------------------------------------------
+    // Frame extent — valid only after BeginPass(), cleared by EndPass().
+    // -------------------------------------------------------------------------
     int GetFrameWidth() const noexcept { return frameWidth; }
     int GetFrameHeight() const noexcept { return frameHeight; }
     bool HasValidFrameExtent() const noexcept { return frameWidth > 0 && frameHeight > 0; }
 
+    // -------------------------------------------------------------------------
+    // Per-frame pipeline.
+    // -------------------------------------------------------------------------
+    void BeginPass();
+    void EndPass();
+    void Clear(const glm::vec4 &clearColor, bool clearDepth = true) const;
+
+    // -------------------------------------------------------------------------
+    // Upscale modes.
+    // -------------------------------------------------------------------------
     void RegisterUpscaleMode(std::unique_ptr<IUpscaleMode> mode);
-    bool SetActiveUpscaleMode(std::string_view mode);
+    bool SetActiveUpscaleMode(std::string_view name);
     std::string_view GetActiveUpscaleMode() const noexcept;
     std::vector<std::string_view> GetRegisteredUpscaleModes() const;
 
-    void SetUpscalingEnabled(bool enabled) noexcept { presentationController.SetEnabled(enabled); }
-    bool IsUpscalingEnabled() const noexcept { return presentationController.IsEnabled(); }
+    // -------------------------------------------------------------------------
+    // Post-processing passes — executed in order before upscaling.
+    // -------------------------------------------------------------------------
+    void AddPostProcessPass(std::unique_ptr<IPostProcessPass> pass);
+    void RemovePostProcessPass(std::string_view name);
 
-    // Public contract used by upscaling strategies.
-    UpscalePassContext GetUpscalePassContext();
-    ConstUpscalePassContext GetUpscalePassContext() const;
-    virtual void PrepareUpscaleSource(RenderTarget &renderTarget) = 0;
-    virtual void PrepareUpscalePresentState(const RenderTarget &renderTarget) const = 0;
+    // -------------------------------------------------------------------------
+    // Frame generation — executed after upscaling.
+    // -------------------------------------------------------------------------
+    void SetFrameGenerationMode(std::unique_ptr<IFrameGenerationMode> mode);
 
   protected:
+    virtual GraphicsAPI GetRequiredAPI() const noexcept = 0;
+    virtual void OnBeginPass() = 0;
+    virtual void OnEndPass() {}
+    virtual void OnClear(const glm::vec4 &clearColor, bool clearDepth) const = 0;
+    virtual RenderTarget &GetRenderTarget() = 0;
+    virtual const RenderTarget &GetRenderTarget() const = 0;
+
     void SetFrameExtent(int width, int height) noexcept
     {
         frameWidth = width;
         frameHeight = height;
     }
 
-    void BeginUpscalePass(int width, int height);
-    void EndUpscalePass() const;
-    virtual bool UsesUpscaleRenderTarget() const noexcept = 0;
-    virtual RenderTarget &GetUpscaleRenderTarget() = 0;
-    virtual const RenderTarget &GetUpscaleRenderTarget() const = 0;
-    virtual int GetUpscaleOutputWidth() const noexcept = 0;
-    virtual int GetUpscaleOutputHeight() const noexcept = 0;
+    bool UsesRenderTarget() const noexcept;
+    void GetRenderResolution(int &width, int &height) const noexcept;
 
   private:
+    int outputWidth = 0;
+    int outputHeight = 0;
+    float renderScale = 1.0f;
+    bool upscalingEnabled = false;
+
     int frameWidth = 0;
     int frameHeight = 0;
-    PresentationController presentationController;
+
+    std::vector<std::unique_ptr<IUpscaleMode>> upscaleModes;
+    const IUpscaleMode *activeUpscaleMode = nullptr;
+
+    std::vector<std::unique_ptr<IPostProcessPass>> postProcessPasses;
+
+    std::unique_ptr<IFrameGenerationMode> frameGenMode;
 };

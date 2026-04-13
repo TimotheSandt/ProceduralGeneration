@@ -18,6 +18,8 @@ bool OpenGLGraphicsBackend::Initialize()
         return true;
     }
 
+    SetupErrorHandling();
+
     if (!glfwInit())
     {
         LOG_FATAL(-1, "Failed to initialize GLFW");
@@ -27,7 +29,7 @@ bool OpenGLGraphicsBackend::Initialize()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, majorVersion);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, minorVersion);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     glfwWindowHint(GLFW_CENTER_CURSOR, GLFW_TRUE);
     glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
@@ -39,7 +41,6 @@ bool OpenGLGraphicsBackend::Initialize()
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 #endif
 
-    SetupErrorHandling();
     initialized = true;
     return true;
 }

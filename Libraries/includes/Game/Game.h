@@ -30,10 +30,9 @@ class Game
 
   private:
     Window window;
-    Renderer2D renderer2D;
     Renderer3D renderer3D;
-    float sceneRenderScale = 1.0f;
-    bool sceneUpscalingEnabled = false;
+    Renderer2D rendererUI;
+    
     Camera camera;
     std::unique_ptr<World> world = nullptr;
     std::unique_ptr<UI::TextRenderer> textRenderer;

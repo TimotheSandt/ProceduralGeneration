@@ -17,7 +17,8 @@ TestSuite CreateRenderersSuite()
             []
             {
                 Renderer2D renderer2D;
-                renderer2D.BeginPass(1280, 720);
+                renderer2D.SetOutputResolution(1280, 720);
+                renderer2D.BeginPass();
 
                 AssertEqual(renderer2D.GetFrameWidth(), 1280, "Renderer2D should store the current frame width");
                 AssertEqual(renderer2D.GetFrameHeight(), 720, "Renderer2D should store the current frame height");
@@ -28,7 +29,8 @@ TestSuite CreateRenderersSuite()
             []
             {
                 Renderer3D renderer3D;
-                renderer3D.BeginPass(1920, 1080);
+                renderer3D.SetOutputResolution(1920, 1080);
+                renderer3D.BeginPass();
 
                 AssertEqual(renderer3D.GetFrameWidth(), 1920, "Renderer3D should store the current frame width");
                 AssertEqual(renderer3D.GetFrameHeight(), 1080, "Renderer3D should store the current frame height");

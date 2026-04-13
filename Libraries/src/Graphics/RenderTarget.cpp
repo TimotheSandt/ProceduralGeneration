@@ -110,6 +110,12 @@ void RenderTarget::Unbind() const
 
 void RenderTarget::Resize(int newWidth, int newHeight)
 {
+    if (!IsInitialized())
+    {
+        Init(newWidth, newHeight);
+        return;
+    }
+
     if (width == newWidth && height == newHeight)
     {
         return;

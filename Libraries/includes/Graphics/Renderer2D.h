@@ -19,16 +19,7 @@ struct TextLayoutParams;
 class Renderer2D : public Renderer
 {
   public:
-    Renderer2D();
-
-    bool IsRuntimeCompatible() const noexcept override;
-    void ConfigureOutput(int outputWidth, int outputHeight);
-    void SetRenderScale(float scale);
-    void EnableUpscaling(bool enable);
-    float GetRenderScale() const noexcept { return renderScale; }
-    void BeginPass(int width, int height) override;
-    void EndPass() const override;
-    void Clear(const glm::vec4 &clearColor, bool clearDepth = true) const override;
+    Renderer2D() = default;
 
     void BeginCanvasPass() const;
     void EndCanvasPass() const;
@@ -41,19 +32,15 @@ class Renderer2D : public Renderer
                             const glm::vec3 &color, float scale) const;
     void DrawSprite(Sprite &sprite, const SpriteDrawParams &params, const Texture *texture = nullptr) const;
     void PresentRenderTarget(const RenderTarget &renderTarget) const;
-    void GetRenderResolution(int &width, int &height) const;
+
+  protected:
+    GraphicsAPI GetRequiredAPI() const noexcept override;
+    void OnBeginPass() override;
+    void OnEndPass() override;
+    void OnClear(const glm::vec4 &clearColor, bool clearDepth) const override;
+    RenderTarget &GetRenderTarget() override;
+    const RenderTarget &GetRenderTarget() const override;
 
   private:
-    bool UsesUpscaleRenderTarget() const noexcept override;
-    RenderTarget &GetUpscaleRenderTarget() override;
-    const RenderTarget &GetUpscaleRenderTarget() const override;
-    int GetUpscaleOutputWidth() const noexcept override;
-    int GetUpscaleOutputHeight() const noexcept override;
-    void PrepareUpscaleSource(RenderTarget &renderTarget) override;
-    void PrepareUpscalePresentState(const RenderTarget &renderTarget) const override;
-
-    int outputWidth = 0;
-    int outputHeight = 0;
-    float renderScale = 1.0f;
     RenderTarget uiRenderTarget;
 };

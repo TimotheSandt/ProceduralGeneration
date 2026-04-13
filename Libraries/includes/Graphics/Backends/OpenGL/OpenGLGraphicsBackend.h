@@ -16,7 +16,6 @@ class OpenGLGraphicsBackend final : public IGraphicsBackend
   private:
     void SetupErrorHandling() const;
 
-  private:
     bool initialized = false;
     int majorVersion = 4;
     int minorVersion = 3;

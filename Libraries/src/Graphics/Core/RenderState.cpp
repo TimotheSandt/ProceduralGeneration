@@ -3,6 +3,8 @@
 #include "Graphics/Backends/OpenGL/OpenGLRenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 
+#include <algorithm>
+
 namespace GraphicsRenderState
 {
 
@@ -148,10 +150,7 @@ FramebufferState CaptureFramebufferState() noexcept
     const OpenGLRenderState::FramebufferState state = OpenGLRenderState::CaptureFramebufferState();
     FramebufferState result{};
     result.framebuffer = static_cast<std::uint32_t>(state.framebuffer);
-    for (int i = 0; i < 4; ++i)
-    {
-        result.viewport[i] = state.viewport[i];
-    }
+    std::copy(std::begin(state.viewport), std::end(state.viewport), std::begin(result.viewport));
     result.depthTest = state.depthTest == GL_TRUE;
     result.blend = state.blend == GL_TRUE;
     result.scissorTest = state.scissorTest == GL_TRUE;
@@ -167,10 +166,7 @@ void RestoreFramebufferState(const FramebufferState &state) noexcept
 
     OpenGLRenderState::FramebufferState openGLState{};
     openGLState.framebuffer = static_cast<GLint>(state.framebuffer);
-    for (int i = 0; i < 4; ++i)
-    {
-        openGLState.viewport[i] = state.viewport[i];
-    }
+    std::copy(std::begin(state.viewport), std::end(state.viewport), std::begin(openGLState.viewport));
     openGLState.depthTest = state.depthTest ? GL_TRUE : GL_FALSE;
     openGLState.blend = state.blend ? GL_TRUE : GL_FALSE;
     openGLState.scissorTest = state.scissorTest ? GL_TRUE : GL_FALSE;

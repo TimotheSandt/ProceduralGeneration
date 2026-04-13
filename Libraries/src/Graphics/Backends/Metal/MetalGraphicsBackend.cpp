@@ -12,14 +12,7 @@ bool MetalGraphicsBackend::Initialize()
 
 void MetalGraphicsBackend::Shutdown() noexcept {}
 
-bool MetalGraphicsBackend::IsAvailable() const noexcept
-{
-#ifdef __APPLE__
-    return false;
-#else
-    return false;
-#endif
-}
+bool MetalGraphicsBackend::IsAvailable() const noexcept { return false; }
 
 std::string MetalGraphicsBackend::DescribeAvailability() const
 {

@@ -11,29 +11,18 @@ class Mesh;
 class Renderer3D : public Renderer
 {
   public:
-    Renderer3D();
+    Renderer3D() = default;
 
-    bool IsRuntimeCompatible() const noexcept override;
-    void ConfigureOutput(int outputWidth, int outputHeight, bool enableUpscaling);
-    void BeginPass(int width, int height) override;
-    void EndPass() const override;
-
-    void Clear(const glm::vec4 &clearColor, bool clearDepth = true) const override;
     void SetCamera(Camera &camera) const;
     void DrawMesh(Mesh &mesh, Camera &camera) const;
-    void BindCamera(Camera &camera) const { SetCamera(camera); }
-    void RenderMesh(Mesh &mesh, Camera &camera) const { DrawMesh(mesh, camera); }
+
+  protected:
+    GraphicsAPI GetRequiredAPI() const noexcept override;
+    void OnBeginPass() override;
+    void OnClear(const glm::vec4 &clearColor, bool clearDepth) const override;
+    RenderTarget &GetRenderTarget() override;
+    const RenderTarget &GetRenderTarget() const override;
 
   private:
-    bool UsesUpscaleRenderTarget() const noexcept override;
-    RenderTarget &GetUpscaleRenderTarget() override;
-    const RenderTarget &GetUpscaleRenderTarget() const override;
-    int GetUpscaleOutputWidth() const noexcept override;
-    int GetUpscaleOutputHeight() const noexcept override;
-    void PrepareUpscaleSource(RenderTarget &renderTarget) override;
-    void PrepareUpscalePresentState(const RenderTarget &renderTarget) const override;
-
-    int outputWidth = 0;
-    int outputHeight = 0;
     RenderTarget sceneRenderTarget;
 };

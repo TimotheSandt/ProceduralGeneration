@@ -2,92 +2,33 @@
 
 #include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
-#include "Graphics/Upscaling/Modes/BilinearBlitUpscaleMode.h"
 #include "UI/TextRenderer.h"
 
-Renderer2D::Renderer2D()
-{
-    RegisterUpscaleMode(std::make_unique<BilinearBlitUpscaleMode>());
-    static_cast<void>(SetActiveUpscaleMode("bilinear-blit"));
-}
+GraphicsAPI Renderer2D::GetRequiredAPI() const noexcept { return GraphicsAPI::OpenGL; }
 
-bool Renderer2D::IsRuntimeCompatible() const noexcept { return IsGraphicsAPIActive(GraphicsAPI::OpenGL); }
-
-void Renderer2D::ConfigureOutput(int width, int height)
+void Renderer2D::OnBeginPass()
 {
-    outputWidth = width;
-    outputHeight = height;
-}
-
-void Renderer2D::SetRenderScale(float scale)
-{
-    if (scale <= 0.0f || scale > 1.0f)
+    if (UsesRenderTarget())
     {
-        return;
-    }
-
-    renderScale = scale;
-    EnableUpscaling(scale != 1.0f);
-}
-
-void Renderer2D::EnableUpscaling(bool enable) { SetUpscalingEnabled(enable && renderScale != 1.0f); }
-
-void Renderer2D::GetRenderResolution(int &width, int &height) const
-{
-    if (UsesUpscaleRenderTarget())
-    {
-        width = static_cast<int>(static_cast<float>(outputWidth) * renderScale);
-        height = static_cast<int>(static_cast<float>(outputHeight) * renderScale);
-        return;
-    }
-
-    width = outputWidth;
-    height = outputHeight;
-}
-
-void Renderer2D::BeginPass(int width, int height)
-{
-    SetFrameExtent(width, height);
-
-    if (!IsRuntimeCompatible() || !HasValidFrameExtent())
-    {
-        return;
-    }
-
-    if (UsesUpscaleRenderTarget())
-    {
-        BeginUpscalePass(width, height);
+        // Copy the current screen content (e.g. the 3D scene) into the RT so
+        // the UI can be composited on top before the final upscale blit.
+        GetRenderTarget().CopyFromScreen(GetOutputWidth(), GetOutputHeight());
     }
 
     GraphicsRenderState::PrepareScreenPass(GetFrameWidth(), GetFrameHeight());
 }
 
-void Renderer2D::Clear(const glm::vec4 &clearColor, bool) const
+void Renderer2D::OnEndPass()
 {
-    if (!IsRuntimeCompatible() || !HasValidFrameExtent())
-    {
-        return;
-    }
-
-    GraphicsRenderState::ClearColor(clearColor);
-    GraphicsRenderState::ClearColorBuffer();
-}
-
-void Renderer2D::EndPass() const
-{
-    if (!IsRuntimeCompatible())
-    {
-        return;
-    }
-
-    if (UsesUpscaleRenderTarget())
-    {
-        EndUpscalePass();
-    }
-
     GraphicsRenderState::SetScissorTest(false);
     GraphicsRenderState::SetBlend(false);
     GraphicsRenderState::SetDepthTest(true);
+}
+
+void Renderer2D::OnClear(const glm::vec4 &clearColor, bool) const
+{
+    GraphicsRenderState::ClearColor(clearColor);
+    GraphicsRenderState::ClearColorBuffer();
 }
 
 void Renderer2D::BeginCanvasPass() const
@@ -201,26 +142,6 @@ void Renderer2D::PresentRenderTarget(const RenderTarget &renderTarget) const
     renderTarget.RenderScreenQuad(GetFrameWidth(), GetFrameHeight());
 }
 
-bool Renderer2D::UsesUpscaleRenderTarget() const noexcept
-{
-    return IsUpscalingEnabled() && outputWidth > 0 && outputHeight > 0 &&
-           (GetFrameWidth() != outputWidth || GetFrameHeight() != outputHeight);
-}
+RenderTarget &Renderer2D::GetRenderTarget() { return uiRenderTarget; }
 
-RenderTarget &Renderer2D::GetUpscaleRenderTarget() { return uiRenderTarget; }
-
-const RenderTarget &Renderer2D::GetUpscaleRenderTarget() const { return uiRenderTarget; }
-
-int Renderer2D::GetUpscaleOutputWidth() const noexcept { return outputWidth; }
-
-int Renderer2D::GetUpscaleOutputHeight() const noexcept { return outputHeight; }
-
-void Renderer2D::PrepareUpscaleSource(RenderTarget &renderTarget) { renderTarget.CopyFromScreen(outputWidth, outputHeight); }
-
-void Renderer2D::PrepareUpscalePresentState(const RenderTarget &) const
-{
-    GraphicsRenderState::SetViewport(0, 0, outputWidth, outputHeight);
-    GraphicsRenderState::SetScissorTest(false);
-    GraphicsRenderState::SetDepthTest(false);
-    GraphicsRenderState::SetBlend(false);
-}
+const RenderTarget &Renderer2D::GetRenderTarget() const { return uiRenderTarget; }

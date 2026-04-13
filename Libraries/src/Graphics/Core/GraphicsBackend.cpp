@@ -16,5 +16,5 @@ std::unique_ptr<IGraphicsBackend> CreateGraphicsBackend(const GraphicsBackendCre
             return std::make_unique<MetalGraphicsBackend>();
     }
 
-    return std::make_unique<OpenGLGraphicsBackend>();
+    return nullptr;
 }

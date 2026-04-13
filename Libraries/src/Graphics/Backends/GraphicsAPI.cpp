@@ -149,11 +149,15 @@ void PrintGraphicsAPIUsage(std::ostream &out)
 
 bool PromptForGraphicsAPI(std::istream &input, std::ostream &output, GraphicsAPI &selectedApi)
 {
+    constexpr std::array<GraphicsAPI, 3> allApis = {GraphicsAPI::OpenGL, GraphicsAPI::Vulkan, GraphicsAPI::Metal};
+
     output << "Select a graphics API:\n";
-    output << "  1. OpenGL  - available now\n";
-    output << "  2. Vulkan  - recognized, not implemented yet\n";
-    output << "  3. Metal   - recognized, not implemented yet\n";
-    output << "Press Enter for OpenGL.\n";
+    for (std::size_t index = 0; index < allApis.size(); ++index)
+    {
+        output << "  " << (index + 1) << ". " << GraphicsAPIToString(allApis[index]) << " - "
+               << GetGraphicsAPIAvailabilityMessage(allApis[index]) << '\n';
+    }
+    output << "Press Enter for " << GraphicsAPIToString(GraphicsAPI::OpenGL) << ".\n";
     output << "> ";
 
     std::string choice;
@@ -168,20 +172,13 @@ bool PromptForGraphicsAPI(std::istream &input, std::ostream &output, GraphicsAPI
         return true;
     }
 
-    if (choice == "1")
+    for (std::size_t index = 0; index < allApis.size(); ++index)
     {
-        selectedApi = GraphicsAPI::OpenGL;
-        return true;
-    }
-    if (choice == "2")
-    {
-        selectedApi = GraphicsAPI::Vulkan;
-        return true;
-    }
-    if (choice == "3")
-    {
-        selectedApi = GraphicsAPI::Metal;
-        return true;
+        if (choice == std::to_string(index + 1))
+        {
+            selectedApi = allApis[index];
+            return true;
+        }
     }
 
     return false;

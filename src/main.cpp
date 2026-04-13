@@ -44,7 +44,7 @@ int main(int argc, char **argv)
         }
 
         selectedApi = launchOptions.api;
-        const bool shouldPromptForApi = launchOptions.chooseApiInteractively || (argc <= 1 && !launchOptions.apiExplicitlyRequested);
+        const bool shouldPromptForApi = launchOptions.chooseApiInteractively;
         if (shouldPromptForApi && !PromptForGraphicsAPI(std::cin, std::cout, selectedApi))
         {
             LOG_ERROR(1, "Interactive graphics API selection failed");

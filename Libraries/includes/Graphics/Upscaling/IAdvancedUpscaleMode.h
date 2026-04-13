@@ -1,12 +1,11 @@
 #pragma once
 
+#include "Graphics/Upscaling/IUpscaleMode.h"
 #include "Graphics/Upscaling/UpscaleTypes.h"
 
-class IAdvancedUpscaleMode
+class IAdvancedUpscaleMode : public IUpscaleMode
 {
   public:
-    virtual ~IAdvancedUpscaleMode() = default;
-
     virtual const UpscaleModeDesc &GetDescription() const noexcept = 0;
     virtual bool IsSupported(const GraphicsCapabilities &capabilities) const noexcept = 0;
     virtual bool Initialize(const IGraphicsDevice &device) = 0;
