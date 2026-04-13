@@ -38,7 +38,8 @@ enum class TextureFormat : std::uint8_t
     Depth24Stencil8,
     Depth32Float,
     R8,
-    R32UI  // unsigned 32-bit integer single channel — use for object ID buffers
+    R32UI,  // unsigned 32-bit integer single channel — use for object ID buffers
+    RG16F   // two float16 components — use for motion vectors (screen-space velocity XY)
 };
 
 enum class AccelerationStructureType : std::uint8_t

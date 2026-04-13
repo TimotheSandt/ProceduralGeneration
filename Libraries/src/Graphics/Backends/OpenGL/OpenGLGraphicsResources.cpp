@@ -47,6 +47,8 @@ GLint ToOpenGLInternalFormat(TextureFormat format)
             return GL_R8;
         case TextureFormat::R32UI:
             return GL_R32UI;
+        case TextureFormat::RG16F:
+            return GL_RG16F;
         default:
             return GL_RGBA8;
     }
@@ -68,6 +70,8 @@ GLenum ToOpenGLDataFormat(TextureFormat format)
             return GL_RED;
         case TextureFormat::R32UI:
             return GL_RED_INTEGER;
+        case TextureFormat::RG16F:
+            return GL_RG;
         default:
             return GL_RGBA;
     }
@@ -83,6 +87,8 @@ GLenum ToOpenGLDataType(TextureFormat format)
             return GL_FLOAT;
         case TextureFormat::R32UI:
             return GL_UNSIGNED_INT;
+        case TextureFormat::RG16F:
+            return GL_HALF_FLOAT;
         case TextureFormat::BGRA8:
         case TextureFormat::RGBA8:
         case TextureFormat::R8:
@@ -687,7 +693,7 @@ OpenGLTextureResource::OpenGLTextureResource(TextureCreateInfo createInfo)
     const GLenum dataFormat = ToOpenGLDataFormat(desc.format);
     const GLenum dataType = ToOpenGLDataType(desc.format);
     const void *initialData = createInfo.initialData.empty() ? nullptr : createInfo.initialData.data();
-    const bool isSingleChannelTexture = (desc.format == TextureFormat::R8 || desc.format == TextureFormat::R32UI);
+    const bool isSingleChannelTexture = (desc.format == TextureFormat::R8 || desc.format == TextureFormat::R32UI || desc.format == TextureFormat::RG16F);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
                     (desc.renderTarget || !createInfo.generateMipmaps) ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR);
@@ -764,6 +770,9 @@ void OpenGLTextureResource::Readback(std::vector<std::byte> &output) const
         case TextureFormat::Depth32Float:
         case TextureFormat::R32UI:
             bytesPerPixel = sizeof(float);
+            break;
+        case TextureFormat::RG16F:
+            bytesPerPixel = 2 * sizeof(std::uint16_t);  // 2 × float16
             break;
         case TextureFormat::Depth24Stencil8:
         case TextureFormat::BGRA8:

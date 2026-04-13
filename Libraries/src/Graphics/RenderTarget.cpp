@@ -36,6 +36,7 @@ void RenderTarget::Swap(RenderTarget &other) noexcept
     std::swap(this->colorTextures, other.colorTextures);
     std::swap(this->depthTexture, other.depthTexture);
     std::swap(this->hasDepthTexture, other.hasDepthTexture);
+    std::swap(this->currentDesc, other.currentDesc);
 }
 
 void RenderTarget::Destroy()
@@ -63,6 +64,25 @@ void RenderTarget::Init(int width, int height)
     desc.hasDepthBuffer = true;
     desc.depthAsTexture = false;
     this->Init(desc);
+}
+
+bool RenderTarget::AttachmentsMatch(const RenderTargetDesc &a, const RenderTargetDesc &b) noexcept
+{
+    return a.colorAttachments == b.colorAttachments
+        && a.hasDepthBuffer == b.hasDepthBuffer
+        && a.depthAsTexture == b.depthAsTexture;
+}
+
+void RenderTarget::ResizeOrReconfigure(const RenderTargetDesc &desc)
+{
+    if (IsInitialized() && AttachmentsMatch(currentDesc, desc))
+    {
+        Resize(static_cast<int>(desc.extent.width), static_cast<int>(desc.extent.height));
+    }
+    else
+    {
+        Init(desc);
+    }
 }
 
 void RenderTarget::Init(const RenderTargetDesc &desc)
@@ -98,6 +118,7 @@ void RenderTarget::Init(const RenderTargetDesc &desc)
         return;
     }
 
+    currentDesc = desc;
     this->Unbind();
     this->Setup();
 }
@@ -213,26 +234,22 @@ void RenderTarget::CopyFromScreen(int srcWidth, int srcHeight) const
     this->Bind();
 }
 
-void RenderTarget::BlitToRenderTarget(RenderTarget &source) const
+void RenderTarget::BlitToRenderTarget(RenderTarget &destination) const
 {
-    const std::uint32_t sourceID = source.GetID();
-    const int sourceWidth = source.GetWidth();
-    const int sourceHeight = source.GetHeight();
-
-    if (sourceID == 0 || ID == 0)
+    if (ID == 0 || destination.ID == 0)
     {
         LOG_ERROR(1, "Invalid render target IDs");
         return;
     }
 
-    if (backendRenderTarget != nullptr && source.backendRenderTarget != nullptr)
+    if (backendRenderTarget != nullptr && destination.backendRenderTarget != nullptr)
     {
-        source.backendRenderTarget->BlitTo(*backendRenderTarget, static_cast<std::uint32_t>(sourceWidth),
-                                           static_cast<std::uint32_t>(sourceHeight), static_cast<std::uint32_t>(width),
-                                           static_cast<std::uint32_t>(height));
+        backendRenderTarget->BlitTo(*destination.backendRenderTarget,
+                                    static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height),
+                                    static_cast<std::uint32_t>(destination.width), static_cast<std::uint32_t>(destination.height));
     }
 
-    this->Unbind();
+    destination.Unbind();
 }
 
 void RenderTarget::BlitToScreen(int sWidth, int sHeight) const

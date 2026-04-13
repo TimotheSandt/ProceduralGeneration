@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Graphics/Core/GraphicsResources.h"
-
 #include <glm/vec2.hpp>
 #include <string_view>
+
+class Texture;
 
 enum class UpscaleQualityMode : std::uint8_t
 {
@@ -41,13 +41,13 @@ struct UpscaleRequirements
 
 struct UpscaleInput
 {
-    const ITextureResource *color = nullptr;
-    const ITextureResource *depth = nullptr;
-    const ITextureResource *motionVectors = nullptr;
-    const ITextureResource *exposure = nullptr;
-    const ITextureResource *reactiveMask = nullptr;
-    const ITextureResource *transparencyMask = nullptr;
-    const ITextureResource *historyColor = nullptr;
+    const Texture *color = nullptr;
+    const Texture *depth = nullptr;
+    const Texture *motionVectors = nullptr;
+    const Texture *exposure = nullptr;
+    const Texture *reactiveMask = nullptr;
+    const Texture *transparencyMask = nullptr;
+    const Texture *historyColor = nullptr;
     glm::vec2 renderResolution = {0.0f, 0.0f};
     glm::vec2 outputResolution = {0.0f, 0.0f};
     glm::vec2 jitter = {0.0f, 0.0f};
@@ -59,25 +59,26 @@ struct UpscaleInput
 
 struct UpscaleOutput
 {
-    ITextureResource *output = nullptr;
-    ITextureResource *newHistoryColor = nullptr;
+    Texture *output = nullptr;
+    Texture *newHistoryColor = nullptr;
 };
 
 struct FrameGenerationInput
 {
-    const ITextureResource *currentColor = nullptr;
-    const ITextureResource *previousColor = nullptr;
-    const ITextureResource *depth = nullptr;
-    const ITextureResource *motionVectors = nullptr;
+    const Texture *currentColor = nullptr;
+    const Texture *previousColor = nullptr;   // previous frame's color at render resolution
+    const Texture *depth = nullptr;           // current frame depth (requires depthAsTexture)
+    const Texture *motionVectors = nullptr;   // current frame motion vectors (requires motionVectors attachment)
     glm::vec2 renderResolution = {0.0f, 0.0f};
     glm::vec2 outputResolution = {0.0f, 0.0f};
+    glm::vec2 jitter = {0.0f, 0.0f};         // sub-pixel jitter applied this frame
     float deltaTimeSeconds = 0.0f;
-    bool resetHistory = false;
+    bool resetHistory = false;                // true on scene cuts / camera teleports
 };
 
 struct FrameGenerationOutput
 {
-    ITextureResource *generatedFrame = nullptr;
+    Texture *generatedFrame = nullptr;
 };
 
 struct UpscaleModeDesc

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Renderer.h"
-#include "RenderTarget.h"
 
 #include <glm/vec4.hpp>
 

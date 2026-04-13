@@ -1,16 +1,16 @@
 #pragma once
 
 #include "Graphics/Backend/GraphicsAPI.h"
+#include "Graphics/RenderTarget.h"
 #include "Graphics/Upscaling/IFrameGenerationMode.h"
 #include "Graphics/Upscaling/IPostProcessPass.h"
 #include "Graphics/Upscaling/IUpscaleMode.h"
 
+#include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
 #include <memory>
 #include <string_view>
 #include <vector>
-
-class RenderTarget;
 
 class Renderer
 {
@@ -69,6 +69,33 @@ class Renderer
     // -------------------------------------------------------------------------
     void SetFrameGenerationMode(std::unique_ptr<IFrameGenerationMode> mode);
 
+    // -------------------------------------------------------------------------
+    // Temporal resource configuration.
+    // Call before BeginPass; changes take effect on the next frame.
+    // -------------------------------------------------------------------------
+
+    // Enable a motion vector attachment (RG16F) on the scene render target.
+    // Scene shaders must write screen-space velocity to the second color output.
+    void SetMotionVectorsEnabled(bool enabled) noexcept;
+    bool IsMotionVectorsEnabled() const noexcept { return motionVectorsEnabled; }
+
+    // Make the depth buffer readable as a texture in post-process / frame-gen shaders.
+    // Slightly slower than a depth renderbuffer; only enable when actually needed.
+    void SetDepthAsTextureEnabled(bool enabled) noexcept;
+    bool IsDepthAsTextureEnabled() const noexcept { return depthAsTextureEnabled; }
+
+    // Per-frame delta time — forwarded into FrameGenerationInput.
+    void SetDeltaTime(float dt) noexcept { deltaTime = dt; }
+    float GetDeltaTime() const noexcept { return deltaTime; }
+
+    // Sub-pixel jitter applied to the camera this frame (e.g. Halton sequence for TAA).
+    // Forwarded into FrameGenerationInput so the mode can undo/account for it.
+    void SetCameraJitter(glm::vec2 jitter) noexcept { currentJitter = jitter; }
+    glm::vec2 GetCameraJitter() const noexcept { return currentJitter; }
+
+    // Call once on scene cuts or camera teleports so temporal modes can discard stale history.
+    void ResetTemporalHistory() noexcept { resetHistoryNextFrame = true; }
+
   protected:
     virtual void OnBeginPass() = 0;
     virtual void OnEndPass() {}
@@ -84,6 +111,10 @@ class Renderer
 
     bool UsesRenderTarget() const noexcept;
     void GetRenderResolution(int &width, int &height) const noexcept;
+
+    // Returns true when any active mode (frame generation or advanced upscale) needs
+    // temporal resources (history, depth texture, or motion vectors).
+    bool NeedsTemporalResources() const noexcept;
 
   private:
     bool IsScaledRendering() const noexcept;
@@ -104,4 +135,13 @@ class Renderer
     std::vector<std::unique_ptr<IPostProcessPass>> postProcessPasses;
 
     std::unique_ptr<IFrameGenerationMode> frameGenMode;
+
+    // Temporal resource state
+    bool motionVectorsEnabled = false;
+    bool depthAsTextureEnabled = false;
+    float deltaTime = 0.0f;
+    glm::vec2 currentJitter = {0.0f, 0.0f};
+    bool resetHistoryNextFrame = false;
+    // Stores the previous frame's color (at render resolution) for temporal techniques.
+    RenderTarget historyTarget;
 };

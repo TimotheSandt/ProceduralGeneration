@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Renderer.h"
-#include "RenderTarget.h"
 #include "Sprite.h"
 
 #include <glm/glm.hpp>

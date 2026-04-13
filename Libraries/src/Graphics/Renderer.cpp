@@ -1,8 +1,8 @@
 #include "Renderer.h"
 
 #include "Graphics/Core/GraphicsRuntime.h"
+#include "Graphics/Core/GraphicsTypes.h"
 #include "Graphics/Core/RenderState.h"
-#include "Graphics/RenderTarget.h"
 #include "Graphics/Upscaling/Modes/BilinearBlitUpscaleMode.h"
 
 Renderer::Renderer(GraphicsAPI requiredApi) : requiredApi(requiredApi)
@@ -60,8 +60,23 @@ void Renderer::GetRenderResolution(int &width, int &height) const noexcept
 
 bool Renderer::UsesRenderTarget() const noexcept
 {
-    return IsScaledRendering() || !postProcessPasses.empty() || frameGenMode != nullptr;
+    return IsScaledRendering() || !postProcessPasses.empty() || frameGenMode != nullptr
+        || motionVectorsEnabled || depthAsTextureEnabled;
 }
+
+bool Renderer::NeedsTemporalResources() const noexcept
+{
+    if (frameGenMode != nullptr)
+    {
+        return true;
+    }
+    const UpscaleRequirements req = GetActiveUpscaleModeRequirements();
+    return req.needsHistory || req.needsDepth || req.needsMotionVectors;
+}
+
+void Renderer::SetMotionVectorsEnabled(bool enabled) noexcept { motionVectorsEnabled = enabled; }
+
+void Renderer::SetDepthAsTextureEnabled(bool enabled) noexcept { depthAsTextureEnabled = enabled; }
 
 void Renderer::BeginPass()
 {
@@ -77,8 +92,18 @@ void Renderer::BeginPass()
 
     if (UsesRenderTarget())
     {
+        RenderTargetDesc desc;
+        desc.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
+        desc.colorAttachments = {TextureFormat::RGBA8};
+        if (motionVectorsEnabled)
+        {
+            desc.colorAttachments.push_back(TextureFormat::RG16F);
+        }
+        desc.hasDepthBuffer = true;
+        desc.depthAsTexture = depthAsTextureEnabled;
+
         RenderTarget &rt = GetRenderTarget();
-        rt.Resize(width, height);
+        rt.ResizeOrReconfigure(desc);
         rt.Bind();
     }
     else
@@ -108,13 +133,43 @@ void Renderer::EndPass()
         GraphicsRenderState::SetScissorTest(false);
         GraphicsRenderState::SetBlend(false);
 
+        // Snapshot the color output into the history buffer BEFORE upscaling,
+        // so frame generation receives a render-resolution previous frame.
+        const bool needsHistory = NeedsTemporalResources();
+        if (needsHistory)
+        {
+            historyTarget.ResizeOrReconfigure({
+                .extent           = {static_cast<std::uint32_t>(frameWidth), static_cast<std::uint32_t>(frameHeight)},
+                .colorAttachments = {TextureFormat::RGBA8},
+                .hasDepthBuffer   = false,
+            });
+            rt.BlitToRenderTarget(historyTarget);  // rt (this=source) → historyTarget (destination)
+        }
+
         if (activeUpscaleMode != nullptr)
         {
             activeUpscaleMode->Upscale(rt, outputWidth, outputHeight);
         }
 
-        // TODO: call frameGenMode->GenerateFrame() with the upscaled output.
-        // Requires depth buffer, motion vectors, and previous frame history.
+        if (frameGenMode != nullptr)
+        {
+            FrameGenerationInput fgInput;
+            fgInput.currentColor      = &rt.GetTexture(0);
+            fgInput.previousColor     = historyTarget.IsInitialized() ? &historyTarget.GetTexture(0) : nullptr;
+            fgInput.depth             = rt.TryGetDepthTexture();
+            fgInput.motionVectors     = (motionVectorsEnabled && rt.GetColorAttachmentCount() > 1)
+                                            ? &rt.GetTexture(1) : nullptr;
+            fgInput.renderResolution  = {static_cast<float>(frameWidth), static_cast<float>(frameHeight)};
+            fgInput.outputResolution  = {static_cast<float>(outputWidth), static_cast<float>(outputHeight)};
+            fgInput.jitter            = currentJitter;
+            fgInput.deltaTimeSeconds  = deltaTime;
+            fgInput.resetHistory      = resetHistoryNextFrame;
+
+            FrameGenerationOutput fgOutput;
+            frameGenMode->GenerateFrame(fgInput, fgOutput);
+        }
+
+        resetHistoryNextFrame = false;
     }
 
     GraphicsRenderState::SetScissorTest(false);

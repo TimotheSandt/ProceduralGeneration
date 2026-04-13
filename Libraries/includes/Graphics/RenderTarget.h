@@ -31,6 +31,10 @@ class RenderTarget
     void Init(const RenderTargetDesc &desc);
     // Resize all attachments. Handles uninitialized state (calls Init).
     void Resize(int newWidth, int newHeight);
+    // Resize if only dimensions changed; fully reinitialize if attachments/formats changed.
+    void ResizeOrReconfigure(const RenderTargetDesc &desc);
+
+    const RenderTargetDesc &GetDesc() const noexcept { return currentDesc; }
     void Destroy();
     void Bind() const;
     void Unbind() const;
@@ -64,6 +68,7 @@ class RenderTarget
     void InitAttachments(const RenderTargetDesc &desc);
     void Swap(RenderTarget &other) noexcept;
     void Setup();
+    static bool AttachmentsMatch(const RenderTargetDesc &a, const RenderTargetDesc &b) noexcept;
 
   private:
     std::uint32_t ID = 0;
@@ -75,6 +80,7 @@ class RenderTarget
     bool hasDepthTexture = false;
 
     int width = 0, height = 0;
+    RenderTargetDesc currentDesc;
 
     std::unique_ptr<IGeometryResource> screenQuadGeometry;
     ShaderProgram screenQuadShaderProgram;
