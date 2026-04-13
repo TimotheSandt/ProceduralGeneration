@@ -1,6 +1,22 @@
 #include "Camera.h"
 #include "InputManager.h"
 
+namespace
+{
+
+glm::vec3 NormalizeOrFallback(const glm::vec3 &vector, const glm::vec3 &fallback)
+{
+    const float length = glm::length(vector);
+    if (length <= 1e-6f)
+    {
+        return fallback;
+    }
+
+    return vector / length;
+}
+
+} // namespace
+
 struct CameraUBO
 {
     glm::vec3 position;
@@ -119,6 +135,45 @@ void Camera::UpdateMatrix(float FOVdeg, float nearPlane, float farPlane)
     this->UpdateMatrix();
 }
 
+void Camera::Move(const glm::vec3 &delta) { this->position += delta; }
+
+void Camera::MoveForward(float distance) { this->Move(this->Orientation * distance); }
+
+void Camera::MoveRight(float distance) { this->Move(this->GetRight() * distance); }
+
+void Camera::MoveUp(float distance) { this->Move(this->up * distance); }
+
+void Camera::Rotate(const glm::vec3 &eulerDegrees)
+{
+    this->RotatePitch(eulerDegrees.x);
+    this->RotateYaw(eulerDegrees.y);
+    this->RotateRoll(eulerDegrees.z);
+}
+
+void Camera::RotateYaw(float degrees)
+{
+    this->Orientation = NormalizeOrFallback(glm::rotate(this->Orientation, glm::radians(degrees), this->up), this->Orientation);
+}
+
+void Camera::RotatePitch(float degrees)
+{
+    const glm::vec3 right = this->GetRight();
+    const glm::vec3 rotatedOrientation = NormalizeOrFallback(glm::rotate(this->Orientation, glm::radians(degrees), right), this->Orientation);
+    constexpr float minimumPitchAngleDegrees = 10.0f;
+    const float minimumPitchAngleRadians = glm::radians(minimumPitchAngleDegrees);
+
+    if (glm::angle(rotatedOrientation, this->up) > minimumPitchAngleRadians &&
+        glm::angle(rotatedOrientation, -this->up) > minimumPitchAngleRadians)
+    {
+        this->Orientation = rotatedOrientation;
+    }
+}
+
+void Camera::RotateRoll(float degrees)
+{
+    this->up = NormalizeOrFallback(glm::rotate(this->up, glm::radians(degrees), this->Orientation), this->up);
+}
+
 void Camera::Inputs(GLFWwindow *window, float ElapseTime)
 {
     float speed = this->speed * ElapseTime;
@@ -127,27 +182,27 @@ void Camera::Inputs(GLFWwindow *window, float ElapseTime)
 
     if (inputManager.IsActionActive("Camera::MoveForward"))
     {
-        this->position += speed * this->Orientation;
+        this->MoveForward(speed);
     }
     if (inputManager.IsActionActive("Camera::MoveBackward"))
     {
-        this->position -= speed * this->Orientation;
+        this->MoveForward(-speed);
     }
     if (inputManager.IsActionActive("Camera::MoveLeft"))
     {
-        this->position -= glm::normalize(glm::cross(this->Orientation, this->up)) * speed;
+        this->MoveRight(-speed);
     }
     if (inputManager.IsActionActive("Camera::MoveRight"))
     {
-        this->position += glm::normalize(glm::cross(this->Orientation, this->up)) * speed;
+        this->MoveRight(speed);
     }
     if (inputManager.IsActionActive("Camera::MoveUp"))
     {
-        this->position += this->up * speed;
+        this->MoveUp(speed);
     }
     if (inputManager.IsActionActive("Camera::MoveDown"))
     {
-        this->position -= this->up * speed;
+        this->MoveUp(-speed);
     }
 
     if (inputManager.IsActionActive("Camera::SpeedDown"))
@@ -183,16 +238,8 @@ void Camera::Inputs(GLFWwindow *window, float ElapseTime)
         float rotX = this->sensitivity * static_cast<float>(mouseX - centerX) / static_cast<float>(*this->width);
         float rotY = this->sensitivity * static_cast<float>(mouseY - centerY) / static_cast<float>(*this->height);
 
-        glm::vec3 newOrientation =
-            glm::rotate(this->Orientation, glm::radians(-rotY), glm::normalize(glm::cross(this->Orientation, this->up)));
-
-        if (!(glm::angle(newOrientation, this->up) <= glm::radians(10.0f)) or
-            !(glm::angle(newOrientation, -this->up) <= glm::radians(10.0f)))
-        {
-            this->Orientation = newOrientation;
-        }
-
-        this->Orientation = glm::rotate(this->Orientation, glm::radians(-rotX), this->up);
+        this->RotatePitch(-rotY);
+        this->RotateYaw(-rotX);
 
         glfwSetCursorPos(window, centerX, centerY);
     }

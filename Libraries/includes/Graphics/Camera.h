@@ -44,9 +44,20 @@ class Camera
     void SetNearPlane(float nearPlane) { this->nearPlane = nearPlane; }
     void SetFarPlane(float farPlane) { this->farPlane = farPlane; }
 
+    void Move(const glm::vec3 &delta);
+    void MoveForward(float distance);
+    void MoveRight(float distance);
+    void MoveUp(float distance);
+
+    void Rotate(const glm::vec3 &eulerDegrees);
+    void RotateYaw(float degrees);
+    void RotatePitch(float degrees);
+    void RotateRoll(float degrees);
+
     glm::vec3 GetPosition() const { return this->position; }
     glm::vec3 GetOrientation() const { return this->Orientation; }
     glm::vec3 GetUp() const { return this->up; }
+    glm::vec3 GetRight() const { return glm::normalize(glm::cross(this->Orientation, this->up)); }
     glm::mat4 GetMatrix() const { return this->camMatrix; }
     glm::mat4 GetViewMatrix() const { return glm::lookAt(this->position, this->position + this->Orientation, this->up); }
     bool IsWireframe() const { return this->isWireframe; }
@@ -59,12 +70,13 @@ class Camera
     void Swap(Camera &other) noexcept;
 
   private:
-    glm::vec3 position;
+    glm::vec3 position = glm::vec3(0.0f);
     glm::vec3 Orientation = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
     glm::mat4 camMatrix = glm::mat4(1.0f);
 
-    int *width, *height;
+    int *width = nullptr;
+    int *height = nullptr;
 
     float FOV = 70.0f;
     float nearPlane = 0.1f;
