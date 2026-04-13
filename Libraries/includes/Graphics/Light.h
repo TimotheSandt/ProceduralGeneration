@@ -234,9 +234,9 @@ class LightManager
 
     void Destroy();
 
-    void initSSBO();
-    void updateSSBO();
-    void BindSSBO() const;
+    void Initialize();
+    void UploadChanges();
+    void Bind() const;
 
     void AddLight(lght::Light Light);
     void AddLight(std::vector<lght::Light> Light);

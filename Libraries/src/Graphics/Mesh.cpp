@@ -173,10 +173,10 @@ void Mesh::Render(Camera &camera)
     if (camera.IsWireframe())
     {
         int wireframe = 1;
-        this->InitUniform1i("wireframe", &wireframe);
+        this->SetUniform1i("wireframe", &wireframe);
         this->Draw(true);
         wireframe = 0;
-        this->InitUniform1i("wireframe", &wireframe);
+        this->SetUniform1i("wireframe", &wireframe);
     }
 
     if (this->geometry != nullptr)
@@ -223,7 +223,7 @@ void Mesh::Draw(bool wireframe) const
     }
 }
 
-void Mesh::UpdateUBO()
+void Mesh::UploadTransform()
 {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, this->position);

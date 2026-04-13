@@ -1,6 +1,6 @@
 #include "Mesh.h"
 
-void Mesh::InitUniform4f(const char *uniform, const float *data)
+void Mesh::SetUniform4f(const char *uniform, const float *data)
 {
     std::string sUni(uniform);
     if (!CacheUniform(sUni, (void *)data, 4 * sizeof(float)))
@@ -11,7 +11,7 @@ void Mesh::InitUniform4f(const char *uniform, const float *data)
     this->shaderProgram.SetUniformFloats(CachedUniformLocation(sUni), data, 4);
 }
 
-void Mesh::InitUniform3f(const char *uniform, const float *data)
+void Mesh::SetUniform3f(const char *uniform, const float *data)
 {
     std::string sUni(uniform);
     if (!CacheUniform(sUni, (void *)data, 3 * sizeof(float)))
@@ -22,7 +22,7 @@ void Mesh::InitUniform3f(const char *uniform, const float *data)
     this->shaderProgram.SetUniformFloats(CachedUniformLocation(sUni), data, 3);
 }
 
-void Mesh::InitUniform2f(const char *uniform, const float *data)
+void Mesh::SetUniform2f(const char *uniform, const float *data)
 {
     std::string sUni(uniform);
     if (!CacheUniform(sUni, (void *)data, 2 * sizeof(float)))
@@ -33,7 +33,7 @@ void Mesh::InitUniform2f(const char *uniform, const float *data)
     this->shaderProgram.SetUniformFloats(CachedUniformLocation(sUni), data, 2);
 }
 
-void Mesh::InitUniform1f(const char *uniform, const float *data)
+void Mesh::SetUniform1f(const char *uniform, const float *data)
 {
     std::string sUni(uniform);
     if (!CacheUniform(sUni, (void *)data, sizeof(float)))
@@ -44,7 +44,7 @@ void Mesh::InitUniform1f(const char *uniform, const float *data)
     this->shaderProgram.SetUniformFloats(CachedUniformLocation(sUni), data, 1);
 }
 
-void Mesh::InitUniform4i(const char *uniform, const int *data)
+void Mesh::SetUniform4i(const char *uniform, const int *data)
 {
     std::string sUni(uniform);
     if (!CacheUniform(sUni, (void *)data, 4 * sizeof(int)))
@@ -55,7 +55,7 @@ void Mesh::InitUniform4i(const char *uniform, const int *data)
     this->shaderProgram.SetUniformInts(CachedUniformLocation(sUni), data, 4);
 }
 
-void Mesh::InitUniform3i(const char *uniform, const int *data)
+void Mesh::SetUniform3i(const char *uniform, const int *data)
 {
     std::string sUni(uniform);
     if (!CacheUniform(sUni, (void *)data, 3 * sizeof(int)))
@@ -66,7 +66,7 @@ void Mesh::InitUniform3i(const char *uniform, const int *data)
     this->shaderProgram.SetUniformInts(CachedUniformLocation(sUni), data, 3);
 }
 
-void Mesh::InitUniform2i(const char *uniform, const int *data)
+void Mesh::SetUniform2i(const char *uniform, const int *data)
 {
     std::string sUni(uniform);
     if (!CacheUniform(sUni, (void *)data, 2 * sizeof(int)))
@@ -77,7 +77,7 @@ void Mesh::InitUniform2i(const char *uniform, const int *data)
     this->shaderProgram.SetUniformInts(CachedUniformLocation(sUni), data, 2);
 }
 
-void Mesh::InitUniform1i(const char *uniform, const int *data)
+void Mesh::SetUniform1i(const char *uniform, const int *data)
 {
     std::string sUni(uniform);
     if (!CacheUniform(sUni, (void *)data, sizeof(int)))
@@ -88,7 +88,7 @@ void Mesh::InitUniform1i(const char *uniform, const int *data)
     this->shaderProgram.SetUniformInts(CachedUniformLocation(sUni), data, 1);
 }
 
-void Mesh::InitUniformMatrix4f(const char *uniform, const float *data)
+void Mesh::SetUniformMatrix4f(const char *uniform, const float *data)
 {
     std::string sUni(uniform);
     if (!CacheUniform(sUni, (void *)data, 4 * 4 * sizeof(float)))

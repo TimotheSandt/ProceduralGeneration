@@ -10,20 +10,20 @@ void Sprite::Draw(const SpriteDrawParams &params, const Texture *texture)
     }
 
     mesh.BindShader();
-    mesh.BindVAO();
+    mesh.BindGeometry();
 
-    mesh.InitUniform2f("offset", glm::value_ptr(params.offset));
-    mesh.InitUniform2f("scale", glm::value_ptr(params.scale));
-    mesh.InitUniform2f("containerSize", glm::value_ptr(params.containerSize));
-    mesh.InitUniform2f("scrollOffset", glm::value_ptr(params.scrollOffset));
-    mesh.InitUniform2f("contentSize", glm::value_ptr(params.contentSize));
-    mesh.InitUniform4f("color", glm::value_ptr(params.color));
+    mesh.SetUniform2f("offset", glm::value_ptr(params.offset));
+    mesh.SetUniform2f("scale", glm::value_ptr(params.scale));
+    mesh.SetUniform2f("containerSize", glm::value_ptr(params.containerSize));
+    mesh.SetUniform2f("scrollOffset", glm::value_ptr(params.scrollOffset));
+    mesh.SetUniform2f("contentSize", glm::value_ptr(params.contentSize));
+    mesh.SetUniform4f("color", glm::value_ptr(params.color));
 
     if (texture != nullptr)
     {
         texture->Bind();
         const int textureSampler = 0;
-        mesh.InitUniform1i("textureSampler", &textureSampler);
+        mesh.SetUniform1i("textureSampler", &textureSampler);
     }
 
     mesh.Draw();
@@ -33,6 +33,6 @@ void Sprite::Draw(const SpriteDrawParams &params, const Texture *texture)
         texture->Unbind();
     }
 
-    mesh.UnbindVAO();
+    mesh.UnbindGeometry();
     mesh.UnbindShader();
 }

@@ -20,8 +20,8 @@ LightManager::LightManager(const LightManager &other)
     this->LightChanged = std::vector<bool>(other.lLight.size(), false);
     this->LightsChanged = true;
     this->AmbientLightChanged = true;
-    this->initSSBO();
-    this->updateSSBO();
+    this->Initialize();
+    this->UploadChanges();
 }
 
 LightManager &LightManager::operator=(const LightManager &other)
@@ -35,8 +35,8 @@ LightManager &LightManager::operator=(const LightManager &other)
         this->LightChanged = std::vector<bool>(other.lLight.size(), false);
         this->LightsChanged = true;
         this->AmbientLightChanged = true;
-        this->initSSBO();
-        this->updateSSBO();
+        this->Initialize();
+        this->UploadChanges();
     }
     return *this;
 }
@@ -66,7 +66,7 @@ void LightManager::Swap(LightManager &other)
     std::swap(this->lightBuffer, other.lightBuffer);
 }
 
-void LightManager::initSSBO()
+void LightManager::Initialize()
 {
     this->lightBuffer.Destroy();
     this->lightBuffer.Initialize(BufferUsage::Storage, sizeof(Header) + sizeof(lght::LightBlock) * this->lLight.size(), LIGHT_BINDING_POINT,
@@ -75,7 +75,7 @@ void LightManager::initSSBO()
 
 void LightManager::Destroy() { this->lightBuffer.Destroy(); }
 
-void LightManager::updateSSBO()
+void LightManager::UploadChanges()
 {
     if (this->LightsChanged)
     {
@@ -102,7 +102,7 @@ void LightManager::updateSSBO()
     }
 }
 
-void LightManager::BindSSBO() const { this->lightBuffer.BindToBindingPoint(); }
+void LightManager::Bind() const { this->lightBuffer.BindToBindingPoint(); }
 
 void LightManager::AddLight(lght::Light Light)
 {

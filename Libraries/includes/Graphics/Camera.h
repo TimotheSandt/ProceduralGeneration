@@ -33,7 +33,7 @@ class Camera
     void UpdateMatrix(float FOVdeg, float nearPlane, float farPlane);
     void Inputs(GLFWwindow *window, float ElapseTime);
 
-    void BindUBO() const;
+    void Bind() const;
 
   public:
     void SetPosition(glm::vec3 position) { this->position = position; }
@@ -82,7 +82,7 @@ class Camera
     void ToggleWireframe();
 
     void InitializeUBO();
-    void UpdateUBO();
+    void UploadCameraData();
 };
 
 #endif

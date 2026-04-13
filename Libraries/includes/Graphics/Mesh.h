@@ -45,17 +45,17 @@ class Mesh
     void SetScale(glm::vec3 scale) { this->scale = scale; }
     void SetRotation(glm::vec3 rotation) { this->rotation = rotation; }
 
-    void UpdateUBO();
+    void UploadTransform();
 
-    void InitUniform4f(const char *uniform, const float *data);
-    void InitUniform3f(const char *uniform, const float *data);
-    void InitUniform2f(const char *uniform, const float *data);
-    void InitUniform1f(const char *uniform, const float *data);
-    void InitUniform4i(const char *uniform, const int *data);
-    void InitUniform3i(const char *uniform, const int *data);
-    void InitUniform2i(const char *uniform, const int *data);
-    void InitUniform1i(const char *uniform, const int *data);
-    void InitUniformMatrix4f(const char *uniform, const float *data);
+    void SetUniform4f(const char *uniform, const float *data);
+    void SetUniform3f(const char *uniform, const float *data);
+    void SetUniform2f(const char *uniform, const float *data);
+    void SetUniform1f(const char *uniform, const float *data);
+    void SetUniform4i(const char *uniform, const int *data);
+    void SetUniform3i(const char *uniform, const int *data);
+    void SetUniform2i(const char *uniform, const int *data);
+    void SetUniform1i(const char *uniform, const int *data);
+    void SetUniformMatrix4f(const char *uniform, const float *data);
 
     void Render(Camera &camera);
     void Draw(bool wireframe = false) const;
@@ -63,14 +63,14 @@ class Mesh
     // Bind/Unbind for custom rendering (UI)
     void BindShader() { shaderProgram.Bind(); }
     void UnbindShader() { shaderProgram.Unbind(); }
-    void BindVAO()
+    void BindGeometry()
     {
         if (geometry != nullptr)
         {
             geometry->Bind();
         }
     }
-    void UnbindVAO()
+    void UnbindGeometry()
     {
         if (geometry != nullptr)
         {

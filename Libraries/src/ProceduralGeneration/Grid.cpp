@@ -154,7 +154,7 @@ void Grid::GenerateMesh()
 
     this->mesh.Initialize(vertices, indices, {3, 3, 3});
     this->mesh.SetShader(GET_RESOURCE_PATH("shader/default.vert"), GET_RESOURCE_PATH("shader/default.frag"));
-    this->mesh.UpdateUBO();
+    this->mesh.UploadTransform();
 }
 
 void Grid::TransformPoints(const std::function<void(Vertex &, unsigned int)> &func)

@@ -55,7 +55,7 @@ void Camera::Copy(const Camera &other)
     this->firstClick = other.firstClick;
     this->isWireframe = other.isWireframe;
     this->InitializeUBO();
-    this->UpdateUBO();
+    this->UploadCameraData();
 }
 
 void Camera::Swap(Camera &other) noexcept
@@ -108,7 +108,7 @@ void Camera::UpdateMatrix()
 
     this->camMatrix = projection * view;
 
-    this->UpdateUBO();
+    this->UploadCameraData();
 }
 
 void Camera::UpdateMatrix(float FOVdeg, float nearPlane, float farPlane)
@@ -217,15 +217,15 @@ void Camera::Inputs(GLFWwindow *window, float ElapseTime)
 void Camera::InitializeUBO()
 {
     this->cameraBuffer.Initialize(BufferUsage::Uniform, sizeof(CameraUBO), CAMERA_BINDING_POINT, true);
-    this->UpdateUBO();
+    this->UploadCameraData();
 }
 
-void Camera::UpdateUBO()
+void Camera::UploadCameraData()
 {
     CameraUBO data = {this->position, 0, this->camMatrix};
     this->cameraBuffer.UploadData(&data, sizeof(CameraUBO));
 }
 
-void Camera::BindUBO() const { this->cameraBuffer.BindToBindingPoint(); }
+void Camera::Bind() const { this->cameraBuffer.BindToBindingPoint(); }
 
 void Camera::ToggleWireframe() { SetWireframe(!this->isWireframe); }
