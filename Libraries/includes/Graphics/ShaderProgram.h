@@ -6,6 +6,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <fstream>
+#include <iosfwd>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -29,6 +30,11 @@ class ShaderProgram
     void SetShaderCode(std::string vertexCode, std::string fragmentCode);
     void CompileShader();
 
+    // Binary cache — used by ShaderLibrary. Returns false if the backend does not
+    // support binary programs (non-OpenGL) or if no program is compiled yet.
+    bool SaveBinary(std::ostream &out) const;
+    bool LoadBinary(std::istream &in);
+
     void Bind() const;
     void Unbind() const;
     void Destroy();
@@ -42,7 +48,9 @@ class ShaderProgram
 
   private:
     std::uint32_t ID = 0;
-    std::unique_ptr<IShaderProgramResource> backendResource;
+    // shared_ptr so multiple ShaderProgram handles (e.g. from ShaderLibrary) can
+    // refer to the same compiled GPU program without recompiling or copying.
+    std::shared_ptr<IShaderProgramResource> backendResource;
 
     const char *vertexShaderPath;
     const char *fragmentShaderPath;

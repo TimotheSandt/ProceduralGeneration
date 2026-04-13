@@ -101,6 +101,10 @@ class IShaderProgramResource : public IGraphicsResource
     virtual void SetFloatUniform(int location, const float *data, std::size_t componentCount) const = 0;
     virtual void SetIntUniform(int location, const int *data, std::size_t componentCount) const = 0;
     virtual void SetMatrix4Uniform(int location, const float *data) const = 0;
+
+    // Binary cache — returns false if the backend does not support program binaries.
+    virtual bool GetBinary(std::vector<std::byte> &dataOut, std::uint32_t &formatOut) const { return false; }
+    virtual bool LoadBinary(const std::vector<std::byte> &data, std::uint32_t format) { return false; }
 };
 
 class IBufferResource : public IGraphicsResource

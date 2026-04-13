@@ -311,6 +311,44 @@ void OpenGLShaderProgramResource::SetMatrix4Uniform(int location, const float *d
     }
 }
 
+bool OpenGLShaderProgramResource::GetBinary(std::vector<std::byte> &dataOut, std::uint32_t &formatOut) const
+{
+    if (programID == 0)
+    {
+        return false;
+    }
+    GLint binaryLength = 0;
+    glGetProgramiv(programID, GL_PROGRAM_BINARY_LENGTH, &binaryLength);
+    if (binaryLength <= 0)
+    {
+        return false;
+    }
+    dataOut.resize(static_cast<std::size_t>(binaryLength));
+    GLenum binaryFormat = 0;
+    GLsizei written = 0;
+    glGetProgramBinary(programID, binaryLength, &written, &binaryFormat, dataOut.data());
+    if (written <= 0)
+    {
+        dataOut.clear();
+        return false;
+    }
+    dataOut.resize(static_cast<std::size_t>(written));
+    formatOut = static_cast<std::uint32_t>(binaryFormat);
+    return true;
+}
+
+bool OpenGLShaderProgramResource::LoadBinary(const std::vector<std::byte> &data, std::uint32_t format)
+{
+    if (programID == 0 || data.empty())
+    {
+        return false;
+    }
+    glProgramBinary(programID, static_cast<GLenum>(format), data.data(), static_cast<GLsizei>(data.size()));
+    GLint status = 0;
+    glGetProgramiv(programID, GL_LINK_STATUS, &status);
+    return status == GL_TRUE;
+}
+
 GLuint OpenGLShaderProgramResource::GetProgramID() const noexcept { return programID; }
 
 OpenGLBufferResource::OpenGLBufferResource(BufferCreateInfo createInfo)

@@ -4,6 +4,8 @@
 #include "Graphics/Core/GraphicsRuntime.h"
 
 #include <cstring>
+#include <istream>
+#include <ostream>
 #include <utility>
 
 #define COMPILE_SUCCESS 0
@@ -34,16 +36,26 @@ ShaderProgram::ShaderProgram(const char *vertexFile, const char *fragmentFile)
 
 ShaderProgram::~ShaderProgram() { this->Destroy(); }
 
-ShaderProgram::ShaderProgram(const ShaderProgram &shaderProgram)
+ShaderProgram::ShaderProgram(const ShaderProgram &other)
+    : ID(other.ID),
+      backendResource(other.backendResource),  // shared — no recompile
+      vertexShaderPath(other.vertexShaderPath),
+      fragmentShaderPath(other.fragmentShaderPath),
+      vertexSource(other.vertexSource),
+      fragmentSource(other.fragmentSource)
 {
-    this->SetShader(shaderProgram.vertexShaderPath, shaderProgram.fragmentShaderPath);
 }
 
-ShaderProgram &ShaderProgram::operator=(const ShaderProgram &shaderProgram)
+ShaderProgram &ShaderProgram::operator=(const ShaderProgram &other)
 {
-    if (this != &shaderProgram)
+    if (this != &other)
     {
-        this->SetShader(shaderProgram.vertexShaderPath, shaderProgram.fragmentShaderPath);
+        this->ID = other.ID;
+        this->backendResource = other.backendResource;  // shared — no recompile
+        this->vertexShaderPath = other.vertexShaderPath;
+        this->fragmentShaderPath = other.fragmentShaderPath;
+        this->vertexSource = other.vertexSource;
+        this->fragmentSource = other.fragmentSource;
     }
     return *this;
 }
@@ -134,7 +146,7 @@ void ShaderProgram::CompileShader()
         createInfo.stageSources.push_back({.stage = ShaderStage::Vertex, .sourceCode = this->vertexSource});
         createInfo.stageSources.push_back({.stage = ShaderStage::Fragment, .sourceCode = this->fragmentSource});
 
-        std::unique_ptr<IShaderProgramResource> resource = device->CreateShaderProgram(createInfo);
+        std::shared_ptr<IShaderProgramResource> resource = device->CreateShaderProgram(createInfo);
         if (auto *openGLResource = dynamic_cast<OpenGLShaderProgramResource *>(resource.get()); openGLResource != nullptr)
         {
             this->ID = openGLResource->GetProgramID();
@@ -146,6 +158,81 @@ void ShaderProgram::CompileShader()
             this->backendResource.reset();
         }
     }
+}
+
+bool ShaderProgram::SaveBinary(std::ostream &out) const
+{
+    if (backendResource == nullptr)
+    {
+        return false;
+    }
+
+    std::vector<std::byte> data;
+    std::uint32_t format = 0;
+    if (!backendResource->GetBinary(data, format))
+    {
+        return false;
+    }
+
+    const std::uint32_t binaryLen = static_cast<std::uint32_t>(data.size());
+    out.write(reinterpret_cast<const char *>(&format), sizeof(format));
+    out.write(reinterpret_cast<const char *>(&binaryLen), sizeof(binaryLen));
+    out.write(reinterpret_cast<const char *>(data.data()), static_cast<std::streamsize>(data.size()));
+    return out.good();
+}
+
+bool ShaderProgram::LoadBinary(std::istream &in)
+{
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device == nullptr || device->GetAPI() != GraphicsAPI::OpenGL)
+    {
+        return false;
+    }
+
+    std::uint32_t format = 0;
+    std::uint32_t binaryLen = 0;
+    in.read(reinterpret_cast<char *>(&format), sizeof(format));
+    in.read(reinterpret_cast<char *>(&binaryLen), sizeof(binaryLen));
+    if (!in || binaryLen == 0)
+    {
+        return false;
+    }
+
+    std::vector<std::byte> data(binaryLen);
+    in.read(reinterpret_cast<char *>(data.data()), binaryLen);
+    if (!in)
+    {
+        return false;
+    }
+
+    // Create a blank resource and load the binary into it.
+    ShaderProgramCreateInfo createInfo;
+    createInfo.desc.stages = ShaderStageBit(ShaderStage::Vertex) | ShaderStageBit(ShaderStage::Fragment);
+    createInfo.debugName = this->vertexShaderPath != nullptr ? this->vertexShaderPath : "cached_shader";
+
+    const IGraphicsDevice *device = TryGetActiveGraphicsDevice();
+    std::shared_ptr<IShaderProgramResource> resource = device->CreateShaderProgram(createInfo);
+    if (resource == nullptr)
+    {
+        return false;
+    }
+
+    if (!resource->LoadBinary(data, format))
+    {
+        return false;
+    }
+
+    if (auto *openGLResource = dynamic_cast<OpenGLShaderProgramResource *>(resource.get()))
+    {
+        this->ID = openGLResource->GetProgramID();
+    }
+
+    if (this->ID == 0)
+    {
+        return false;
+    }
+
+    this->backendResource = std::move(resource);
+    return true;
 }
 
 void ShaderProgram::Bind() const

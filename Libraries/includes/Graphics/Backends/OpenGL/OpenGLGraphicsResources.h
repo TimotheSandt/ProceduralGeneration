@@ -20,6 +20,8 @@ class OpenGLShaderProgramResource final : public IShaderProgramResource
     void SetFloatUniform(int location, const float *data, std::size_t componentCount) const override;
     void SetIntUniform(int location, const int *data, std::size_t componentCount) const override;
     void SetMatrix4Uniform(int location, const float *data) const override;
+    bool GetBinary(std::vector<std::byte> &dataOut, std::uint32_t &formatOut) const override;
+    bool LoadBinary(const std::vector<std::byte> &data, std::uint32_t format) override;
     GLuint GetProgramID() const noexcept;
 
   private:
