@@ -118,7 +118,8 @@ class FakeTextureResource final : public ITextureResource
     void Unbind() const override {}
     void Readback(std::vector<std::byte> &output) const override { output.clear(); }
     void Resize(std::uint32_t width, std::uint32_t height) override { desc.extent = {width, height}; }
-    void AttachToFramebuffer(std::uint32_t) const override {}
+    void AttachToFramebuffer(std::uint32_t, std::uint32_t) const override {}
+    void AttachAsDepthToFramebuffer(std::uint32_t) const override {}
 
   private:
     TextureDesc desc;
@@ -142,6 +143,7 @@ class FakeRenderTargetResource final : public IRenderTargetResource
     void BlitFromDefault(std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t) const override {}
     void BlitTo(const IRenderTargetResource &, std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t) const override {}
     void BlitToDefault(std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t) const override {}
+    void SetDrawBuffers(std::uint32_t) override {}
 
   private:
     RenderTargetDesc desc;
@@ -254,7 +256,8 @@ TestSuite CreateGraphicsCoreSuite()
             []
             {
                 const RenderTargetDesc renderTargetDesc{};
-                AssertEqual(renderTargetDesc.colorFormat, TextureFormat::RGBA8, "Render targets should default to RGBA8 color");
+                Assert(!renderTargetDesc.colorAttachments.empty(), "Render targets should default to at least one attachment");
+                AssertEqual(renderTargetDesc.colorAttachments[0], TextureFormat::RGBA8, "Render targets should default to RGBA8 color");
                 Assert(renderTargetDesc.hasDepthBuffer, "Render targets should default to a depth buffer");
             });
 
@@ -379,7 +382,7 @@ TestSuite CreateGraphicsCoreSuite()
                 const OpenGLGraphicsBackend backend;
                 const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
                 const std::unique_ptr<IRenderTargetResource> renderTarget = device->CreateRenderTarget(
-                    {.desc = {.extent = {640, 360}, .colorFormat = TextureFormat::RGBA8, .hasDepthBuffer = true}, .debugName = "scene_rt"});
+                    {.desc = {.extent = {640, 360}, .hasDepthBuffer = true}, .debugName = "scene_rt"});
 
                 Assert(renderTarget != nullptr, "OpenGL should create render target resources");
                 AssertEqual(renderTarget->GetAPI(), GraphicsAPI::OpenGL, "Render target resources should keep the OpenGL API tag");
@@ -448,7 +451,7 @@ TestSuite CreateGraphicsCoreSuite()
                                                              .allowCompaction = true},
                                                     .debugName = "scene_tlas"});
             const std::unique_ptr<IRenderTargetResource> renderTarget =
-                device.CreateRenderTarget({.desc = {.extent = {1920, 1080}, .colorFormat = TextureFormat::RGBA8, .hasDepthBuffer = true},
+                device.CreateRenderTarget({.desc = {.extent = {1920, 1080}, .hasDepthBuffer = true},
                                            .debugName = "lighting_rt"});
             const std::unique_ptr<IBufferResource> storageBuffer = device.CreateBuffer(
                 {.desc = {.usage = BufferUsage::Storage, .sizeInBytes = 4096, .cpuWritable = true}, .debugName = "light_storage"});

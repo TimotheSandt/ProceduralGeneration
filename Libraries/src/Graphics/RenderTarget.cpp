@@ -8,6 +8,8 @@
 
 RenderTarget::RenderTarget(int width, int height) { this->Init(width, height); }
 
+RenderTarget::RenderTarget(const RenderTargetDesc &desc) { this->Init(desc); }
+
 RenderTarget::RenderTarget(RenderTarget &&other) noexcept { this->Swap(other); }
 
 RenderTarget &RenderTarget::operator=(RenderTarget &&other) noexcept
@@ -31,7 +33,9 @@ void RenderTarget::Swap(RenderTarget &other) noexcept
     std::swap(this->backendRenderTarget, other.backendRenderTarget);
     std::swap(this->screenQuadShaderProgram, other.screenQuadShaderProgram);
     std::swap(this->screenQuadGeometry, other.screenQuadGeometry);
-    std::swap(this->colorTexture, other.colorTexture);
+    std::swap(this->colorTextures, other.colorTextures);
+    std::swap(this->depthTexture, other.depthTexture);
+    std::swap(this->hasDepthTexture, other.hasDepthTexture);
 }
 
 void RenderTarget::Destroy()
@@ -43,24 +47,34 @@ void RenderTarget::Destroy()
 
     ID = 0;
     depthBufferID = 0;
+    hasDepthTexture = false;
 
     this->screenQuadGeometry.reset();
     this->screenQuadShaderProgram.Destroy();
-    colorTexture.Destroy();
+    colorTextures.clear();
+    depthTexture.Destroy();
 }
 
 void RenderTarget::Init(int width, int height)
 {
-    this->width = width;
-    this->height = height;
+    RenderTargetDesc desc;
+    desc.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
+    desc.colorAttachments = {TextureFormat::RGBA8};
+    desc.hasDepthBuffer = true;
+    desc.depthAsTexture = false;
+    this->Init(desc);
+}
+
+void RenderTarget::Init(const RenderTargetDesc &desc)
+{
+    this->width = static_cast<int>(desc.extent.width);
+    this->height = static_cast<int>(desc.extent.height);
 
     if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
     {
         std::unique_ptr<IRenderTargetResource> renderTarget =
-            device->CreateRenderTarget({.desc = {.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)},
-                                                 .colorFormat = TextureFormat::RGBA8,
-                                                 .hasDepthBuffer = true},
-                                        .debugName = "offscreen_render_target"});
+            device->CreateRenderTarget({.desc = desc, .debugName = "offscreen_render_target"});
+
         if (auto *openGLRenderTarget = dynamic_cast<OpenGLRenderTargetResource *>(renderTarget.get()); openGLRenderTarget != nullptr)
         {
             this->ID = openGLRenderTarget->GetFramebufferID();
@@ -76,8 +90,7 @@ void RenderTarget::Init(int width, int height)
     }
 
     backendRenderTarget->Bind();
-
-    colorTexture.SetFramebufferTexture("screenTexture", 0, width, height, this->ID);
+    this->InitAttachments(desc);
 
     if (!backendRenderTarget->IsComplete())
     {
@@ -86,8 +99,45 @@ void RenderTarget::Init(int width, int height)
     }
 
     this->Unbind();
-
     this->Setup();
+}
+
+void RenderTarget::InitAttachments(const RenderTargetDesc &desc)
+{
+    const auto &formats = desc.colorAttachments;
+    colorTextures.resize(formats.size());
+
+    for (std::uint32_t i = 0; i < static_cast<std::uint32_t>(formats.size()); ++i)
+    {
+        // Slot i+1: reserve slot 0 for the depth texture when it exists, but
+        // since depth isn't sampled via a numbered slot in most shaders, just use i directly.
+        colorTextures[i].SetFramebufferTexture(
+            ("attachment" + std::to_string(i)).c_str(),
+            /*slot=*/i,
+            width, height,
+            this->ID,
+            /*colorIndex=*/i,
+            formats[i]);
+    }
+
+    // For single-attachment RTs created via Init(w,h), keep the old "screenTexture" name
+    // so existing post-process / upscale shaders that use `screenTexture` still work.
+    if (formats.size() == 1 && formats[0] == TextureFormat::RGBA8)
+    {
+        colorTextures[0].SetFramebufferTexture("screenTexture", /*slot=*/0, width, height,
+                                               this->ID, /*colorIndex=*/0, TextureFormat::RGBA8);
+    }
+
+    if (desc.hasDepthBuffer && desc.depthAsTexture)
+    {
+        depthTexture.SetFramebufferTexture("depthTexture", /*slot=*/static_cast<std::uint32_t>(formats.size()),
+                                           width, height, this->ID,
+                                           /*colorIndex=*/0, TextureFormat::Depth32Float);
+        hasDepthTexture = true;
+    }
+
+    // Tell the GPU which draw targets are active.
+    backendRenderTarget->SetDrawBuffers(static_cast<std::uint32_t>(formats.size()));
 }
 
 void RenderTarget::Bind() const
@@ -124,7 +174,16 @@ void RenderTarget::Resize(int newWidth, int newHeight)
     width = newWidth;
     height = newHeight;
 
-    colorTexture.ResizeFramebufferTexture(width, height);
+    for (auto &tex : colorTextures)
+    {
+        tex.ResizeFramebufferTexture(width, height);
+    }
+
+    if (hasDepthTexture)
+    {
+        depthTexture.ResizeFramebufferTexture(width, height);
+    }
+
     if (backendRenderTarget != nullptr)
     {
         backendRenderTarget->Resize(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
@@ -221,18 +280,20 @@ void RenderTarget::RenderScreenQuad() const { RenderScreenQuad(width, height); }
 
 void RenderTarget::RenderScreenQuad(int fWidth, int fHeight) const
 {
-    if (this->screenQuadGeometry == nullptr)
+    if (this->screenQuadGeometry == nullptr || colorTextures.empty())
     {
         LOG_ERROR(1, "Screen quad geometry was not initialized");
         return;
     }
 
+    const Texture &primary = colorTextures[0];
+
     GraphicsRenderState::SetViewport(0, 0, fWidth, fHeight);
     GraphicsRenderState::BindDefaultFramebuffer();
     GraphicsRenderState::SetDepthTest(false);
 
-    colorTexture.texUnit(this->screenQuadShaderProgram);
-    colorTexture.Bind();
+    primary.texUnit(this->screenQuadShaderProgram);
+    primary.Bind();
 
     this->screenQuadShaderProgram.Bind();
     this->screenQuadGeometry->Bind();
@@ -241,7 +302,7 @@ void RenderTarget::RenderScreenQuad(int fWidth, int fHeight) const
 
     this->screenQuadGeometry->Unbind();
     this->screenQuadShaderProgram.Unbind();
-    colorTexture.Unbind();
+    primary.Unbind();
 
     GraphicsRenderState::SetDepthTest(true);
 }

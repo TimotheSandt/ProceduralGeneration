@@ -49,7 +49,12 @@ class Texture
                         TexturePixelType pixelType = TexturePixelType::UnsignedByte, TextureFilterMode filter = TextureFilterMode::Linear);
     void *GetTextureData(int &width, int &height, TextureFormat &format, TexturePixelType &pixelType) const;
 
-    void SetFramebufferTexture(const char *uniformName, std::uint32_t slot, int width, int height, std::uint32_t renderTargetHandle);
+    // Attach this texture to a framebuffer.
+    // For color attachments: provide a colorIndex (0 = GL_COLOR_ATTACHMENT0, 1 = GL_COLOR_ATTACHMENT1, …).
+    // For depth attachments: use a depth format (Depth32Float or Depth24Stencil8); colorIndex is ignored.
+    void SetFramebufferTexture(const char *uniformName, std::uint32_t slot, int width, int height,
+                               std::uint32_t renderTargetHandle, std::uint32_t colorIndex = 0,
+                               TextureFormat format = TextureFormat::RGBA8);
     void ResizeFramebufferTexture(int width, int height);
 
     void texUnit(const ShaderProgram &shaderProgram) const;

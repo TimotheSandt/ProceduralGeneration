@@ -5,8 +5,6 @@
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Mesh.h"
 
-GraphicsAPI Renderer3D::GetRequiredAPI() const noexcept { return GraphicsAPI::OpenGL; }
-
 void Renderer3D::OnBeginPass()
 {
     GraphicsRenderState::SetViewport(0, 0, GetFrameWidth(), GetFrameHeight());
@@ -25,7 +23,7 @@ void Renderer3D::SetCamera(Camera &camera) const
 {
     if (IsRuntimeCompatible())
     {
-        camera.BindUBO();
+        camera.Bind();
     }
 }
 

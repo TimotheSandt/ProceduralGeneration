@@ -7,7 +7,6 @@
 
 #include <glm/vec4.hpp>
 #include <memory>
-#include <string>
 #include <string_view>
 #include <vector>
 
@@ -16,8 +15,8 @@ class RenderTarget;
 class Renderer
 {
   public:
-    Renderer();
-    virtual ~Renderer() = default;
+    explicit Renderer(GraphicsAPI requiredApi);
+    virtual ~Renderer();
 
     bool IsRuntimeCompatible() const noexcept;
 
@@ -37,7 +36,7 @@ class Renderer
     bool IsUpscalingEnabled() const noexcept { return upscalingEnabled; }
 
     // -------------------------------------------------------------------------
-    // Frame extent — valid only after BeginPass(), cleared by EndPass().
+    // Frame extent — valid only after BeginPass(), reset at next BeginPass().
     // -------------------------------------------------------------------------
     int GetFrameWidth() const noexcept { return frameWidth; }
     int GetFrameHeight() const noexcept { return frameHeight; }
@@ -57,6 +56,7 @@ class Renderer
     bool SetActiveUpscaleMode(std::string_view name);
     std::string_view GetActiveUpscaleMode() const noexcept;
     std::vector<std::string_view> GetRegisteredUpscaleModes() const;
+    UpscaleRequirements GetActiveUpscaleModeRequirements() const noexcept;
 
     // -------------------------------------------------------------------------
     // Post-processing passes — executed in order before upscaling.
@@ -70,7 +70,6 @@ class Renderer
     void SetFrameGenerationMode(std::unique_ptr<IFrameGenerationMode> mode);
 
   protected:
-    virtual GraphicsAPI GetRequiredAPI() const noexcept = 0;
     virtual void OnBeginPass() = 0;
     virtual void OnEndPass() {}
     virtual void OnClear(const glm::vec4 &clearColor, bool clearDepth) const = 0;
@@ -87,6 +86,10 @@ class Renderer
     void GetRenderResolution(int &width, int &height) const noexcept;
 
   private:
+    bool IsScaledRendering() const noexcept;
+
+    GraphicsAPI requiredApi;
+
     int outputWidth = 0;
     int outputHeight = 0;
     float renderScale = 1.0f;

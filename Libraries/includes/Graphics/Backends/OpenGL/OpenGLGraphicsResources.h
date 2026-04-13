@@ -102,7 +102,8 @@ class OpenGLTextureResource final : public ITextureResource
     void Unbind() const override;
     void Readback(std::vector<std::byte> &output) const override;
     void Resize(std::uint32_t width, std::uint32_t height) override;
-    void AttachToFramebuffer(std::uint32_t framebufferHandle) const override;
+    void AttachToFramebuffer(std::uint32_t framebufferHandle, std::uint32_t colorIndex) const override;
+    void AttachAsDepthToFramebuffer(std::uint32_t framebufferHandle) const override;
     GLuint GetTextureID() const noexcept;
 
   private:
@@ -128,6 +129,7 @@ class OpenGLRenderTargetResource final : public IRenderTargetResource
     void BlitTo(const IRenderTargetResource &destination, std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth,
                 std::uint32_t dstHeight) const override;
     void BlitToDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth, std::uint32_t dstHeight) const override;
+    void SetDrawBuffers(std::uint32_t count) override;
     GLuint GetFramebufferID() const noexcept;
     GLuint GetDepthBufferID() const noexcept;
 

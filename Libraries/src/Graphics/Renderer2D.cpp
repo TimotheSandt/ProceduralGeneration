@@ -4,8 +4,6 @@
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "UI/TextRenderer.h"
 
-GraphicsAPI Renderer2D::GetRequiredAPI() const noexcept { return GraphicsAPI::OpenGL; }
-
 void Renderer2D::OnBeginPass()
 {
     if (UsesRenderTarget())
@@ -20,8 +18,6 @@ void Renderer2D::OnBeginPass()
 
 void Renderer2D::OnEndPass()
 {
-    GraphicsRenderState::SetScissorTest(false);
-    GraphicsRenderState::SetBlend(false);
     GraphicsRenderState::SetDepthTest(true);
 }
 

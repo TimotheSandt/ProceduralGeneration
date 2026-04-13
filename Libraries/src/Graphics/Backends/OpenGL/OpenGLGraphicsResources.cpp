@@ -45,6 +45,8 @@ GLint ToOpenGLInternalFormat(TextureFormat format)
             return GL_DEPTH_COMPONENT32F;
         case TextureFormat::R8:
             return GL_R8;
+        case TextureFormat::R32UI:
+            return GL_R32UI;
         default:
             return GL_RGBA8;
     }
@@ -64,6 +66,8 @@ GLenum ToOpenGLDataFormat(TextureFormat format)
             return GL_DEPTH_COMPONENT;
         case TextureFormat::R8:
             return GL_RED;
+        case TextureFormat::R32UI:
+            return GL_RED_INTEGER;
         default:
             return GL_RGBA;
     }
@@ -77,6 +81,8 @@ GLenum ToOpenGLDataType(TextureFormat format)
             return GL_UNSIGNED_INT_24_8;
         case TextureFormat::Depth32Float:
             return GL_FLOAT;
+        case TextureFormat::R32UI:
+            return GL_UNSIGNED_INT;
         case TextureFormat::BGRA8:
         case TextureFormat::RGBA8:
         case TextureFormat::R8:
@@ -643,7 +649,7 @@ OpenGLTextureResource::OpenGLTextureResource(TextureCreateInfo createInfo)
     const GLenum dataFormat = ToOpenGLDataFormat(desc.format);
     const GLenum dataType = ToOpenGLDataType(desc.format);
     const void *initialData = createInfo.initialData.empty() ? nullptr : createInfo.initialData.data();
-    const bool isSingleChannelTexture = desc.format == TextureFormat::R8;
+    const bool isSingleChannelTexture = (desc.format == TextureFormat::R8 || desc.format == TextureFormat::R32UI);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
                     (desc.renderTarget || !createInfo.generateMipmaps) ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR);
@@ -718,6 +724,7 @@ void OpenGLTextureResource::Readback(std::vector<std::byte> &output) const
             bytesPerPixel = 1;
             break;
         case TextureFormat::Depth32Float:
+        case TextureFormat::R32UI:
             bytesPerPixel = sizeof(float);
             break;
         case TextureFormat::Depth24Stencil8:
@@ -751,7 +758,7 @@ void OpenGLTextureResource::Resize(std::uint32_t width, std::uint32_t height)
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void OpenGLTextureResource::AttachToFramebuffer(std::uint32_t framebufferHandle) const
+void OpenGLTextureResource::AttachToFramebuffer(std::uint32_t framebufferHandle, std::uint32_t colorIndex) const
 {
     if (textureID == 0)
     {
@@ -759,7 +766,19 @@ void OpenGLTextureResource::AttachToFramebuffer(std::uint32_t framebufferHandle)
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(framebufferHandle));
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureID, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + colorIndex, GL_TEXTURE_2D, textureID, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void OpenGLTextureResource::AttachAsDepthToFramebuffer(std::uint32_t framebufferHandle) const
+{
+    if (textureID == 0)
+    {
+        return;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(framebufferHandle));
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, textureID, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -776,7 +795,10 @@ OpenGLRenderTargetResource::OpenGLRenderTargetResource(RenderTargetCreateInfo cr
     glGenFramebuffers(1, &framebufferID);
     glBindFramebuffer(GL_FRAMEBUFFER, framebufferID);
 
-    if (desc.hasDepthBuffer)
+    // Allocate depth as a renderbuffer only when hasDepthBuffer is true and depth is NOT
+    // a texture (depthAsTexture == false). When depthAsTexture is true, RenderTarget
+    // creates a Texture with a depth format and attaches it via AttachAsDepthToFramebuffer.
+    if (desc.hasDepthBuffer && !desc.depthAsTexture)
     {
         glGenRenderbuffers(1, &depthBufferID);
         glBindRenderbuffer(GL_RENDERBUFFER, depthBufferID);
@@ -873,6 +895,27 @@ void OpenGLRenderTargetResource::BlitToDefault(std::uint32_t srcWidth, std::uint
                       static_cast<GLint>(dstHeight), GL_COLOR_BUFFER_BIT, GL_LINEAR);
     glBlitFramebuffer(0, 0, static_cast<GLint>(srcWidth), static_cast<GLint>(srcHeight), 0, 0, static_cast<GLint>(dstWidth),
                       static_cast<GLint>(dstHeight), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void OpenGLRenderTargetResource::SetDrawBuffers(std::uint32_t count)
+{
+    if (framebufferID == 0 || count == 0)
+    {
+        return;
+    }
+
+    constexpr std::uint32_t maxAttachments = 8;
+    count = count < maxAttachments ? count : maxAttachments;
+
+    GLenum buffers[maxAttachments];
+    for (std::uint32_t i = 0; i < count; ++i)
+    {
+        buffers[i] = GL_COLOR_ATTACHMENT0 + i;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebufferID);
+    glDrawBuffers(static_cast<GLsizei>(count), buffers);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Graphics/Upscaling/IUpscaleMode.h"
-#include "Graphics/Upscaling/UpscaleTypes.h"
 
 class IAdvancedUpscaleMode : public IUpscaleMode
 {
@@ -11,4 +10,6 @@ class IAdvancedUpscaleMode : public IUpscaleMode
     virtual bool Initialize(const IGraphicsDevice &device) = 0;
     virtual void Shutdown() = 0;
     virtual bool Execute(const UpscaleInput &input, UpscaleOutput &output) = 0;
+
+    UpscaleRequirements GetRequirements() const noexcept override { return GetDescription().requirements; }
 };

@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 enum class ShaderStage : std::uint8_t
 {
@@ -36,7 +37,8 @@ enum class TextureFormat : std::uint8_t
     BGRA8,
     Depth24Stencil8,
     Depth32Float,
-    R8
+    R8,
+    R32UI  // unsigned 32-bit integer single channel — use for object ID buffers
 };
 
 enum class AccelerationStructureType : std::uint8_t
@@ -109,8 +111,13 @@ struct TextureDesc
 struct RenderTargetDesc
 {
     Extent2D extent{};
-    TextureFormat colorFormat = TextureFormat::RGBA8;
+    // One entry per color attachment. At least one is required.
+    // Common formats: RGBA8 (color), R32UI (object IDs), Depth32Float (readable depth).
+    std::vector<TextureFormat> colorAttachments = {TextureFormat::RGBA8};
     bool hasDepthBuffer = true;
+    // When true, depth is allocated as a readable texture (sampled in shaders).
+    // When false, depth is a renderbuffer (faster, but not readable).
+    bool depthAsTexture = false;
 };
 
 struct ShaderProgramDesc

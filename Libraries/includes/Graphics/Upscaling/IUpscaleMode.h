@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Graphics/Upscaling/UpscaleTypes.h"
+
 #include <string_view>
 
 class Renderer;
@@ -13,4 +15,6 @@ class IUpscaleMode
     virtual std::string_view GetName() const noexcept = 0;
     virtual bool SupportsRenderer(const Renderer &renderer) const noexcept = 0;
     virtual void Upscale(const RenderTarget &source, int outputWidth, int outputHeight) const = 0;
+
+    virtual UpscaleRequirements GetRequirements() const noexcept { return {}; }
 };

@@ -195,6 +195,7 @@ size_t Texture::GetComponentCount(TextureFormat format) const
     switch (format)
     {
         case TextureFormat::R8:
+        case TextureFormat::R32UI:
         case TextureFormat::Depth32Float:
             return 1;
         case TextureFormat::Depth24Stencil8:
@@ -208,21 +209,27 @@ size_t Texture::GetComponentCount(TextureFormat format) const
 
 size_t Texture::GetDataSize() const { return Width * Height * GetComponentCount(format) * GetPixelTypeSize(pixelType); }
 
-void Texture::SetFramebufferTexture(const char *uniformName, std::uint32_t slot, int width, int height, std::uint32_t renderTargetHandle)
+static bool IsDepthFormat(TextureFormat format)
+{
+    return format == TextureFormat::Depth32Float || format == TextureFormat::Depth24Stencil8;
+}
+
+void Texture::SetFramebufferTexture(const char *uniformName, std::uint32_t slot, int width, int height,
+                                    std::uint32_t renderTargetHandle, std::uint32_t colorIndex, TextureFormat format)
 {
     this->Destroy();
     this->slot = slot;
     this->UniformName = uniformName;
     this->Width = width;
     this->Height = height;
-    this->format = TextureFormat::RGBA8;
-    this->pixelType = TexturePixelType::UnsignedByte;
+    this->format = format;
+    this->pixelType = IsDepthFormat(format) ? TexturePixelType::Float : TexturePixelType::UnsignedByte;
 
     if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
     {
         TextureCreateInfo createInfo;
         createInfo.desc.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
-        createInfo.desc.format = TextureFormat::RGBA8;
+        createInfo.desc.format = format;
         createInfo.desc.mipLevels = 1;
         createInfo.desc.renderTarget = true;
         createInfo.debugName = this->UniformName;
@@ -235,7 +242,14 @@ void Texture::SetFramebufferTexture(const char *uniformName, std::uint32_t slot,
             this->backendResource = std::move(resource);
             if (this->ID != 0)
             {
-                this->backendResource->AttachToFramebuffer(renderTargetHandle);
+                if (IsDepthFormat(format))
+                {
+                    this->backendResource->AttachAsDepthToFramebuffer(renderTargetHandle);
+                }
+                else
+                {
+                    this->backendResource->AttachToFramebuffer(renderTargetHandle, colorIndex);
+                }
                 return;
             }
             this->backendResource.reset();

@@ -5,13 +5,21 @@
 #include "Graphics/RenderTarget.h"
 #include "Graphics/Upscaling/Modes/BilinearBlitUpscaleMode.h"
 
-Renderer::Renderer()
+Renderer::Renderer(GraphicsAPI requiredApi) : requiredApi(requiredApi)
 {
     RegisterUpscaleMode(std::make_unique<BilinearBlitUpscaleMode>());
     SetActiveUpscaleMode("bilinear-blit");
 }
 
-bool Renderer::IsRuntimeCompatible() const noexcept { return IsGraphicsAPIActive(GetRequiredAPI()); }
+Renderer::~Renderer()
+{
+    if (frameGenMode)
+    {
+        frameGenMode->Shutdown();
+    }
+}
+
+bool Renderer::IsRuntimeCompatible() const noexcept { return IsGraphicsAPIActive(requiredApi); }
 
 void Renderer::SetOutputResolution(int width, int height) noexcept
 {
@@ -32,9 +40,14 @@ void Renderer::SetRenderScale(float scale) noexcept
 
 void Renderer::SetUpscalingEnabled(bool enabled) noexcept { upscalingEnabled = enabled; }
 
+bool Renderer::IsScaledRendering() const noexcept
+{
+    return upscalingEnabled && renderScale < 1.0f && outputWidth > 0 && outputHeight > 0;
+}
+
 void Renderer::GetRenderResolution(int &width, int &height) const noexcept
 {
-    if (upscalingEnabled && renderScale < 1.0f && outputWidth > 0 && outputHeight > 0)
+    if (IsScaledRendering())
     {
         width = static_cast<int>(static_cast<float>(outputWidth) * renderScale);
         height = static_cast<int>(static_cast<float>(outputHeight) * renderScale);
@@ -47,8 +60,7 @@ void Renderer::GetRenderResolution(int &width, int &height) const noexcept
 
 bool Renderer::UsesRenderTarget() const noexcept
 {
-    return (upscalingEnabled && renderScale < 1.0f && outputWidth > 0 && outputHeight > 0) ||
-           !postProcessPasses.empty() || frameGenMode != nullptr;
+    return IsScaledRendering() || !postProcessPasses.empty() || frameGenMode != nullptr;
 }
 
 void Renderer::BeginPass()
@@ -65,8 +77,9 @@ void Renderer::BeginPass()
 
     if (UsesRenderTarget())
     {
-        GetRenderTarget().Resize(width, height);
-        GetRenderTarget().Bind();
+        RenderTarget &rt = GetRenderTarget();
+        rt.Resize(width, height);
+        rt.Bind();
     }
     else
     {
@@ -85,12 +98,11 @@ void Renderer::EndPass()
 
     if (UsesRenderTarget())
     {
+        RenderTarget &rt = GetRenderTarget();
+
         for (const auto &pass : postProcessPasses)
         {
-            if (pass)
-            {
-                pass->Process(GetRenderTarget(), frameWidth, frameHeight);
-            }
+            pass->Process(rt, frameWidth, frameHeight);
         }
 
         GraphicsRenderState::SetScissorTest(false);
@@ -98,9 +110,15 @@ void Renderer::EndPass()
 
         if (activeUpscaleMode != nullptr)
         {
-            activeUpscaleMode->Upscale(GetRenderTarget(), outputWidth, outputHeight);
+            activeUpscaleMode->Upscale(rt, outputWidth, outputHeight);
         }
+
+        // TODO: call frameGenMode->GenerateFrame() with the upscaled output.
+        // Requires depth buffer, motion vectors, and previous frame history.
     }
+
+    GraphicsRenderState::SetScissorTest(false);
+    GraphicsRenderState::SetBlend(false);
 
     OnEndPass();
 }
@@ -166,6 +184,11 @@ std::vector<std::string_view> Renderer::GetRegisteredUpscaleModes() const
     return result;
 }
 
+UpscaleRequirements Renderer::GetActiveUpscaleModeRequirements() const noexcept
+{
+    return activeUpscaleMode != nullptr ? activeUpscaleMode->GetRequirements() : UpscaleRequirements{};
+}
+
 void Renderer::AddPostProcessPass(std::unique_ptr<IPostProcessPass> pass)
 {
     if (pass)
@@ -182,5 +205,19 @@ void Renderer::RemovePostProcessPass(std::string_view name)
 
 void Renderer::SetFrameGenerationMode(std::unique_ptr<IFrameGenerationMode> mode)
 {
+    if (frameGenMode)
+    {
+        frameGenMode->Shutdown();
+    }
+
     frameGenMode = std::move(mode);
+
+    if (frameGenMode)
+    {
+        const IGraphicsDevice *device = TryGetActiveGraphicsDevice();
+        if (device != nullptr && !frameGenMode->Initialize(*device))
+        {
+            frameGenMode.reset();
+        }
+    }
 }

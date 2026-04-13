@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Renderer.h"
-#include "Graphics/Core/GraphicsTypes.h"
 #include "RenderTarget.h"
 #include "Sprite.h"
 
@@ -19,7 +18,7 @@ struct TextLayoutParams;
 class Renderer2D : public Renderer
 {
   public:
-    Renderer2D() = default;
+    Renderer2D() : Renderer(GraphicsAPI::OpenGL) {}
 
     void BeginCanvasPass() const;
     void EndCanvasPass() const;
@@ -34,7 +33,6 @@ class Renderer2D : public Renderer
     void PresentRenderTarget(const RenderTarget &renderTarget) const;
 
   protected:
-    GraphicsAPI GetRequiredAPI() const noexcept override;
     void OnBeginPass() override;
     void OnEndPass() override;
     void OnClear(const glm::vec4 &clearColor, bool clearDepth) const override;

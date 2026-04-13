@@ -128,7 +128,10 @@ class ITextureResource : public IGraphicsResource
     virtual void Unbind() const = 0;
     virtual void Readback(std::vector<std::byte> &output) const = 0;
     virtual void Resize(std::uint32_t width, std::uint32_t height) = 0;
-    virtual void AttachToFramebuffer(std::uint32_t framebufferHandle) const = 0;
+    // Attach as a color attachment at the given index (GL_COLOR_ATTACHMENT0 + index).
+    virtual void AttachToFramebuffer(std::uint32_t framebufferHandle, std::uint32_t colorIndex) const = 0;
+    // Attach as the depth attachment (GL_DEPTH_ATTACHMENT). Format must be a depth format.
+    virtual void AttachAsDepthToFramebuffer(std::uint32_t framebufferHandle) const = 0;
 };
 
 class IGeometryResource : public IGraphicsResource
@@ -163,6 +166,8 @@ class IRenderTargetResource : public IGraphicsResource
     virtual void BlitTo(const IRenderTargetResource &destination, std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth,
                         std::uint32_t dstHeight) const = 0;
     virtual void BlitToDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth, std::uint32_t dstHeight) const = 0;
+    // Set which color attachments are active draw targets (call after attaching all textures).
+    virtual void SetDrawBuffers(std::uint32_t count) = 0;
 };
 
 class IAccelerationStructureResource : public IGraphicsResource
