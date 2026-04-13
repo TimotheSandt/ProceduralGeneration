@@ -2,6 +2,8 @@
 
 #include "Graphics/Upscaling/UpscaleTypes.h"
 
+class IGraphicsDevice;
+
 class IFrameGenerationMode
 {
   public:

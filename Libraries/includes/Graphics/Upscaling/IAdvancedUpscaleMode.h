@@ -2,6 +2,8 @@
 
 #include "Graphics/Upscaling/IUpscaleMode.h"
 
+class IGraphicsDevice;
+
 class IAdvancedUpscaleMode : public IUpscaleMode
 {
   public:
