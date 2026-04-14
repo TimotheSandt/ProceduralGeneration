@@ -3,6 +3,7 @@
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Graphics/Core/GraphicsTypes.h"
 #include "Graphics/Core/RenderState.h"
+#include "Graphics/Upscaling/IAdvancedUpscaleMode.h"
 #include "Graphics/Upscaling/Modes/BilinearBlitUpscaleMode.h"
 
 Renderer::Renderer(GraphicsAPI requiredApi) : requiredApi(requiredApi)
@@ -148,7 +149,30 @@ void Renderer::EndPass()
 
         if (activeUpscaleMode != nullptr)
         {
-            activeUpscaleMode->Upscale(rt, outputWidth, outputHeight);
+            // For advanced modes, build the full UpscaleInput so Execute() receives
+            // depth, motion vectors, history, and jitter.
+            if (auto *advanced = dynamic_cast<IAdvancedUpscaleMode *>(activeUpscaleMode))
+            {
+                UpscaleInput upscaleInput;
+                upscaleInput.color            = &rt.GetTexture(0);
+                upscaleInput.depth            = rt.TryGetDepthTexture();
+                upscaleInput.motionVectors    = (motionVectorsEnabled && rt.GetColorAttachmentCount() > 1)
+                                                    ? &rt.GetTexture(1) : nullptr;
+                upscaleInput.historyColor     = historyTarget.IsInitialized()
+                                                    ? &historyTarget.GetTexture(0) : nullptr;
+                upscaleInput.renderResolution = {static_cast<float>(frameWidth), static_cast<float>(frameHeight)};
+                upscaleInput.outputResolution = {static_cast<float>(outputWidth), static_cast<float>(outputHeight)};
+                upscaleInput.jitter           = currentJitter;
+                upscaleInput.deltaTimeSeconds = deltaTime;
+                upscaleInput.resetHistory     = resetHistoryNextFrame;
+
+                UpscaleOutput upscaleOutput;
+                advanced->Execute(upscaleInput, upscaleOutput);
+            }
+            else
+            {
+                activeUpscaleMode->Upscale(rt, outputWidth, outputHeight);
+            }
         }
 
         if (frameGenMode != nullptr)
@@ -206,7 +230,7 @@ bool Renderer::SetActiveUpscaleMode(std::string_view name)
         return true;
     }
 
-    for (const auto &mode : upscaleModes)
+    for (auto &mode : upscaleModes)
     {
         if (mode && mode->GetName() == name && mode->SupportsRenderer(*this))
         {

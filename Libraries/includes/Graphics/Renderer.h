@@ -130,7 +130,7 @@ class Renderer
     int frameHeight = 0;
 
     std::vector<std::unique_ptr<IUpscaleMode>> upscaleModes;
-    const IUpscaleMode *activeUpscaleMode = nullptr;
+    IUpscaleMode *activeUpscaleMode = nullptr;
 
     std::vector<std::unique_ptr<IPostProcessPass>> postProcessPasses;
 
