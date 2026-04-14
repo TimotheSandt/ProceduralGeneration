@@ -1,11 +1,15 @@
 #pragma once
 
+#include "Graphics/Backends/Vulkan/VulkanContext.h"
 #include "Graphics/Core/GraphicsDevice.h"
+
+#include <memory>
 
 class VulkanGraphicsDevice final : public IGraphicsDevice
 {
   public:
-    explicit VulkanGraphicsDevice(GraphicsCapabilities capabilities);
+    VulkanGraphicsDevice(std::shared_ptr<VulkanBackendContext> backendContext, GraphicsCapabilities capabilities);
+    ~VulkanGraphicsDevice() override;
 
     GraphicsAPI GetAPI() const noexcept override;
     std::string_view GetDeviceName() const noexcept override;
@@ -22,6 +26,9 @@ class VulkanGraphicsDevice final : public IGraphicsDevice
 
   private:
     ShaderStageMask GetSupportedStages() const noexcept;
+    bool CreateLogicalDevice();
 
+    std::shared_ptr<VulkanDeviceContext> deviceContext;
     GraphicsCapabilities capabilities;
+    std::string deviceName;
 };

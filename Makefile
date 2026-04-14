@@ -54,7 +54,7 @@ ifeq ($(DETECTED_OS),Windows)
 	VCPKG_TRIPLET ?= x64-mingw-dynamic
 	GLFW_LINK_NAME := glfw3dll
 	PLATFORM_DEFINES += -DNOMINMAX -DWIN32_LEAN_AND_MEAN
-	LDFLAGS = -L$(VCPKG_INSTALLED_DIR)/lib -l$(GLFW_LINK_NAME) -lglad -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lpsapi -lwinmm -lgdi32 -lstdc++exp
+	LDFLAGS = -L$(VCPKG_INSTALLED_DIR)/lib -l$(GLFW_LINK_NAME) -lglad -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lvulkan-1 -lpsapi -lwinmm -lgdi32 -lstdc++exp
 	COPY_LIBS_TARGETS := copy_libs
 	CREATE_INSTALLER := create_windows_installer
 	ARCHITECTURE := $(ARCHITECTURE_WINDOWS)
@@ -70,7 +70,7 @@ else ifeq ($(DETECTED_OS),Linux)
 	EXE_EXT :=
 	VCPKG_TRIPLET ?= x64-linux
 	GLFW_LINK_NAME := glfw
-	LDFLAGS = -lglfw -lGL -lpthread -lX11 -ldl -lm
+	LDFLAGS = -lglfw -lGL -lvulkan -lpthread -lX11 -ldl -lm
 	COPY_LIBS_TARGETS :=
 	CREATE_INSTALLER := create_linux_installer
 	ARCHITECTURE := $(ARCHITECTURE_LINUX)
@@ -241,7 +241,7 @@ create_linux_installer: | $(BUILD_DIR)
 	@echo "Linux .deb created: $(BUILD_DIR)/$(INSTALLER_FILE)"
 
 # Dependencies via vcpkg
-install_deps:
+install i:
 	@echo "Checking and installing dependencies with vcpkg..."
 	$(VCPKG) install --triplet=$(VCPKG_TRIPLET) --x-install-root=$(VCPKG_INSTALLED_ROOT)
 
@@ -417,7 +417,7 @@ endif
 .PHONY: info info-debug info-dev info-release debug-info dev-info release-info
 .PHONY: check check-syntax check-format format lint copy_libs copy_res copy_test_libs all_copy
 .PHONY: create_windows_installer create_linux_installer installer
-.PHONY: install_deps remove_deps reset_deps
+.PHONY: install i remove_deps reset_deps
 
 # Dependencies
 -include $(wildcard $(ALL_OBJECTS:.o=.d))
