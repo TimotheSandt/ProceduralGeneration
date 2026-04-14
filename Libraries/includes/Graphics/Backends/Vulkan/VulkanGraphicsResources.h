@@ -1,8 +1,12 @@
 #pragma once
 
+#include "Graphics/Backends/Vulkan/VulkanContext.h"
 #include "Graphics/Core/GraphicsResources.h"
 
+#include <vulkan/vulkan.h>
+
 #include <optional>
+#include <memory>
 #include <unordered_map>
 
 class VulkanShaderProgramResource final : public IShaderProgramResource
@@ -36,7 +40,8 @@ class VulkanShaderProgramResource final : public IShaderProgramResource
 class VulkanBufferResource final : public IBufferResource
 {
   public:
-    explicit VulkanBufferResource(BufferCreateInfo createInfo);
+    VulkanBufferResource(std::shared_ptr<VulkanDeviceContext> deviceContext, BufferCreateInfo createInfo);
+    ~VulkanBufferResource() override;
 
     GraphicsAPI GetAPI() const noexcept override;
     std::string_view GetDebugName() const noexcept override;
@@ -50,16 +55,25 @@ class VulkanBufferResource final : public IBufferResource
     void Unmap() override;
 
   private:
+    bool CreateBuffer(std::size_t sizeInBytes);
+    void DestroyBuffer() noexcept;
+    void UploadStorageToGPU(std::size_t offset, std::size_t size) const;
+
+    std::shared_ptr<VulkanDeviceContext> deviceContext;
     BufferDesc desc;
     std::string debugName;
     std::vector<std::byte> storage;
+    VkBuffer buffer = nullptr;
+    VkDeviceMemory memory = nullptr;
+    void *mappedData = nullptr;
     bool mapped = false;
 };
 
 class VulkanGeometryResource final : public IGeometryResource
 {
   public:
-    explicit VulkanGeometryResource(GeometryCreateInfo createInfo);
+    VulkanGeometryResource(std::shared_ptr<VulkanDeviceContext> deviceContext, GeometryCreateInfo createInfo);
+    ~VulkanGeometryResource() override;
 
     GraphicsAPI GetAPI() const noexcept override;
     std::string_view GetDebugName() const noexcept override;
@@ -75,11 +89,22 @@ class VulkanGeometryResource final : public IGeometryResource
     void DrawVertices(std::size_t vertexCount) const override;
 
   private:
+    bool CreateOrResizeBuffers();
+    void DestroyBuffers() noexcept;
+    void UploadBuffer(VkBuffer buffer, VkDeviceMemory memory, const void *data, std::size_t size) const;
+
+    std::shared_ptr<VulkanDeviceContext> deviceContext;
     GeometryLayout layout;
     std::vector<float> vertexData;
     std::vector<std::uint32_t> indexData;
     std::vector<float> instanceData;
     std::string debugName;
+    VkBuffer vertexBuffer = nullptr;
+    VkDeviceMemory vertexMemory = nullptr;
+    VkBuffer indexBuffer = nullptr;
+    VkDeviceMemory indexMemory = nullptr;
+    VkBuffer instanceBuffer = nullptr;
+    VkDeviceMemory instanceMemory = nullptr;
 };
 
 class VulkanTextureResource final : public ITextureResource

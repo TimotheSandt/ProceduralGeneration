@@ -52,12 +52,12 @@ bool VulkanGraphicsDevice::SupportsShaderStages(ShaderStageMask stages) const no
 
 std::unique_ptr<IBufferResource> VulkanGraphicsDevice::CreateBuffer(const BufferCreateInfo &createInfo) const
 {
-    return std::make_unique<VulkanBufferResource>(createInfo);
+    return std::make_unique<VulkanBufferResource>(deviceContext, createInfo);
 }
 
 std::unique_ptr<IGeometryResource> VulkanGraphicsDevice::CreateGeometry(const GeometryCreateInfo &createInfo) const
 {
-    return std::make_unique<VulkanGeometryResource>(createInfo);
+    return std::make_unique<VulkanGeometryResource>(deviceContext, createInfo);
 }
 
 std::unique_ptr<IShaderProgramResource> VulkanGraphicsDevice::CreateShaderProgram(const ShaderProgramCreateInfo &createInfo) const

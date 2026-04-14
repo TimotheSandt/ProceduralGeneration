@@ -1,5 +1,10 @@
 #include "Graphics/Backends/Vulkan/VulkanGraphicsResources.h"
 
+#include <vulkan/vulkan.h>
+
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
 #include <algorithm>
 #include <cstring>
 
@@ -14,6 +19,108 @@ std::vector<std::byte> CopyBytes(const void *data, std::size_t size)
         std::memcpy(output.data(), data, size);
     }
     return output;
+}
+
+VkBufferUsageFlags BufferUsageToVulkan(BufferUsage usage) noexcept
+{
+    switch (usage)
+    {
+        case BufferUsage::Vertex:
+            return VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        case BufferUsage::Index:
+            return VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+        case BufferUsage::Uniform:
+            return VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        case BufferUsage::Storage:
+            return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        default:
+            return VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    }
+}
+
+std::uint32_t FindMemoryType(const VulkanBackendContext &backendContext, std::uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+    for (std::uint32_t i = 0; i < backendContext.memoryProperties.memoryTypeCount; ++i)
+    {
+        const bool matchesType = (typeFilter & (1u << i)) != 0;
+        const bool matchesProperties =
+            (backendContext.memoryProperties.memoryTypes[i].propertyFlags & properties) == properties;
+        if (matchesType && matchesProperties)
+        {
+            return i;
+        }
+    }
+
+    return UINT32_MAX;
+}
+
+bool CreateBufferHandle(const std::shared_ptr<VulkanDeviceContext> &deviceContext, VkBufferUsageFlags usage, VkDeviceSize size,
+                        VkBuffer &bufferOut, VkDeviceMemory &memoryOut)
+{
+    if (deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE || deviceContext->backend == nullptr)
+    {
+        return false;
+    }
+
+    VkBufferCreateInfo bufferCreateInfo{};
+    bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferCreateInfo.size = std::max<VkDeviceSize>(size, 1);
+    bufferCreateInfo.usage = usage;
+    bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(deviceContext->device, &bufferCreateInfo, nullptr, &bufferOut) != VK_SUCCESS)
+    {
+        return false;
+    }
+
+    VkMemoryRequirements memoryRequirements{};
+    vkGetBufferMemoryRequirements(deviceContext->device, bufferOut, &memoryRequirements);
+
+    VkMemoryAllocateInfo allocateInfo{};
+    allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocateInfo.allocationSize = memoryRequirements.size;
+    allocateInfo.memoryTypeIndex =
+        FindMemoryType(*deviceContext->backend, memoryRequirements.memoryTypeBits,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    if (allocateInfo.memoryTypeIndex == UINT32_MAX ||
+        vkAllocateMemory(deviceContext->device, &allocateInfo, nullptr, &memoryOut) != VK_SUCCESS)
+    {
+        vkDestroyBuffer(deviceContext->device, bufferOut, nullptr);
+        bufferOut = VK_NULL_HANDLE;
+        return false;
+    }
+
+    if (vkBindBufferMemory(deviceContext->device, bufferOut, memoryOut, 0) != VK_SUCCESS)
+    {
+        vkDestroyBuffer(deviceContext->device, bufferOut, nullptr);
+        vkFreeMemory(deviceContext->device, memoryOut, nullptr);
+        bufferOut = VK_NULL_HANDLE;
+        memoryOut = VK_NULL_HANDLE;
+        return false;
+    }
+
+    return true;
+}
+
+void DestroyBufferHandle(const std::shared_ptr<VulkanDeviceContext> &deviceContext, VkBuffer &buffer, VkDeviceMemory &memory)
+{
+    if (deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE)
+    {
+        buffer = VK_NULL_HANDLE;
+        memory = VK_NULL_HANDLE;
+        return;
+    }
+
+    if (buffer != VK_NULL_HANDLE)
+    {
+        vkDestroyBuffer(deviceContext->device, buffer, nullptr);
+    }
+    if (memory != VK_NULL_HANDLE)
+    {
+        vkFreeMemory(deviceContext->device, memory, nullptr);
+    }
+    buffer = VK_NULL_HANDLE;
+    memory = VK_NULL_HANDLE;
 }
 
 } // namespace
@@ -96,11 +203,22 @@ bool VulkanShaderProgramResource::LoadBinary(const std::vector<std::byte> &data,
     return !cachedBinary.empty();
 }
 
-VulkanBufferResource::VulkanBufferResource(BufferCreateInfo createInfo)
-    : desc(createInfo.desc), debugName(std::move(createInfo.debugName)), storage(std::move(createInfo.initialData))
+VulkanBufferResource::VulkanBufferResource(std::shared_ptr<VulkanDeviceContext> deviceContextIn, BufferCreateInfo createInfo)
+    : deviceContext(std::move(deviceContextIn)), desc(createInfo.desc), debugName(std::move(createInfo.debugName)),
+      storage(std::move(createInfo.initialData))
 {
     storage.resize(std::max(desc.sizeInBytes, storage.size()));
     desc.sizeInBytes = storage.size();
+    CreateBuffer(desc.sizeInBytes);
+    if (!storage.empty())
+    {
+        UploadData(storage.data(), storage.size(), 0);
+    }
+}
+
+VulkanBufferResource::~VulkanBufferResource()
+{
+    DestroyBuffer();
 }
 
 GraphicsAPI VulkanBufferResource::GetAPI() const noexcept { return GraphicsAPI::Vulkan; }
@@ -130,6 +248,7 @@ void VulkanBufferResource::UploadData(const void *data, std::size_t size, std::s
 
     std::memcpy(storage.data() + offset, data, size);
     desc.sizeInBytes = storage.size();
+    UploadStorageToGPU(offset, size);
 }
 
 void VulkanBufferResource::Resize(std::size_t newSize, bool preserveData)
@@ -143,25 +262,79 @@ void VulkanBufferResource::Resize(std::size_t newSize, bool preserveData)
 
     storage = std::move(resized);
     desc.sizeInBytes = storage.size();
+    CreateBuffer(desc.sizeInBytes);
+    if (!storage.empty())
+    {
+        UploadStorageToGPU(0, storage.size());
+    }
 }
 
 void *VulkanBufferResource::Map(BufferMapAccess access)
 {
     static_cast<void>(access);
+    if (mappedData == nullptr && memory != VK_NULL_HANDLE && deviceContext != nullptr && deviceContext->device != VK_NULL_HANDLE)
+    {
+        vkMapMemory(deviceContext->device, memory, 0, VK_WHOLE_SIZE, 0, &mappedData);
+    }
     mapped = true;
-    return storage.empty() ? nullptr : storage.data();
+    return mappedData != nullptr ? mappedData : (storage.empty() ? nullptr : storage.data());
 }
 
-void VulkanBufferResource::Unmap() { mapped = false; }
+void VulkanBufferResource::Unmap()
+{
+    if (mappedData != nullptr && deviceContext != nullptr && deviceContext->device != VK_NULL_HANDLE)
+    {
+        vkUnmapMemory(deviceContext->device, memory);
+        mappedData = nullptr;
+    }
+    mapped = false;
+}
 
-VulkanGeometryResource::VulkanGeometryResource(GeometryCreateInfo createInfo)
-    : layout(std::move(createInfo.layout)),
+bool VulkanBufferResource::CreateBuffer(std::size_t sizeInBytes)
+{
+    DestroyBuffer();
+    return CreateBufferHandle(deviceContext, BufferUsageToVulkan(desc.usage), sizeInBytes, buffer, memory);
+}
+
+void VulkanBufferResource::DestroyBuffer() noexcept
+{
+    if (mappedData != nullptr && deviceContext != nullptr && deviceContext->device != VK_NULL_HANDLE)
+    {
+        vkUnmapMemory(deviceContext->device, memory);
+        mappedData = nullptr;
+    }
+    DestroyBufferHandle(deviceContext, buffer, memory);
+}
+
+void VulkanBufferResource::UploadStorageToGPU(std::size_t offset, std::size_t size) const
+{
+    if (memory == VK_NULL_HANDLE || deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE || size == 0 || offset >= storage.size())
+    {
+        return;
+    }
+
+    void *gpuData = nullptr;
+    if (vkMapMemory(deviceContext->device, memory, offset, size, 0, &gpuData) != VK_SUCCESS || gpuData == nullptr)
+    {
+        return;
+    }
+
+    std::memcpy(gpuData, storage.data() + offset, size);
+    vkUnmapMemory(deviceContext->device, memory);
+}
+
+VulkanGeometryResource::VulkanGeometryResource(std::shared_ptr<VulkanDeviceContext> deviceContextIn, GeometryCreateInfo createInfo)
+    : deviceContext(std::move(deviceContextIn)),
+      layout(std::move(createInfo.layout)),
       vertexData(std::move(createInfo.vertexData)),
       indexData(std::move(createInfo.indexData)),
       instanceData(std::move(createInfo.instanceData)),
       debugName(std::move(createInfo.debugName))
 {
+    CreateOrResizeBuffers();
 }
+
+VulkanGeometryResource::~VulkanGeometryResource() { DestroyBuffers(); }
 
 GraphicsAPI VulkanGeometryResource::GetAPI() const noexcept { return GraphicsAPI::Vulkan; }
 
@@ -194,6 +367,7 @@ void VulkanGeometryResource::UpdateVertexData(const float *data, std::size_t flo
     }
 
     std::copy_n(data, floatCount, vertexData.begin() + static_cast<std::ptrdiff_t>(offsetFloats));
+    CreateOrResizeBuffers();
 }
 
 void VulkanGeometryResource::UpdateInstanceData(const float *data, std::size_t floatCount, std::size_t offsetFloats)
@@ -210,6 +384,7 @@ void VulkanGeometryResource::UpdateInstanceData(const float *data, std::size_t f
     }
 
     std::copy_n(data, floatCount, instanceData.begin() + static_cast<std::ptrdiff_t>(offsetFloats));
+    CreateOrResizeBuffers();
 }
 
 void VulkanGeometryResource::DrawIndexed() const {}
@@ -217,6 +392,58 @@ void VulkanGeometryResource::DrawIndexed() const {}
 void VulkanGeometryResource::DrawIndexedInstanced() const {}
 
 void VulkanGeometryResource::DrawVertices(std::size_t vertexCount) const { static_cast<void>(vertexCount); }
+
+bool VulkanGeometryResource::CreateOrResizeBuffers()
+{
+    DestroyBuffers();
+
+    const std::size_t vertexBytes = vertexData.size() * sizeof(float);
+    const std::size_t indexBytes = indexData.size() * sizeof(std::uint32_t);
+    const std::size_t instanceBytes = instanceData.size() * sizeof(float);
+
+    const bool vertexOk = vertexBytes == 0 ||
+                          CreateBufferHandle(deviceContext, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertexBytes, vertexBuffer, vertexMemory);
+    const bool indexOk = indexBytes == 0 ||
+                         CreateBufferHandle(deviceContext, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, indexBytes, indexBuffer, indexMemory);
+    const bool instanceOk = instanceBytes == 0 ||
+                            CreateBufferHandle(deviceContext, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, instanceBytes, instanceBuffer, instanceMemory);
+
+    if (!(vertexOk && indexOk && instanceOk))
+    {
+        DestroyBuffers();
+        return false;
+    }
+
+    UploadBuffer(vertexBuffer, vertexMemory, vertexData.data(), vertexBytes);
+    UploadBuffer(indexBuffer, indexMemory, indexData.data(), indexBytes);
+    UploadBuffer(instanceBuffer, instanceMemory, instanceData.data(), instanceBytes);
+    return true;
+}
+
+void VulkanGeometryResource::DestroyBuffers() noexcept
+{
+    DestroyBufferHandle(deviceContext, vertexBuffer, vertexMemory);
+    DestroyBufferHandle(deviceContext, indexBuffer, indexMemory);
+    DestroyBufferHandle(deviceContext, instanceBuffer, instanceMemory);
+}
+
+void VulkanGeometryResource::UploadBuffer(VkBuffer bufferHandle, VkDeviceMemory memoryHandle, const void *data, std::size_t size) const
+{
+    static_cast<void>(bufferHandle);
+    if (memoryHandle == VK_NULL_HANDLE || data == nullptr || size == 0 || deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    void *gpuData = nullptr;
+    if (vkMapMemory(deviceContext->device, memoryHandle, 0, size, 0, &gpuData) != VK_SUCCESS || gpuData == nullptr)
+    {
+        return;
+    }
+
+    std::memcpy(gpuData, data, size);
+    vkUnmapMemory(deviceContext->device, memoryHandle);
+}
 
 VulkanTextureResource::VulkanTextureResource(TextureCreateInfo createInfo)
     : desc(createInfo.desc), debugName(std::move(createInfo.debugName)), storage(std::move(createInfo.initialData))
