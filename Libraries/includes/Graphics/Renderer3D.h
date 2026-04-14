@@ -12,7 +12,9 @@ class Renderer3D : public Renderer
   public:
     Renderer3D() : Renderer(GraphicsAPI::OpenGL) {}
 
-    void SetCamera(Camera &camera) const;
+    // Applies the current camera jitter (from SetCameraJitter), recomputes the camera
+    // matrix, and uploads it to the GPU. Call once per frame before draw calls.
+    void SetCamera(Camera &camera);
     void DrawMesh(Mesh &mesh, Camera &camera) const;
 
   protected:
@@ -23,4 +25,5 @@ class Renderer3D : public Renderer
 
   private:
     RenderTarget sceneRenderTarget;
+    Camera *activeCamera = nullptr;
 };

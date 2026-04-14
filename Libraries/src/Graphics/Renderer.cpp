@@ -79,6 +79,40 @@ void Renderer::SetMotionVectorsEnabled(bool enabled) noexcept { motionVectorsEna
 
 void Renderer::SetDepthAsTextureEnabled(bool enabled) noexcept { depthAsTextureEnabled = enabled; }
 
+void Renderer::SetJitterSequenceLength(std::uint32_t length) noexcept
+{
+    jitterSequenceLength = length > 0 ? length : 1;
+    jitterIndex = jitterIndex % jitterSequenceLength;
+}
+
+// Halton low-discrepancy sequence for one component.
+// Returns a value in (0, 1) for sample index i and the given base.
+static float Halton(std::uint32_t index, std::uint32_t base)
+{
+    float result = 0.0f;
+    float denominator = 1.0f;
+    while (index > 0)
+    {
+        denominator *= static_cast<float>(base);
+        result += static_cast<float>(index % base) / denominator;
+        index /= base;
+    }
+    return result;
+}
+
+static glm::vec2 HaltonJitter(std::uint32_t index, std::uint32_t sequenceLength,
+                               int renderWidth, int renderHeight)
+{
+    // Sample index cycles through [1, sequenceLength] (avoid index 0 which gives (0,0)).
+    const std::uint32_t sampleIndex = (index % sequenceLength) + 1;
+
+    // Halton(2,3): X in base 2, Y in base 3 — standard choice for TAA/DLSS.
+    // Map from (0,1) to (-0.5, 0.5) pixel range, then convert to NDC.
+    const float jx = (Halton(sampleIndex, 2) - 0.5f) * 2.0f / static_cast<float>(renderWidth);
+    const float jy = (Halton(sampleIndex, 3) - 0.5f) * 2.0f / static_cast<float>(renderHeight);
+    return {jx, jy};
+}
+
 void Renderer::BeginPass()
 {
     int width = 0;
@@ -89,6 +123,21 @@ void Renderer::BeginPass()
     if (!IsRuntimeCompatible() || !HasValidFrameExtent())
     {
         return;
+    }
+
+    // Advance the jitter sequence automatically when temporal resources are needed.
+    if (jitterMode == JitterMode::Auto)
+    {
+        if (NeedsTemporalResources())
+        {
+            currentJitter = HaltonJitter(jitterIndex, jitterSequenceLength, width, height);
+            jitterIndex = (jitterIndex + 1) % jitterSequenceLength;
+        }
+        else
+        {
+            currentJitter = {0.0f, 0.0f};
+            jitterIndex = 0;
+        }
     }
 
     if (UsesRenderTarget())

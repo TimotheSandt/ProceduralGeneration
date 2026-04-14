@@ -88,10 +88,23 @@ class Renderer
     void SetDeltaTime(float dt) noexcept { deltaTime = dt; }
     float GetDeltaTime() const noexcept { return deltaTime; }
 
-    // Sub-pixel jitter applied to the camera this frame (e.g. Halton sequence for TAA).
-    // Forwarded into FrameGenerationInput so the mode can undo/account for it.
-    void SetCameraJitter(glm::vec2 jitter) noexcept { currentJitter = jitter; }
+    // Jitter mode — controls how the sub-pixel camera offset is generated each frame.
+    //   Auto (default): the renderer advances a Halton(2,3) sequence automatically
+    //                   whenever NeedsTemporalResources() is true. No user action needed.
+    //   Manual:         the renderer uses whatever value was last passed to SetCameraJitter.
+    enum class JitterMode : std::uint8_t { Auto, Manual };
+    void SetJitterMode(JitterMode mode) noexcept { jitterMode = mode; }
+    JitterMode GetJitterMode() const noexcept { return jitterMode; }
+
+    // Override the jitter for the current frame (switches to Manual mode implicitly).
+    // Pass {0, 0} to disable jitter.
+    void SetCameraJitter(glm::vec2 jitter) noexcept { currentJitter = jitter; jitterMode = JitterMode::Manual; }
     glm::vec2 GetCameraJitter() const noexcept { return currentJitter; }
+
+    // Number of samples in the jitter sequence before it repeats (default: 16).
+    // Higher values reduce repetition artifacts in long temporal accumulation.
+    void SetJitterSequenceLength(std::uint32_t length) noexcept;
+    std::uint32_t GetJitterSequenceLength() const noexcept { return jitterSequenceLength; }
 
     // Call once on scene cuts or camera teleports so temporal modes can discard stale history.
     void ResetTemporalHistory() noexcept { resetHistoryNextFrame = true; }
@@ -142,6 +155,9 @@ class Renderer
     float deltaTime = 0.0f;
     glm::vec2 currentJitter = {0.0f, 0.0f};
     bool resetHistoryNextFrame = false;
+    JitterMode jitterMode = JitterMode::Auto;
+    std::uint32_t jitterSequenceLength = 16;
+    std::uint32_t jitterIndex = 0;
     // Stores the previous frame's color (at render resolution) for temporal techniques.
     RenderTarget historyTarget;
 };

@@ -99,12 +99,18 @@ void Camera::InitializeInputs()
 
 void Camera::UpdateMatrix()
 {
-    glm::mat4 view = glm::mat4(1.0f);
-    glm::mat4 projection = glm::mat4(1.0f);
+    const glm::mat4 view = glm::lookAt(this->position, this->position + this->Orientation, this->up);
+    glm::mat4 projection = glm::perspective(glm::radians(this->FOV),
+                                            static_cast<float>(*this->width) / static_cast<float>(*this->height),
+                                            this->nearPlane, this->farPlane);
 
-    view = glm::lookAt(this->position, this->position + this->Orientation, this->up);
-    projection = glm::perspective(glm::radians(this->FOV), static_cast<float>(*this->width) / static_cast<float>(*this->height),
-                                  this->nearPlane, this->farPlane);
+    // Apply sub-pixel jitter to the projection matrix when a temporal mode is active.
+    // projection[2] is the third column (NDC translation); [0] and [1] are X and Y.
+    if (this->jitter.x != 0.0f || this->jitter.y != 0.0f)
+    {
+        projection[2][0] += this->jitter.x;
+        projection[2][1] += this->jitter.y;
+    }
 
     this->camMatrix = projection * view;
 
