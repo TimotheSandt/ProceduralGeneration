@@ -132,6 +132,8 @@ class OpenGLRenderTargetResource final : public IRenderTargetResource
                 std::uint32_t dstHeight) const override;
     void BlitToDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth, std::uint32_t dstHeight) const override;
     void SetDrawBuffers(std::uint32_t count) override;
+    std::uint32_t ReadPixelUInt(std::uint32_t attachmentIndex, int x, int y, int framebufferHeight) const override;
+    glm::uvec4 ReadPixelRGBA8(std::uint32_t attachmentIndex, int x, int y, int framebufferHeight) const override;
     GLuint GetFramebufferID() const noexcept;
     GLuint GetDepthBufferID() const noexcept;
 

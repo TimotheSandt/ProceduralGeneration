@@ -5,6 +5,7 @@
 #include <array>
 #include <cstddef>
 #include <chrono>
+#include <glm/vec4.hpp>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -172,6 +173,11 @@ class IRenderTargetResource : public IGraphicsResource
     virtual void BlitToDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth, std::uint32_t dstHeight) const = 0;
     // Set which color attachments are active draw targets (call after attaching all textures).
     virtual void SetDrawBuffers(std::uint32_t count) = 0;
+    // Read one unsigned-integer pixel from a color attachment (e.g. R32UI object IDs).
+    // x/y are in screen-space (top-left origin); the backend handles the Y-flip internally.
+    // Returns 0 if the backend does not support pixel readback.
+    virtual std::uint32_t ReadPixelUInt(std::uint32_t attachmentIndex, int x, int y, int framebufferHeight) const { return 0; }
+    virtual glm::uvec4 ReadPixelRGBA8(std::uint32_t attachmentIndex, int x, int y, int framebufferHeight) const { return glm::uvec4(0); }
 };
 
 class IAccelerationStructureResource : public IGraphicsResource

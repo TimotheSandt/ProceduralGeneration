@@ -293,6 +293,24 @@ void RenderTarget::Setup()
                                             GET_RESOURCE_PATH("shader/upscaling/upscale.frag"));
 }
 
+std::uint32_t RenderTarget::ReadPixelUInt(std::uint32_t attachmentIndex, int x, int y) const
+{
+    if (backendRenderTarget == nullptr)
+    {
+        return 0;
+    }
+    return backendRenderTarget->ReadPixelUInt(attachmentIndex, x, y, height);
+}
+
+glm::uvec4 RenderTarget::ReadPixelRGBA8(std::uint32_t attachmentIndex, int x, int y) const
+{
+    if (backendRenderTarget == nullptr)
+    {
+        return glm::uvec4(0);
+    }
+    return backendRenderTarget->ReadPixelRGBA8(attachmentIndex, x, y, height);
+}
+
 void RenderTarget::RenderScreenQuad() const { RenderScreenQuad(width, height); }
 
 void RenderTarget::RenderScreenQuad(int fWidth, int fHeight) const

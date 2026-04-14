@@ -945,6 +945,43 @@ void OpenGLRenderTargetResource::BlitToDefault(std::uint32_t srcWidth, std::uint
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+std::uint32_t OpenGLRenderTargetResource::ReadPixelUInt(std::uint32_t attachmentIndex, int x, int y, int framebufferHeight) const
+{
+    if (framebufferID == 0)
+    {
+        return 0;
+    }
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebufferID);
+    glReadBuffer(GL_COLOR_ATTACHMENT0 + attachmentIndex);
+
+    const int flippedY = framebufferHeight - 1 - y;
+    std::uint32_t value = 0;
+    glReadPixels(x, flippedY, 1, 1, GL_RED_INTEGER, GL_UNSIGNED_INT, &value);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    return value;
+}
+
+glm::uvec4 OpenGLRenderTargetResource::ReadPixelRGBA8(std::uint32_t attachmentIndex, int x, int y, int framebufferHeight) const
+{
+    if (framebufferID == 0)
+    {
+        return glm::uvec4(0);
+    }
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebufferID);
+    glReadBuffer(GL_COLOR_ATTACHMENT0 + attachmentIndex);
+
+    const int flippedY = framebufferHeight - 1 - y;
+    // Read into a tightly-packed 4-byte array — glm::uvec4 is 16 bytes, not 4.
+    std::uint8_t pixel[4] = {0, 0, 0, 0};
+    glReadPixels(x, flippedY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    return glm::uvec4(pixel[0], pixel[1], pixel[2], pixel[3]);
+}
+
 void OpenGLRenderTargetResource::SetDrawBuffers(std::uint32_t count)
 {
     if (framebufferID == 0 || count == 0)
