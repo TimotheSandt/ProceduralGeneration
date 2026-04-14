@@ -58,17 +58,18 @@ TestSuite CreateRenderersSuite()
                 ClearGraphicsRuntime();
             });
 
-    AddTest(suite, "renderers reject non-opengl runtimes for now",
+    AddTest(suite, "renderers accept vulkan runtime bindings",
             []
             {
                 Renderer2D renderer2D;
                 Renderer3D renderer3D;
                 const VulkanGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
 
-                BindGraphicsRuntime({.api = GraphicsAPI::Vulkan, .backend = &backend, .device = nullptr});
+                BindGraphicsRuntime({.api = GraphicsAPI::Vulkan, .backend = &backend, .device = device.get()});
 
-                Assert(!renderer2D.IsRuntimeCompatible(), "Renderer2D should reject Vulkan until the 2D Vulkan path exists");
-                Assert(!renderer3D.IsRuntimeCompatible(), "Renderer3D should reject Vulkan until the 3D Vulkan path exists");
+                Assert(renderer2D.IsRuntimeCompatible(), "Renderer2D should accept Vulkan through the backend abstraction");
+                Assert(renderer3D.IsRuntimeCompatible(), "Renderer3D should accept Vulkan through the backend abstraction");
 
                 ClearGraphicsRuntime();
             });

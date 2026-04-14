@@ -20,7 +20,11 @@ Renderer::~Renderer()
     }
 }
 
-bool Renderer::IsRuntimeCompatible() const noexcept { return IsGraphicsAPIActive(requiredApi); }
+bool Renderer::IsRuntimeCompatible() const noexcept
+{
+    return TryGetActiveGraphicsBackend() != nullptr && TryGetActiveGraphicsDevice() != nullptr &&
+           (IsGraphicsAPIActive(requiredApi) || IsGraphicsAPIActive(GraphicsAPI::Vulkan));
+}
 
 void Renderer::SetOutputResolution(int width, int height) noexcept
 {

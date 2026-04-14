@@ -1,9 +1,9 @@
 #include "Window.h"
 
-#include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
 #include "Graphics/Core/GraphicsDiagnostics.h"
 #include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
+#include "Graphics/Core/WindowContext.h"
 #include "InputManager.h"
 #include "Profiler.h"
 #include "Logger.h"
@@ -65,9 +65,9 @@ void Window::Swap(Window &other) noexcept
 
 int Window::Init()
 {
-    if (!IsGraphicsAPIActive(GraphicsAPI::OpenGL))
+    if (!IsGraphicsAPIActive(GraphicsAPI::OpenGL) && !IsGraphicsAPIActive(GraphicsAPI::Vulkan))
     {
-        LOG_ERROR(1, "Window currently supports only the OpenGL runtime backend");
+        LOG_ERROR(1, "Window currently supports only the OpenGL or Vulkan runtime backends");
         return -1;
     }
 
@@ -79,7 +79,7 @@ int Window::Init()
         return -1;
     }
 
-    if (!OpenGLWindowContext::Initialize(this->window, this->parameters.vsync, this->parameters.width, this->parameters.height))
+    if (!GraphicsWindowContext::Initialize(this->window, this->parameters.vsync, this->parameters.width, this->parameters.height))
     {
         this->Close();
         return -1;
@@ -157,8 +157,7 @@ void Window::SwapBuffers()
         return;
     }
 
-    glfwSwapBuffers(this->window);
-    GRAPHICS_CHECK_ERRORS_M("glfwSwapBuffers");
+    GraphicsWindowContext::Present(this->window);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -361,7 +360,7 @@ void Window::PostWindowStateChange() const
         return;
     }
 
-    OpenGLWindowContext::ApplyDefaultFramebufferState(this->window, this->parameters.vsync, this->parameters.clearColor);
+    GraphicsWindowContext::ApplyDefaultFramebufferState(this->window, this->parameters.vsync, this->parameters.clearColor);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -483,11 +482,14 @@ bool Window::IsWindowHealthy() const
     }
 
     // Vérifier si le contexte OpenGL est toujours valide
-    GLFWwindow *currentContext = glfwGetCurrentContext();
-    if (currentContext != this->window)
+    if (IsGraphicsAPIActive(GraphicsAPI::OpenGL))
     {
-        LOG_WARNING("OpenGL context mismatch");
-        OpenGLWindowContext::EnsureContextCurrent(this->window);
+        GLFWwindow *currentContext = glfwGetCurrentContext();
+        if (currentContext != this->window)
+        {
+            LOG_WARNING("OpenGL context mismatch");
+            GraphicsWindowContext::EnsureContextReady(this->window);
+        }
     }
 
     return true;

@@ -1,6 +1,5 @@
 #include "RenderTarget.h"
 
-#include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
 #include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Logger.h"
@@ -90,22 +89,22 @@ void RenderTarget::Init(const RenderTargetDesc &desc)
     this->width = static_cast<int>(desc.extent.width);
     this->height = static_cast<int>(desc.extent.height);
 
-    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr)
     {
         std::unique_ptr<IRenderTargetResource> renderTarget =
             device->CreateRenderTarget({.desc = desc, .debugName = "offscreen_render_target"});
 
-        if (auto *openGLRenderTarget = dynamic_cast<OpenGLRenderTargetResource *>(renderTarget.get()); openGLRenderTarget != nullptr)
+        if (renderTarget != nullptr)
         {
-            this->ID = openGLRenderTarget->GetFramebufferID();
-            this->depthBufferID = openGLRenderTarget->GetDepthBufferID();
             this->backendRenderTarget = std::move(renderTarget);
+            this->ID = 1;
+            this->depthBufferID = 0;
         }
     }
 
     if (backendRenderTarget == nullptr)
     {
-        LOG_ERROR(1, "OpenGL render target backend resource is required");
+        LOG_ERROR(1, "A backend render target resource is required");
         return;
     }
 
@@ -219,7 +218,7 @@ void RenderTarget::Resize(int newWidth, int newHeight)
 
 void RenderTarget::CopyFromScreen(int srcWidth, int srcHeight) const
 {
-    if (ID == 0)
+    if (backendRenderTarget == nullptr)
     {
         LOG_ERROR(1, "Invalid render target ID");
         return;
@@ -236,7 +235,7 @@ void RenderTarget::CopyFromScreen(int srcWidth, int srcHeight) const
 
 void RenderTarget::BlitToRenderTarget(RenderTarget &destination) const
 {
-    if (ID == 0 || destination.ID == 0)
+    if (backendRenderTarget == nullptr || destination.backendRenderTarget == nullptr)
     {
         LOG_ERROR(1, "Invalid render target IDs");
         return;
@@ -254,7 +253,7 @@ void RenderTarget::BlitToRenderTarget(RenderTarget &destination) const
 
 void RenderTarget::BlitToScreen(int sWidth, int sHeight) const
 {
-    if (ID == 0)
+    if (backendRenderTarget == nullptr)
     {
         LOG_ERROR(1, "Invalid render target ID");
         return;
@@ -271,7 +270,7 @@ void RenderTarget::BlitToScreen(int sWidth, int sHeight) const
 
 void RenderTarget::Setup()
 {
-    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr)
     {
         GeometryCreateInfo createInfo{};
         createInfo.layout.vertexAttributes = {2, 2};

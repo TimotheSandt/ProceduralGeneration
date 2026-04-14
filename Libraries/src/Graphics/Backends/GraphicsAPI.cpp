@@ -191,7 +191,7 @@ GraphicsAPIAvailability GetGraphicsAPIAvailability(GraphicsAPI api) noexcept
         case GraphicsAPI::OpenGL:
             return GraphicsAPIAvailability::Available;
         case GraphicsAPI::Vulkan:
-            return GraphicsAPIAvailability::NotBuilt;
+            return GraphicsAPIAvailability::Available;
         case GraphicsAPI::Metal:
 #ifdef __APPLE__
             return GraphicsAPIAvailability::NotBuilt;

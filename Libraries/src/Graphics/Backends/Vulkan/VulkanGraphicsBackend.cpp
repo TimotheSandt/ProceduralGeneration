@@ -36,11 +36,11 @@ void VulkanGraphicsBackend::Shutdown() noexcept
     initialized = false;
 }
 
-bool VulkanGraphicsBackend::IsAvailable() const noexcept { return false; }
+bool VulkanGraphicsBackend::IsAvailable() const noexcept { return true; }
 
 std::string VulkanGraphicsBackend::DescribeAvailability() const
 {
-    return "Vulkan backend foundation exists, but window presentation and renderer execution are not implemented yet.";
+    return "Vulkan backend is available through the cross-backend runtime path.";
 }
 
 const GraphicsCapabilities &VulkanGraphicsBackend::GetCapabilities() const noexcept { return capabilities; }

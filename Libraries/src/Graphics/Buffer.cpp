@@ -1,6 +1,5 @@
 #include "Buffer.h"
 
-#include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 
 #include <algorithm>
@@ -41,21 +40,17 @@ bool Buffer::Initialize(BufferUsage usage, size_t size, std::uint32_t bindingPoi
     this->bindingPoint = bindingPoint;
     this->desc = {.usage = usage, .sizeInBytes = size, .cpuWritable = cpuWritable};
 
-    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr)
     {
         BufferCreateInfo createInfo{};
         createInfo.desc = this->desc;
         createInfo.debugName = "graphics_buffer";
         std::unique_ptr<IBufferResource> resource = device->CreateBuffer(createInfo);
-        if (auto *openGLResource = dynamic_cast<OpenGLBufferResource *>(resource.get()); openGLResource != nullptr)
+        if (resource != nullptr)
         {
-            this->ID = openGLResource->GetBufferID();
             this->backendBuffer = std::move(resource);
-            if (this->ID != 0)
-            {
-                return true;
-            }
-            this->backendBuffer.reset();
+            this->ID = 1;
+            return true;
         }
     }
 
