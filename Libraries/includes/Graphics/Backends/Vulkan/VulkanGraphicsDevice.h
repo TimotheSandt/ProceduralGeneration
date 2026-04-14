@@ -23,6 +23,7 @@ class VulkanGraphicsDevice final : public IGraphicsDevice
     std::unique_ptr<IAccelerationStructureResource> CreateAccelerationStructure(
         const AccelerationStructureCreateInfo &createInfo) const override;
     std::unique_ptr<IGPUTimestampQueryResource> CreateTimestampQuery(const GPUTimestampQueryCreateInfo &createInfo) const override;
+    const std::shared_ptr<VulkanDeviceContext> &GetDeviceContext() const noexcept;
 
   private:
     ShaderStageMask GetSupportedStages() const noexcept;

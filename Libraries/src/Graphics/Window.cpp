@@ -111,6 +111,7 @@ void Window::Close()
     InputManager::RemoveInstance(this->window);
     this->inputManager = nullptr;
 
+    GraphicsWindowContext::Shutdown(this->window);
     glfwDestroyWindow(this->window);
     this->window = nullptr;
 

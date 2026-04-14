@@ -96,6 +96,8 @@ std::unique_ptr<IGPUTimestampQueryResource> VulkanGraphicsDevice::CreateTimestam
     return std::make_unique<VulkanTimestampQueryResource>(createInfo);
 }
 
+const std::shared_ptr<VulkanDeviceContext> &VulkanGraphicsDevice::GetDeviceContext() const noexcept { return deviceContext; }
+
 ShaderStageMask VulkanGraphicsDevice::GetSupportedStages() const noexcept
 {
     ShaderStageMask stages = BaseVulkanStages;
