@@ -2,6 +2,8 @@
 #include "Core/Container.h"
 #include "Rendering/TextRenderer.h"
 
+class Renderer2D;
+
 namespace UI
 {
 
@@ -22,7 +24,7 @@ class Manager
     void CreateUI(int w, int h);
 
     void Update(float dt, int w, int h);
-    void Render(int w, int h);
+    void Render(Renderer2D &renderer2D, int w, int h);
 
     void SetRootContainer(std::shared_ptr<Container> root) { rootContainer = std::move(root); }
     std::shared_ptr<Container> GetRootContainer() { return rootContainer; }

@@ -9,7 +9,6 @@
 namespace UI
 {
 class TextRenderer;
-class UIManager;
 enum class TextAnchor : std::uint8_t;
 struct TextLayoutParams;
 } // namespace UI

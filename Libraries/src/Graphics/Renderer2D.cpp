@@ -2,7 +2,7 @@
 
 #include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
-#include "UI/TextRenderer.h"
+#include "UI/Rendering/TextRenderer.h"
 
 void Renderer2D::OnBeginPass()
 {

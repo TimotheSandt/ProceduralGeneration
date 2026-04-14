@@ -175,6 +175,6 @@ void Game::render()
                           glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
     rendererUI.RenderText(*textRenderer, std::format("Swap Buffers: {:.3f}ms", averageTimeMs("SwapBuffers")), 10, 130, 0.3f,
                           glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    UI::UIManager::Instance().Render(rendererUI, windowWidth, windowHeight);
+    UI::Manager::Instance().Render(rendererUI, windowWidth, windowHeight);
     Profiler::ProfileGPU("UIUpscale", &Renderer2D::EndPass, &rendererUI);
 }

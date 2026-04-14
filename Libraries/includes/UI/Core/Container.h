@@ -1,6 +1,6 @@
 #pragma once
 #include <cstdint>
-#include "UIComponent.h"
+#include "Component.h"
 #include "RenderTarget.h"
 #include "Utilities.h"
 

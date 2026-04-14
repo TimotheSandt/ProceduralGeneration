@@ -1,7 +1,7 @@
-#include "UIManager.h"
+#include "Manager.h"
 #include "Renderer2D.h"
-#include "UIHBox.h"
-#include "UIVBox.h"
+#include "Layout/HBox.h"
+#include "Layout/VBox.h"
 #include <iostream>
 
 namespace UI
@@ -83,7 +83,7 @@ void Manager::Update(float dt, int w, int h)
     rootContainer->Update();
 }
 
-void UIManager::Render(Renderer2D &renderer2D, int w, int h)
+void Manager::Render(Renderer2D &renderer2D, int w, int h)
 {
     if (!active)
     {

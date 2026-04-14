@@ -1,4 +1,4 @@
-#include "UIContainer.h"
+#include "Core/Container.h"
 #include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsDiagnostics.h"
 #include "Logger.h"
@@ -73,7 +73,7 @@ void ContainerBase::Update()
 }
 
 // Render target helper functions
-void UIContainerBase::InitializeRenderTarget()
+void ContainerBase::InitializeRenderTarget()
 {
     if (contentSize.x <= 0 || contentSize.y <= 0)
     {

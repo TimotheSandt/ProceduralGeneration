@@ -1,7 +1,7 @@
 #include "suites/Suites.h"
 
-#include "UI/Bounds.h"
-#include "UI/DeferredValue.h"
+#include "UI/Core/Bounds.h"
+#include "UI/Core/DeferredValue.h"
 
 #include <memory>
 #include <stdexcept>

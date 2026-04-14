@@ -1,4 +1,4 @@
-#include "UI/TextRenderer.h"
+#include "UI/Rendering/TextRenderer.h"
 
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Logger.h"

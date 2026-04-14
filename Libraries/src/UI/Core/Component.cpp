@@ -8,7 +8,7 @@
 namespace UI
 {
 
-UIComponentBase::UIComponentBase(Bounds bounds) : localBounds(bounds)
+ComponentBase::ComponentBase(Bounds bounds) : localBounds(bounds)
 {
     this->sprite.SetShader(GET_RESOURCE_PATH("shader/UI/default.vert"), GET_RESOURCE_PATH("shader/UI/default.frag"));
 
