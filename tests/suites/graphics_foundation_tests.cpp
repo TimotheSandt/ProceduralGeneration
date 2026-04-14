@@ -1,6 +1,7 @@
 #include "suites/Suites.h"
 
 #include "Graphics/Camera.h"
+#include "Graphics/Sprite.h"
 
 #include <glm/geometric.hpp>
 
@@ -79,6 +80,39 @@ TestSuite CreateGraphicsFoundationSuite()
 
                 AssertNear(glm::length(orientation), 1.0, 1e-4, "Rotate should keep the orientation normalized");
                 AssertNear(glm::length(up), 1.0, 1e-4, "Rotate should keep the up vector normalized");
+            });
+
+    AddTest(suite, "sprite move updates offset",
+            []
+            {
+                Sprite sprite;
+                sprite.Move(glm::vec2(3.0f, -2.0f));
+
+                const glm::vec2 offset = sprite.GetOffset();
+                AssertNear(offset.x, 3.0, 1e-6, "Move should add the x delta");
+                AssertNear(offset.y, -2.0, 1e-6, "Move should add the y delta");
+            });
+
+    AddTest(suite, "sprite expand increases scale",
+            []
+            {
+                Sprite sprite;
+                sprite.Expand(0.5f);
+
+                const glm::vec2 scale = sprite.GetScale();
+                AssertNear(scale.x, 1.5, 1e-6, "Expand should increase x scale");
+                AssertNear(scale.y, 1.5, 1e-6, "Expand should increase y scale");
+            });
+
+    AddTest(suite, "sprite shrink clamps scale to a positive value",
+            []
+            {
+                Sprite sprite;
+                sprite.Shrink(5.0f);
+
+                const glm::vec2 scale = sprite.GetScale();
+                Assert(scale.x > 0.0f, "Shrink should keep x scale positive");
+                Assert(scale.y > 0.0f, "Shrink should keep y scale positive");
             });
 
     return suite;
