@@ -107,7 +107,6 @@ void HBoxBase::RecalculateChildBounds()
             case JustifyContent::SPACE_AROUND:
                 if (visibleChildrenCount > 0)
                 {
-                    float extraPerItem = freeSpace / static_cast<float>(visibleChildrenCount);
                     currentSpacing = actualSpacing + freeSpace / static_cast<float>(visibleChildrenCount);
                     xOffset = actualPadding.x + (freeSpace / static_cast<float>(visibleChildrenCount)) / 2.0f;
                     if (visibleChildrenCount > 1)

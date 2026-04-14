@@ -1,102 +1,102 @@
 #include "Mesh.h"
 
-void Mesh::InitUniform4f(const char *uniform, const GLfloat *data)
+void Mesh::SetUniform4f(const char *uniform, const float *data)
 {
     std::string sUni(uniform);
-    if (!CacheUniform(sUni, (void *)data, 4 * sizeof(GLfloat)))
+    if (!CacheUniform(sUni, (void *)data, 4 * sizeof(float)))
     {
         return;
     }
-    this->shader.Bind();
-    glUniform4fv(CachedUniformLocation(sUni), 1, data);
+    this->shaderProgram.Bind();
+    this->shaderProgram.SetUniformFloats(CachedUniformLocation(sUni), data, 4);
 }
 
-void Mesh::InitUniform3f(const char *uniform, const GLfloat *data)
+void Mesh::SetUniform3f(const char *uniform, const float *data)
 {
     std::string sUni(uniform);
-    if (!CacheUniform(sUni, (void *)data, 3 * sizeof(GLfloat)))
+    if (!CacheUniform(sUni, (void *)data, 3 * sizeof(float)))
     {
         return;
     }
-    this->shader.Bind();
-    glUniform3fv(CachedUniformLocation(sUni), 1, data);
+    this->shaderProgram.Bind();
+    this->shaderProgram.SetUniformFloats(CachedUniformLocation(sUni), data, 3);
 }
 
-void Mesh::InitUniform2f(const char *uniform, const GLfloat *data)
+void Mesh::SetUniform2f(const char *uniform, const float *data)
 {
     std::string sUni(uniform);
-    if (!CacheUniform(sUni, (void *)data, 2 * sizeof(GLfloat)))
+    if (!CacheUniform(sUni, (void *)data, 2 * sizeof(float)))
     {
         return;
     }
-    this->shader.Bind();
-    glUniform2fv(CachedUniformLocation(sUni), 1, data);
+    this->shaderProgram.Bind();
+    this->shaderProgram.SetUniformFloats(CachedUniformLocation(sUni), data, 2);
 }
 
-void Mesh::InitUniform1f(const char *uniform, const GLfloat *data)
+void Mesh::SetUniform1f(const char *uniform, const float *data)
 {
     std::string sUni(uniform);
-    if (!CacheUniform(sUni, (void *)data, sizeof(GLfloat)))
+    if (!CacheUniform(sUni, (void *)data, sizeof(float)))
     {
         return;
     }
-    this->shader.Bind();
-    glUniform1fv(CachedUniformLocation(sUni), 1, data);
+    this->shaderProgram.Bind();
+    this->shaderProgram.SetUniformFloats(CachedUniformLocation(sUni), data, 1);
 }
 
-void Mesh::InitUniform4i(const char *uniform, const GLint *data)
+void Mesh::SetUniform4i(const char *uniform, const int *data)
 {
     std::string sUni(uniform);
-    if (!CacheUniform(sUni, (void *)data, 4 * sizeof(GLint)))
+    if (!CacheUniform(sUni, (void *)data, 4 * sizeof(int)))
     {
         return;
     }
-    this->shader.Bind();
-    glUniform4iv(CachedUniformLocation(sUni), 1, data);
+    this->shaderProgram.Bind();
+    this->shaderProgram.SetUniformInts(CachedUniformLocation(sUni), data, 4);
 }
 
-void Mesh::InitUniform3i(const char *uniform, const GLint *data)
+void Mesh::SetUniform3i(const char *uniform, const int *data)
 {
     std::string sUni(uniform);
-    if (!CacheUniform(sUni, (void *)data, 3 * sizeof(GLint)))
+    if (!CacheUniform(sUni, (void *)data, 3 * sizeof(int)))
     {
         return;
     }
-    this->shader.Bind();
-    glUniform3iv(CachedUniformLocation(sUni), 1, data);
+    this->shaderProgram.Bind();
+    this->shaderProgram.SetUniformInts(CachedUniformLocation(sUni), data, 3);
 }
 
-void Mesh::InitUniform2i(const char *uniform, const GLint *data)
+void Mesh::SetUniform2i(const char *uniform, const int *data)
 {
     std::string sUni(uniform);
-    if (!CacheUniform(sUni, (void *)data, 2 * sizeof(GLint)))
+    if (!CacheUniform(sUni, (void *)data, 2 * sizeof(int)))
     {
         return;
     }
-    this->shader.Bind();
-    glUniform2iv(CachedUniformLocation(sUni), 1, data);
+    this->shaderProgram.Bind();
+    this->shaderProgram.SetUniformInts(CachedUniformLocation(sUni), data, 2);
 }
 
-void Mesh::InitUniform1i(const char *uniform, const GLint *data)
+void Mesh::SetUniform1i(const char *uniform, const int *data)
 {
     std::string sUni(uniform);
-    if (!CacheUniform(sUni, (void *)data, sizeof(GLint)))
+    if (!CacheUniform(sUni, (void *)data, sizeof(int)))
     {
         return;
     }
-    this->shader.Bind();
-    glUniform1iv(CachedUniformLocation(sUni), 1, data);
+    this->shaderProgram.Bind();
+    this->shaderProgram.SetUniformInts(CachedUniformLocation(sUni), data, 1);
 }
 
-void Mesh::InitUniformMatrix4f(const char *uniform, const GLfloat *data)
+void Mesh::SetUniformMatrix4f(const char *uniform, const float *data)
 {
     std::string sUni(uniform);
-    if (!CacheUniform(sUni, (void *)data, 4 * 4 * sizeof(GLfloat)))
+    if (!CacheUniform(sUni, (void *)data, 4 * 4 * sizeof(float)))
     {
         return;
     }
-    this->shader.Bind();
-    glUniformMatrix4fv(CachedUniformLocation(sUni), 1, GL_FALSE, data);
+    this->shaderProgram.Bind();
+    this->shaderProgram.SetUniformMatrix4(CachedUniformLocation(sUni), data);
 }
 
 std::unordered_map<std::string, Mesh::UniformCache> &Mesh::GetOrCreateUniformCache()
@@ -108,20 +108,16 @@ std::unordered_map<std::string, Mesh::UniformCache> &Mesh::GetOrCreateUniformCac
     return *this->uniformCache;
 }
 
-GLint Mesh::CachedUniformLocation(const std::string &uniform)
+int Mesh::CachedUniformLocation(const std::string &uniform)
 {
     auto &cache = GetOrCreateUniformCache()[uniform];
-    GLuint ID = this->shader.GetID();
-    if (cache.location != -2 && cache.shaderID == ID)
+    std::uint32_t ID = this->shaderProgram.GetID();
+    if (cache.location != -2 && cache.shaderProgramID == ID)
     {
         return cache.location;
     }
-    cache.shaderID = ID;
-    cache.location = glGetUniformLocation(ID, uniform.c_str());
-    if (cache.location == -1)
-    {
-        LOG_ERROR(1, "Uniform ", uniform, " not found");
-    }
+    cache.shaderProgramID = ID;
+    cache.location = this->shaderProgram.GetUniformLocation(uniform);
     return cache.location;
 }
 
@@ -129,7 +125,8 @@ bool Mesh::CacheUniform(const std::string &uniform, void *data, size_t size)
 {
     auto &cache = GetOrCreateUniformCache()[uniform];
     size = size > 64 ? 64 : size;
-    if (cache.location > -1 && cache.shaderID == this->shader.GetID() && cache.size == size && memcmp(cache.data.data(), data, size) == 0)
+    if (cache.location > -1 && cache.shaderProgramID == this->shaderProgram.GetID() && cache.size == size &&
+        memcmp(cache.data.data(), data, size) == 0)
     {
         return false;
     }

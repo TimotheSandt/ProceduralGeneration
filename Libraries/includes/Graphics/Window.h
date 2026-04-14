@@ -1,19 +1,16 @@
 #pragma once
 
-#include <glad/glad.h>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
+#include <chrono>
 #include <cstdint>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/rotate_vector.hpp>
-#include <glm/gtx/vector_angle.hpp>
+#include <string>
 
-#include "FBO.h"
+#include <glm/vec4.hpp>
 
 #include "FPSCounter.h"
-#include "Profiler.h"
-#include "InputManager.h"
+
+class InputManager;
 
 enum WindowState : std::uint8_t
 {
@@ -44,11 +41,6 @@ struct WindowParameters
     int windowedPosX, windowedPosY;
 
     bool taskbarVisible; // TODO
-
-    // Upscaling
-    float renderScale;
-    int renderWidth, renderHeight;
-    bool enableUpscaling;
 };
 
 class Window
@@ -72,25 +64,10 @@ class Window
     void SwapBuffers();
     void Close();
 
-    static bool InitOpenGL();
-    static void TerminateOpenGL();
-
-    void Clear() const;
-
     // Window state
     void ChangeWindowState(WindowState state);
     void ToggleFullscreen();
     void ToggleBorderless();
-
-    // Resolution Scaling methods
-    void SetRenderScale(float scale);
-    void EnableUpscaling(bool enable);
-    float GetRenderScale() const { return parameters.renderScale; }
-    void GetRenderResolution(int &width, int &height) const
-    {
-        width = parameters.renderWidth;
-        height = parameters.renderHeight;
-    }
 
     // Setters
     void SetClearColor(glm::vec4 color) { this->parameters.clearColor = color; }
@@ -100,6 +77,7 @@ class Window
     // Getters
     int GetWidth() const { return this->parameters.width; }
     int GetHeight() const { return this->parameters.height; }
+    glm::vec4 GetClearColor() const { return this->parameters.clearColor; }
     int *GetWidthptr() { return &this->parameters.width; }
     int *GetHeightptr() { return &this->parameters.height; }
     bool ShouldClose() const { return glfwWindowShouldClose(this->window); }
@@ -124,7 +102,6 @@ class Window
     double GetMinElapseTimeMillisecond() const { return this->fpsCounter.getMinElapseTimeInMilliseconds(); }
 
   private:
-    void HandleInput();
     void Swap(Window &other) noexcept;
 
     // Window state
@@ -135,12 +112,6 @@ class Window
     void ActivateWindowed();
     void ActivateBorderless();
 
-    // Resolution Scaling methods
-    void InitFBOs();
-    void BindRenderFBO() const;
-    void UnbindRenderFBO() const;
-    void UpdateFBOResotution();
-
     // Callbacks
     void SetupCallbacks();
     void CallbackFocus(GLFWwindow *window, int focused);
@@ -148,16 +119,10 @@ class Window
     void CallbackPosition(GLFWwindow *window, int x, int y);
 
     void ClearCallbacks();
-
-    // Error handling
-    static void SetupErrorHandling();
     bool IsWindowHealthy() const;
 
   private:
     GLFWwindow *window = nullptr;
-
-    FBO FBORendering;
-    FBO FBOUpscaled;
 
     WindowParameters parameters;
 
@@ -166,8 +131,4 @@ class Window
     FPSCounter fpsCounter;
 
     std::chrono::time_point<std::chrono::high_resolution_clock> lastTime;
-
-    static bool isOpenGLInitialized;
-    static GLint GLFW_MAJOR_VERSION;
-    static GLint GLFW_MINOR_VERSION;
 };

@@ -71,7 +71,7 @@ void Camera::Copy(const Camera &other)
     this->firstClick = other.firstClick;
     this->isWireframe = other.isWireframe;
     this->InitializeUBO();
-    this->UpdateUBO();
+    this->UploadCameraData();
 }
 
 void Camera::Swap(Camera &other) noexcept
@@ -85,10 +85,10 @@ void Camera::Swap(Camera &other) noexcept
     std::swap(this->speed, other.speed);
     std::swap(this->sensitivity, other.sensitivity);
     std::swap(this->isWireframe, other.isWireframe);
-    std::swap(this->bUBO, other.bUBO);
+    std::swap(this->cameraBuffer, other.cameraBuffer);
 }
 
-void Camera::Destroy() { this->bUBO.Destroy(); }
+void Camera::Destroy() { this->cameraBuffer.Destroy(); }
 
 void Camera::Initialize(int *width, int *height, glm::vec3 position)
 {
@@ -124,7 +124,7 @@ void Camera::UpdateMatrix()
 
     this->camMatrix = projection * view;
 
-    this->UpdateUBO();
+    this->UploadCameraData();
 }
 
 void Camera::UpdateMatrix(float FOVdeg, float nearPlane, float farPlane)
@@ -263,16 +263,16 @@ void Camera::Inputs(GLFWwindow *window, float ElapseTime)
 
 void Camera::InitializeUBO()
 {
-    this->bUBO.initialize(sizeof(CameraUBO), CAMERA_BINDING_POINT, GL_DYNAMIC_DRAW);
-    this->UpdateUBO();
+    this->cameraBuffer.Initialize(BufferUsage::Uniform, sizeof(CameraUBO), CAMERA_BINDING_POINT, true);
+    this->UploadCameraData();
 }
 
-void Camera::UpdateUBO()
+void Camera::UploadCameraData()
 {
     CameraUBO data = {this->position, 0, this->camMatrix};
-    this->bUBO.uploadData(&data, sizeof(CameraUBO));
+    this->cameraBuffer.UploadData(&data, sizeof(CameraUBO));
 }
 
-void Camera::BindUBO() const { this->bUBO.BindToBindingPoint(); }
+void Camera::Bind() const { this->cameraBuffer.BindToBindingPoint(); }
 
 void Camera::ToggleWireframe() { SetWireframe(!this->isWireframe); }

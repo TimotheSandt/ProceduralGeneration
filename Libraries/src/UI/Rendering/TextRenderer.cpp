@@ -1,17 +1,22 @@
-// Libraries/src/UI/TextRenderer.cpp
-#include "Rendering/TextRenderer.h"
-#include <glad/glad.h>
-#include <glm/gtc/matrix_transform.hpp>
-#include <iostream>
+#include "UI/TextRenderer.h"
+
+#include "Graphics/Core/GraphicsRuntime.h"
+#include "Logger.h"
+
+#include <array>
 #include <algorithm>
+#include <glm/gtc/matrix_transform.hpp>
+#include <utility>
 
 namespace UI
 {
 
-// Shaders
-const char *VERTEX_SHADER = R"(
+namespace
+{
+
+constexpr const char *VERTEX_SHADER = R"(
 #version 330 core
-layout (location = 0) in vec4 vertex; // <vec2 pos, vec2 tex>
+layout (location = 0) in vec4 vertex;
 out vec2 TexCoords;
 
 uniform mat4 projection;
@@ -22,7 +27,7 @@ void main() {
 }
 )";
 
-const char *FRAGMENT_SHADER = R"(
+constexpr const char *FRAGMENT_SHADER = R"(
 #version 330 core
 in vec2 TexCoords;
 out vec4 color;
@@ -36,95 +41,29 @@ void main() {
 }
 )";
 
-// ============================================
-// Shader Implementation
-// ============================================
+constexpr std::size_t GlyphQuadVertexCount = 6;
+constexpr std::size_t GlyphQuadFloatCount = GlyphQuadVertexCount * 4;
 
-Shader::Shader(const char *vertexSource, const char *fragmentSource)
-{
-    unsigned int vertex = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex, 1, &vertexSource, nullptr);
-    glCompileShader(vertex);
+} // namespace
 
-    int success;
-    char infoLog[512];
-    glGetShaderiv(vertex, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(vertex, 512, nullptr, infoLog);
-        std::cerr << "Vertex Shader Error: " << infoLog << std::endl;
-    }
-
-    unsigned int fragment = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragment, 1, &fragmentSource, nullptr);
-    glCompileShader(fragment);
-
-    glGetShaderiv(fragment, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(fragment, 512, nullptr, infoLog);
-        std::cerr << "Fragment Shader Error: " << infoLog << std::endl;
-    }
-
-    ID = glCreateProgram();
-    glAttachShader(ID, vertex);
-    glAttachShader(ID, fragment);
-    glLinkProgram(ID);
-
-    glGetProgramiv(ID, GL_LINK_STATUS, &success);
-    if (!success)
-    {
-        glGetProgramInfoLog(ID, 512, nullptr, infoLog);
-        std::cerr << "Shader Program Error: " << infoLog << std::endl;
-    }
-
-    glDeleteShader(vertex);
-    glDeleteShader(fragment);
-}
-
-Shader::~Shader() { glDeleteProgram(ID); }
-
-void Shader::use() { glUseProgram(ID); }
-
-void Shader::setMat4(const std::string &name, const glm::mat4 &mat)
-{
-    glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
-}
-
-void Shader::setVec3(const std::string &name, const glm::vec3 &vec) { glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, &vec[0]); }
-
-void Shader::setInt(const std::string &name, int value) { glUniform1i(glGetUniformLocation(ID, name.c_str()), value); }
-
-// ============================================
-// TextRenderer Implementation
-// ============================================
-
-TextRenderer::TextRenderer() : ft(nullptr), VAO(0), VBO(0), screenWidth(800), screenHeight(600) {}
+TextRenderer::TextRenderer() : ft(nullptr), screenWidth(800), screenHeight(600) {}
 
 TextRenderer::~TextRenderer()
 {
     for (auto &[name, fontData] : fonts)
     {
-        for (auto &[c, character] : fontData.characters)
-        {
-            glDeleteTextures(1, &character.textureID);
-        }
+        static_cast<void>(name);
+        fontData.characters.clear();
         FT_Done_Face(fontData.face);
     }
 
-    if (ft)
+    if (ft != nullptr)
     {
         FT_Done_FreeType(ft);
     }
 
-    if (VAO)
-    {
-        glDeleteVertexArrays(1, &VAO);
-    }
-    if (VBO)
-    {
-        glDeleteBuffers(1, &VBO);
-    }
+    glyphGeometry.reset();
+    shaderProgram.Destroy();
 }
 
 bool TextRenderer::init(unsigned int width, unsigned int height)
@@ -132,98 +71,84 @@ bool TextRenderer::init(unsigned int width, unsigned int height)
     screenWidth = width;
     screenHeight = height;
 
-    // Initialisation FreeType
-    if (FT_Init_FreeType(&ft))
+    if (FT_Init_FreeType(&ft) != 0)
     {
-        std::cerr << "ERROR::FREETYPE: Could not init FreeType Library" << std::endl;
+        LOG_ERROR(1, "ERROR::FREETYPE: Could not init FreeType Library");
         return false;
     }
 
-    // Création du shader
-    shader = std::make_unique<Shader>(VERTEX_SHADER, FRAGMENT_SHADER);
-
-    // Projection orthographique
+    shaderProgram.SetShaderCode(VERTEX_SHADER, FRAGMENT_SHADER);
     projection = glm::ortho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height));
-
     setupRenderData();
 
-    return true;
+    return shaderProgram.IsCompiled() && glyphGeometry != nullptr;
 }
 
 void TextRenderer::setupRenderData()
 {
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
+    glyphGeometry.reset();
 
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, nullptr, GL_DYNAMIC_DRAW);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), nullptr);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr)
+    {
+        GeometryCreateInfo createInfo{};
+        createInfo.layout.vertexAttributes = {4};
+        createInfo.vertexData.assign(GlyphQuadFloatCount, 0.0f);
+        createInfo.indexData = {0, 1, 2, 3, 4, 5};
+        createInfo.dynamicVertexData = true;
+        createInfo.debugName = "ui_text_glyph_quad";
+        glyphGeometry = device->CreateGeometry(createInfo);
+    }
 }
 
 bool TextRenderer::loadFont(const std::string &fontPath, const std::string &fontName, unsigned int fontSize)
 {
-    FT_Face face;
-    if (FT_New_Face(ft, fontPath.c_str(), 0, &face))
+    if (ft == nullptr)
     {
-        std::cerr << "ERROR::FREETYPE: Failed to load font: " << fontPath << std::endl;
+        return false;
+    }
+
+    FT_Face face = nullptr;
+    if (FT_New_Face(ft, fontPath.c_str(), 0, &face) != 0)
+    {
+        LOG_ERROR(1, "ERROR::FREETYPE: Failed to load font: ", fontPath);
         return false;
     }
 
     FT_Set_Pixel_Sizes(face, 0, fontSize);
 
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
     FontData fontData;
     fontData.face = face;
     fontData.fontSize = fontSize;
 
-    // Charger les 128 premiers caractères ASCII
-    for (unsigned char c = 0; c < 128; c++)
+    for (unsigned char c = 0; c < 128; ++c)
     {
-        fontData.characters[static_cast<char>(c)] = loadCharacter(face, static_cast<char>(c));
+        fontData.characters.emplace(static_cast<char>(c), loadCharacter(face, static_cast<char>(c)));
     }
 
-    fonts[fontName] = fontData;
-
+    fonts[fontName] = std::move(fontData);
     if (activeFontName.empty())
     {
         activeFontName = fontName;
     }
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 
     return true;
 }
 
 Character TextRenderer::loadCharacter(FT_Face face, char c)
 {
-    if (FT_Load_Char(face, c, FT_LOAD_RENDER))
+    if (FT_Load_Char(face, c, FT_LOAD_RENDER) != 0)
     {
-        std::cerr << "ERROR::FREETYPE: Failed to load Glyph '" << c << "'" << std::endl;
-        return Character();
+        LOG_ERROR(1, "ERROR::FREETYPE: Failed to load glyph '", c, "'");
+        return {};
     }
 
-    unsigned int texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, static_cast<GLsizei>(face->glyph->bitmap.width), static_cast<GLsizei>(face->glyph->bitmap.rows),
-                 0, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    Character character = {texture, glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-                           glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-                           static_cast<unsigned int>(face->glyph->advance.x)};
-
+    Character character;
+    character.texture =
+        Texture(face->glyph->bitmap.buffer, static_cast<int>(face->glyph->bitmap.width), static_cast<int>(face->glyph->bitmap.rows), "text",
+                0, TextureFormat::R8, TexturePixelType::UnsignedByte, TextureFilterMode::Linear);
+    character.size = {face->glyph->bitmap.width, face->glyph->bitmap.rows};
+    character.bearing = {face->glyph->bitmap_left, face->glyph->bitmap_top};
+    character.advance = static_cast<unsigned int>(face->glyph->advance.x);
     return character;
 }
 
@@ -242,14 +167,11 @@ void TextRenderer::updateScreenSize(unsigned int width, unsigned int height)
     projection = glm::ortho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height));
 }
 
-// Système de coordonnées UI : (0,0) en haut à gauche, Y positif vers le bas
-// TextAnchor définit quel point du texte est aligné sur (x, y)
 glm::vec2 TextRenderer::calculateAnchorOffset(const std::string &text, float scale, TextAnchor anchor)
 {
     glm::vec2 textSize = measureText(text, scale);
     glm::vec2 offset = {0.0f, 0.0f};
 
-    // Offset horizontal
     switch (anchor)
     {
         case TextAnchor::TopCenter:
@@ -263,13 +185,9 @@ glm::vec2 TextRenderer::calculateAnchorOffset(const std::string &text, float sca
             offset.x = -textSize.x;
             break;
         default:
-            break; // Left anchors: offset.x = 0
+            break;
     }
 
-    // Offset vertical
-    // TopLeft/TopCenter/TopRight: le HAUT du texte est à Y, donc offset = 0
-    // Center: le CENTRE du texte est à Y, donc on remonte de height/2
-    // Bottom: le BAS du texte est à Y, donc on remonte de height
     switch (anchor)
     {
         case TextAnchor::CenterLeft:
@@ -283,7 +201,7 @@ glm::vec2 TextRenderer::calculateAnchorOffset(const std::string &text, float sca
             offset.y = -textSize.y;
             break;
         default:
-            break; // Top anchors: offset.y = 0
+            break;
     }
 
     return offset;
@@ -291,31 +209,25 @@ glm::vec2 TextRenderer::calculateAnchorOffset(const std::string &text, float sca
 
 void TextRenderer::renderText(const std::string &text, float x, float y, float scale, const glm::vec3 &color, TextAnchor anchor)
 {
-    if (fonts.empty() || activeFontName.empty())
+    if (fonts.empty() || activeFontName.empty() || glyphGeometry == nullptr || !shaderProgram.IsCompiled())
     {
         return;
     }
 
     auto &fontData = fonts[activeFontName];
-    float lineHeight = static_cast<float>(fontData.fontSize) * scale;
+    const float lineHeight = static_cast<float>(fontData.fontSize) * scale;
+    const glm::vec2 anchorOffset = calculateAnchorOffset(text, scale, anchor);
 
-    // Calculer l'offset basé sur l'ancre
-    glm::vec2 anchorOffset = calculateAnchorOffset(text, scale, anchor);
+    const float startX = x + anchorOffset.x;
+    const float startY = y + anchorOffset.y;
 
-    // Position de départ en coordonnées UI (0,0 en haut à gauche, Y vers le bas)
-    float startX = x + anchorOffset.x;
-    float startY = y + anchorOffset.y;
+    shaderProgram.Bind();
+    shaderProgram.SetUniformMatrix4(shaderProgram.GetUniformLocation("projection"), &projection[0][0]);
+    shaderProgram.SetUniformFloats(shaderProgram.GetUniformLocation("textColor"), &color[0], 3);
+    const int textureSlot = 0;
+    shaderProgram.SetUniformInts(shaderProgram.GetUniformLocation("text"), &textureSlot, 1);
 
-    shader->use();
-    shader->setMat4("projection", projection);
-    shader->setVec3("textColor", color);
-    shader->setInt("text", 0);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindVertexArray(VAO);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
+    glyphGeometry->Bind();
     float cursorX = startX;
     float cursorY = startY;
 
@@ -328,57 +240,36 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
             continue;
         }
 
-        if (fontData.characters.find(c) == fontData.characters.end())
+        const auto characterIt = fontData.characters.find(c);
+        if (characterIt == fontData.characters.end())
         {
             continue;
         }
 
-        Character ch = fontData.characters[c];
+        Character &ch = characterIt->second;
 
-        // Position X en pixels écran
-        float xpos = cursorX + static_cast<float>(ch.bearing.x) * scale;
+        const float xpos = cursorX + static_cast<float>(ch.bearing.x) * scale;
+        const float baselineY = cursorY + static_cast<float>(fontData.fontSize) * scale;
+        const float glyphTop = baselineY - static_cast<float>(ch.bearing.y) * scale;
+        const float glyphBottom = glyphTop + static_cast<float>(ch.size.y) * scale;
+        const float ypos = static_cast<float>(screenHeight) - glyphBottom;
+        const float w = static_cast<float>(ch.size.x) * scale;
+        const float h = static_cast<float>(ch.size.y) * scale;
 
-        // Position Y:
-        // - cursorY est la position du HAUT de la ligne en coordonnées UI
-        // - On veut une baseline commune pour tous les caractères
-        // - La baseline est typiquement à environ fontSize depuis le haut
-        // - bearing.y = distance de la baseline vers le HAUT du glyphe
-        // - En OpenGL, Y=0 est en BAS, donc on convertit
-        //
-        // En coordonnées UI: baseline = cursorY + fontSize * scale
-        // Position du HAUT du glyphe en UI = baseline - bearing.y
-        // Position du BAS du glyphe en UI = baseline - bearing.y + size.y
-        //
-        // Conversion en OpenGL (origine en bas):
-        // ypos_opengl = screenHeight - ypos_ui
+        const std::array<float, GlyphQuadFloatCount> vertices = {
+            xpos, ypos + h, 0.0f, 0.0f, xpos,     ypos, 0.0f, 1.0f, xpos + w, ypos,     1.0f, 1.0f,
+            xpos, ypos + h, 0.0f, 0.0f, xpos + w, ypos, 1.0f, 1.0f, xpos + w, ypos + h, 1.0f, 0.0f,
+        };
 
-        float baselineY_UI = cursorY + static_cast<float>(fontData.fontSize) * scale; // Baseline en UI
-        float glyphTop_UI = baselineY_UI - static_cast<float>(ch.bearing.y) * scale;  // Haut du glyphe en UI
-        float glyphBottom_UI = glyphTop_UI + static_cast<float>(ch.size.y) * scale;   // Bas du glyphe en UI
-
-        // Conversion en OpenGL
-        float glyphBottom_GL = static_cast<float>(screenHeight) - glyphBottom_UI; // Bas du glyphe en OpenGL
-        float ypos = glyphBottom_GL;                                              // ypos = bas du quad
-
-        float w = static_cast<float>(ch.size.x) * scale;
-        float h = static_cast<float>(ch.size.y) * scale;
-
-        // OpenGL: ypos est le bas du quad, ypos + h est le haut
-        float vertices[6][4] = {{xpos, ypos + h, 0.0f, 0.0f}, {xpos, ypos, 0.0f, 1.0f},     {xpos + w, ypos, 1.0f, 1.0f},
-
-                                {xpos, ypos + h, 0.0f, 0.0f}, {xpos + w, ypos, 1.0f, 1.0f}, {xpos + w, ypos + h, 1.0f, 0.0f}};
-
-        glBindTexture(GL_TEXTURE_2D, ch.textureID);
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glyphGeometry->UpdateVertexData(vertices.data(), vertices.size(), 0);
+        ch.texture.Bind();
+        glyphGeometry->DrawIndexed();
 
         cursorX += static_cast<float>(ch.advance >> 6U) * scale;
     }
 
-    glBindVertexArray(0);
-    glDisable(GL_BLEND);
+    glyphGeometry->Unbind();
+    shaderProgram.Unbind();
 }
 
 float TextRenderer::measureTextWidth(const std::string &text, float scale)
@@ -398,13 +289,13 @@ float TextRenderer::measureTextWidth(const std::string &text, float scale)
             break;
         }
 
-        if (fontData.characters.find(c) == fontData.characters.end())
+        const auto characterIt = fontData.characters.find(c);
+        if (characterIt == fontData.characters.end())
         {
             continue;
         }
 
-        Character ch = fontData.characters[c];
-        width += static_cast<float>(ch.advance >> 6U) * scale;
+        width += static_cast<float>(characterIt->second.advance >> 6U) * scale;
     }
 
     return width;
@@ -428,20 +319,19 @@ glm::vec2 TextRenderer::measureText(const std::string &text, float scale)
         {
             maxWidth = std::max(maxWidth, currentWidth);
             currentWidth = 0.0f;
-            lineCount++;
+            ++lineCount;
             continue;
         }
 
-        if (fontData.characters.find(c) != fontData.characters.end())
+        const auto characterIt = fontData.characters.find(c);
+        if (characterIt != fontData.characters.end())
         {
-            Character ch = fontData.characters[c];
-            currentWidth += static_cast<float>(ch.advance >> 6U) * scale;
+            currentWidth += static_cast<float>(characterIt->second.advance >> 6U) * scale;
         }
     }
 
     maxWidth = std::max(maxWidth, currentWidth);
-    float height = static_cast<float>(fontData.fontSize) * scale * static_cast<float>(lineCount) * 1.2f;
-
+    const float height = static_cast<float>(fontData.fontSize) * scale * static_cast<float>(lineCount) * 1.2f;
     return {maxWidth, height};
 }
 
@@ -454,9 +344,8 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
     }
 
     auto &fontData = fonts[activeFontName];
-
-    size_t start = 0;
-    size_t newlinePos;
+    std::size_t start = 0;
+    std::size_t newlinePos = 0;
 
     while ((newlinePos = text.find('\n', start)) != std::string::npos)
     {
@@ -465,22 +354,21 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
         while (!segment.empty())
         {
             float width = 0.0f;
-            size_t i = 0;
-            size_t lastSpace = 0;
+            std::size_t i = 0;
+            std::size_t lastSpace = 0;
 
             for (; i < segment.length(); ++i)
             {
-                char c = segment[i];
+                const char c = segment[i];
                 if (c == ' ')
                 {
                     lastSpace = i;
                 }
 
-                if (fontData.characters.find(c) != fontData.characters.end())
+                const auto characterIt = fontData.characters.find(c);
+                if (characterIt != fontData.characters.end())
                 {
-                    Character ch = fontData.characters[c];
-                    float charWidth = static_cast<float>(ch.advance >> 6U) * scale;
-
+                    const float charWidth = static_cast<float>(characterIt->second.advance >> 6U) * scale;
                     if (width + charWidth > maxWidth && i > 0)
                     {
                         break;
@@ -515,22 +403,21 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
     while (!remaining.empty())
     {
         float width = 0.0f;
-        size_t i = 0;
-        size_t lastSpace = 0;
+        std::size_t i = 0;
+        std::size_t lastSpace = 0;
 
         for (; i < remaining.length(); ++i)
         {
-            char c = remaining[i];
+            const char c = remaining[i];
             if (c == ' ')
             {
                 lastSpace = i;
             }
 
-            if (fontData.characters.find(c) != fontData.characters.end())
+            const auto characterIt = fontData.characters.find(c);
+            if (characterIt != fontData.characters.end())
             {
-                Character ch = fontData.characters[c];
-                float charWidth = static_cast<float>(ch.advance >> 6U) * scale;
-
+                const float charWidth = static_cast<float>(characterIt->second.advance >> 6U) * scale;
                 if (width + charWidth > maxWidth && i > 0)
                 {
                     break;
@@ -590,7 +477,6 @@ void TextRenderer::applyVerticalAlignment(TextLayout &layout, const TextLayoutPa
     }
 
     float offsetY = 0.0f;
-
     switch (params.verticalAlign)
     {
         case VerticalAlign::Middle:
@@ -631,7 +517,8 @@ void TextRenderer::handleOverflow(TextLayout &layout, const TextLayoutParams &pa
                     layout.lines.erase(it, layout.lines.end());
                     break;
                 }
-                else if (params.overflow == TextOverflow::Ellipsis && it != layout.lines.begin())
+
+                if (params.overflow == TextOverflow::Ellipsis && it != layout.lines.begin())
                 {
                     auto prev = std::prev(it);
                     prev->text += "...";
@@ -652,25 +539,23 @@ void TextRenderer::handleOverflow(TextLayout &layout, const TextLayoutParams &pa
 TextLayout TextRenderer::calculateLayout(const std::string &text, float scale, const TextLayoutParams &params)
 {
     TextLayout layout;
-
     if (fonts.empty() || activeFontName.empty() || text.empty())
     {
         return layout;
     }
 
     auto &fontData = fonts[activeFontName];
-    float lineHeight = static_cast<float>(fontData.fontSize) * scale * params.lineSpacing;
+    const float lineHeight = static_cast<float>(fontData.fontSize) * scale * params.lineSpacing;
 
     std::vector<std::string> textLines;
     if (params.wordWrap && params.maxWidth > 0.0f)
     {
-        float wrapWidth = params.maxWidth - params.padding.x * 2;
-        textLines = wrapText(text, scale, wrapWidth);
+        textLines = wrapText(text, scale, params.maxWidth - params.padding.x * 2.0f);
     }
     else
     {
-        size_t start = 0;
-        size_t end;
+        std::size_t start = 0;
+        std::size_t end = 0;
         while ((end = text.find('\n', start)) != std::string::npos)
         {
             textLines.push_back(text.substr(start, end - start));
@@ -680,7 +565,7 @@ TextLayout TextRenderer::calculateLayout(const std::string &text, float scale, c
     }
 
     float y = params.padding.y;
-    for (const auto &lineText : textLines)
+    for (const std::string &lineText : textLines)
     {
         TextLine line;
         line.text = lineText;
@@ -695,7 +580,6 @@ TextLayout TextRenderer::calculateLayout(const std::string &text, float scale, c
     }
 
     layout.totalHeight = y;
-
     if (params.maxWidth > 0.0f && layout.totalWidth > params.maxWidth)
     {
         layout.hasOverflow = true;
@@ -708,41 +592,17 @@ TextLayout TextRenderer::calculateLayout(const std::string &text, float scale, c
     applyHorizontalAlignment(layout, params);
     applyVerticalAlignment(layout, params);
     handleOverflow(layout, params);
-
     return layout;
 }
 
 void TextRenderer::renderTextAdvanced(const std::string &text, float x, float y, const TextLayoutParams &params, const glm::vec3 &color,
                                       float scale)
 {
-    // Le layout calcule des positions relatives positives (ex: ligne 1 à y=0, ligne 2 à y=20)
     TextLayout layout = calculateLayout(text, scale, params);
-
-    // Scissor test pour le clipping (Hidden / Scroll)
-    bool useScissor = (params.overflow == TextOverflow::Hidden || params.overflow == TextOverflow::Scroll) && params.maxWidth > 0.0f &&
-                      params.maxHeight > 0.0f;
-
-    if (useScissor)
-    {
-        glEnable(GL_SCISSOR_TEST);
-        // En OpenGL, scissor commence en bas à gauche
-        int scissorY = static_cast<int>(static_cast<float>(screenHeight) - (y + params.maxHeight));
-        glScissor(static_cast<int>(x), scissorY, static_cast<int>(params.maxWidth), static_cast<int>(params.maxHeight));
-    }
 
     for (const auto &line : layout.lines)
     {
-        // line.x et line.y sont des offsets calculés par calculateLayout
-        float drawX = x + line.x - layout.scrollOffset.x;
-        float drawY = y + line.y - layout.scrollOffset.y;
-
-        // On appelle renderText en TopLeft car le layout a déjà fait le travail de positionnement
-        renderText(line.text, drawX, drawY, scale, color, TextAnchor::TopLeft);
-    }
-
-    if (useScissor)
-    {
-        glDisable(GL_SCISSOR_TEST);
+        renderText(line.text, x + line.x - layout.scrollOffset.x, y + line.y - layout.scrollOffset.y, scale, color, TextAnchor::TopLeft);
     }
 }
 
@@ -750,21 +610,14 @@ glm::vec2 TextRenderer::calculateMinSize(const std::string &text, float scale, b
 {
     if (wordWrap)
     {
-        std::string longestWord;
         float maxWordWidth = 0.0f;
-
-        size_t start = 0;
-        for (size_t i = 0; i <= text.length(); ++i)
+        std::size_t start = 0;
+        for (std::size_t i = 0; i <= text.length(); ++i)
         {
             if (i == text.length() || text[i] == ' ' || text[i] == '\n')
             {
-                std::string word = text.substr(start, i - start);
-                float width = measureTextWidth(word, scale);
-                if (width > maxWordWidth)
-                {
-                    maxWordWidth = width;
-                    longestWord = word;
-                }
+                const std::string word = text.substr(start, i - start);
+                maxWordWidth = std::max(maxWordWidth, measureTextWidth(word, scale));
                 start = i + 1;
             }
         }
@@ -778,18 +631,16 @@ glm::vec2 TextRenderer::calculateMinSize(const std::string &text, float scale, b
 glm::vec2 TextRenderer::getCenteredPosition(const std::string &text, float scale, float rectX, float rectY, float rectWidth,
                                             float rectHeight)
 {
-    glm::vec2 textSize = measureText(text, scale);
+    const glm::vec2 textSize = measureText(text, scale);
     return {rectX + (rectWidth - textSize.x) / 2.0f, rectY + (rectHeight - textSize.y) / 2.0f};
 }
 
 float TextRenderer::findOptimalScale(const std::string &text, float maxWidth, float maxHeight, float minScale, float maxScale)
 {
     float bestScale = minScale;
-
     for (float scale = minScale; scale <= maxScale; scale += 0.1f)
     {
-        glm::vec2 size = measureText(text, scale);
-
+        const glm::vec2 size = measureText(text, scale);
         if (size.x <= maxWidth && size.y <= maxHeight)
         {
             bestScale = scale;

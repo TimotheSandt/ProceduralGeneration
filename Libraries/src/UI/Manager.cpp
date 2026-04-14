@@ -1,9 +1,8 @@
-#include "Manager.h"
-#include "Layout/HBox.h"
-#include "Layout/VBox.h"
-#include "Utilities.h"
+#include "UIManager.h"
+#include "Renderer2D.h"
+#include "UIHBox.h"
+#include "UIVBox.h"
 #include <iostream>
-#include <glad/glad.h>
 
 namespace UI
 {
@@ -84,7 +83,7 @@ void Manager::Update(float dt, int w, int h)
     rootContainer->Update();
 }
 
-void Manager::Render(int w, int h)
+void UIManager::Render(Renderer2D &renderer2D, int w, int h)
 {
     if (!active)
     {
@@ -97,44 +96,12 @@ void Manager::Render(int w, int h)
         Init(w, h);
     }
 
-    // Save GL state
-    GLint oldViewport[4];
-    glGetIntegerv(GL_VIEWPORT, oldViewport);
-    GLint oldFBO;
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &oldFBO);
-    GLboolean oldDepthTest = glIsEnabled(GL_DEPTH_TEST);
-    GLboolean oldBlend = glIsEnabled(GL_BLEND);
-
-    // Setup GL state for UI rendering
-    glBindFramebuffer(GL_FRAMEBUFFER, 0); // Ensure we render to screen
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glViewport(0, 0, w, h);
+    renderer2D.BeginCanvasPass();
 
     // Draw root container with screen as container size
     glm::vec2 screenSize = {static_cast<float>(w), static_cast<float>(h)};
     rootContainer->Draw(screenSize, {0, 0});
-
-    // Restore GL state
-    glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
-    glViewport(oldViewport[0], oldViewport[1], oldViewport[2], oldViewport[3]);
-    if (oldDepthTest)
-    {
-        glEnable(GL_DEPTH_TEST);
-    }
-    else
-    {
-        glDisable(GL_DEPTH_TEST);
-    }
-    if (oldBlend)
-    {
-        glEnable(GL_BLEND);
-    }
-    else
-    {
-        glDisable(GL_BLEND);
-    }
+    renderer2D.EndCanvasPass();
 }
 
 } // namespace UI

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glad/glad.h>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 #include <cstdint>
@@ -305,8 +305,8 @@ class InputManager
 
     static KeyLayout keyLayout;
 
-    static std::unordered_map<KeyButton, GLint> keyMap;
-    static std::unordered_map<MouseButton, GLint> mouseButtonMap;
+    static std::unordered_map<KeyButton, int> keyMap;
+    static std::unordered_map<MouseButton, int> mouseButtonMap;
 
     static std::unordered_map<GLFWwindow *, std::unique_ptr<InputManager>> inputManagers;
 };

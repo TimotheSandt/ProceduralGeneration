@@ -1,7 +1,7 @@
 #ifndef PROCEDURAL_GENERATION_GRAPHICS_CAMERA_H
 #define PROCEDURAL_GENERATION_GRAPHICS_CAMERA_H
 
-#include <glad/glad.h>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -9,8 +9,8 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/vector_angle.hpp>
 
-#include "Shader.h"
-#include "UBO.h"
+#include "Buffer.h"
+#include "ShaderProgram.h"
 
 class Camera
 {
@@ -33,7 +33,7 @@ class Camera
     void UpdateMatrix(float FOVdeg, float nearPlane, float farPlane);
     void Inputs(GLFWwindow *window, float ElapseTime);
 
-    void BindUBO() const;
+    void Bind() const;
 
   public:
     void SetPosition(glm::vec3 position) { this->position = position; }
@@ -87,14 +87,14 @@ class Camera
 
     bool firstClick = true;
 
-    UBO bUBO;
+    Buffer cameraBuffer;
     bool isWireframe = false;
 
   private:
     void ToggleWireframe();
 
     void InitializeUBO();
-    void UpdateUBO();
+    void UploadCameraData();
 };
 
 #endif

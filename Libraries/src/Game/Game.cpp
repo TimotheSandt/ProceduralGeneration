@@ -2,8 +2,16 @@
 
 #include <stdexcept>
 
+#include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
+#include "Graphics/Core/GraphicsRuntime.h"
+
 Game::Game()
 {
+    if (!IsGraphicsAPIActive(GraphicsAPI::OpenGL))
+    {
+        throw std::runtime_error("Game currently requires the OpenGL runtime backend");
+    }
+
     LOG_TRACE("Initializing window");
     if (window.Init() != 0)
     {
@@ -43,7 +51,7 @@ void Game::stop()
 
     if (this->window.GetWindow() != nullptr)
     {
-        glfwMakeContextCurrent(this->window.GetWindow());
+        OpenGLWindowContext::EnsureContextCurrent(this->window.GetWindow());
     }
     if (this->world)
     {
@@ -58,19 +66,11 @@ void Game::stop()
 
 void Game::run()
 {
-    glGetError();
     while (!window.ShouldClose())
     {
-
-        if (this->window.NewFrame())
+        if (!this->window.NewFrame())
         {
-            // std::string title = "fps: " + std::to_string(window.GetFPS()) +
-            //                     ", Avg fps: " + std::to_string(window.GetAverageFPS()) +
-            //                     ", Avg Elapsed Time: " + std::to_string(window.GetAverageElapseTimeMillisecond()) + "ms" +
-            //                     ", Render Time: " + std::to_string(Profiler::GetAverageTime("Render").count() * 1e-6) + "ms" +
-            //                     ", Upscale Time: " + std::to_string(Profiler::GetAverageTime("Upscale").count() * 1e-6) + "ms" +
-            //                     ", Swap Buffers Time: " + std::to_string(Profiler::GetAverageTime("SwapBuffers").count() * 1e-6) + "ms";
-            // glfwSetWindowTitle(window.GetWindow(), title.c_str());
+            continue;
         }
 
         this->update();
@@ -80,10 +80,64 @@ void Game::run()
     }
 }
 
-void Game::processInput() {}
+void Game::processInput()
+{
+    InputManager &inputManager = InputManager::GetInstance(this->window.GetWindow());
+    if (inputManager.IsKeyJustPressed(KeyButton::ESCAPE))
+    {
+        glfwSetWindowShouldClose(this->window.GetWindow(), true);
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::F11))
+    {
+        this->window.ToggleBorderless();
+    }
+#ifdef DEBUG
+    if (inputManager.IsKeyJustPressed(KeyButton::F12))
+    {
+        this->window.ToggleFullscreen();
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_1))
+    {
+        renderer3D.SetRenderScale(0.25f);
+        renderer3D.SetUpscalingEnabled(true);
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_2))
+    {
+        renderer3D.SetRenderScale(0.5f);
+        renderer3D.SetUpscalingEnabled(true);
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_3))
+    {
+        renderer3D.SetRenderScale(0.75f);
+        renderer3D.SetUpscalingEnabled(true);
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_4))
+    {
+        renderer3D.SetUpscalingEnabled(!renderer3D.IsUpscalingEnabled());
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_5))
+    {
+        rendererUI.SetRenderScale(0.25f);
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_6))
+    {
+        rendererUI.SetRenderScale(0.5f);
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_7))
+    {
+        rendererUI.SetRenderScale(0.75f);
+    }
+    if (inputManager.IsKeyJustPressed(KeyButton::NUM_8))
+    {
+        rendererUI.SetUpscalingEnabled(!rendererUI.IsUpscalingEnabled());
+    }
+#endif
+}
 
 void Game::update()
 {
+    this->processInput();
+
     const double fps = this->window.GetFPS();
     const float deltaTime = fps > 0.0 ? static_cast<float>(1.0 / fps) : 1.0f / 60.0f;
     this->camera.Inputs(this->window.GetWindow(), deltaTime);
@@ -97,33 +151,30 @@ void Game::update()
 void Game::render()
 {
     const auto averageTimeMs = [](const char *name) { return static_cast<double>(Profiler::GetAverageTime(name).count()) * 1e-6; };
+    const int windowWidth = *window.GetWidthptr();
+    const int windowHeight = *window.GetHeightptr();
 
-    // 1. Force Viewport for World Rendering (Reset state for new frame)
-    glViewport(0, 0, *window.GetWidthptr(), *window.GetHeightptr());
+    renderer3D.SetOutputResolution(windowWidth, windowHeight);
+    renderer3D.BeginPass();
+    Profiler::ProfileGPU("Clear", &Renderer3D::Clear, &renderer3D, window.GetClearColor(), true);
+    renderer3D.SetCamera(this->camera);
+    Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), std::ref(renderer3D), std::ref(this->camera));
+    Profiler::ProfileGPU("Upscale", &Renderer3D::EndPass, &renderer3D);
 
-    // 2. Render World
-    Profiler::ProfileGPU("Clear", &Window::Clear, window);
-    this->camera.BindUBO();
-    Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), this->camera);
-
-    // 3. Restore viewport before Text (just in case World changed it, though unlikely)
-    glViewport(0, 0, *window.GetWidthptr(), *window.GetHeightptr());
-
-    textRenderer->updateScreenSize(*window.GetWidthptr(), *window.GetHeightptr());
-    textRenderer->renderText("fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, glm::vec3(1.0f, 0.8f, 1.0f),
-                             UI::TextAnchor::TopLeft);
-    textRenderer->renderText(std::format("Render: {:.3f}ms", averageTimeMs("Render")), 10, 50, 0.3f, glm::vec3(1.0f, 0.8f, 1.0f),
-                             UI::TextAnchor::TopLeft);
-    textRenderer->renderText(std::format("Render World: {:.3f}ms", averageTimeMs("RenderWorld")), 10, 70, 0.3f, glm::vec3(1.0f, 0.8f, 1.0f),
-                             UI::TextAnchor::TopLeft);
-    textRenderer->renderText(std::format("Upscale: {:.3f}ms", averageTimeMs("Upscale")), 10, 90, 0.3f, glm::vec3(1.0f, 0.8f, 1.0f),
-                             UI::TextAnchor::TopLeft);
-    textRenderer->renderText(std::format("Swap Buffers: {:.3f}ms", averageTimeMs("SwapBuffers")), 10, 110, 0.3f,
-                             glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-
-    // 4. Transform viewport for UI if needed (UI::Render usually expects window size)
-    glViewport(0, 0, *window.GetWidthptr(), *window.GetHeightptr());
-
-    // Render UI
-    UI::Manager::Instance().Render(*window.GetWidthptr(), *window.GetHeightptr());
+    rendererUI.SetOutputResolution(windowWidth, windowHeight);
+    rendererUI.BeginPass();
+    rendererUI.RenderText(*textRenderer, "fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, glm::vec3(1.0f, 0.8f, 1.0f),
+                          UI::TextAnchor::TopLeft);
+    rendererUI.RenderText(*textRenderer, std::format("Render: {:.3f}ms", averageTimeMs("Render")), 10, 50, 0.3f,
+                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    rendererUI.RenderText(*textRenderer, std::format("Render World: {:.3f}ms", averageTimeMs("RenderWorld")), 10, 70, 0.3f,
+                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    rendererUI.RenderText(*textRenderer, std::format("Upscale: {:.3f}ms", averageTimeMs("Upscale")), 10, 90, 0.3f,
+                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    rendererUI.RenderText(*textRenderer, std::format("UI Upscale: {:.3f}ms", averageTimeMs("UIUpscale")), 10, 110, 0.3f,
+                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    rendererUI.RenderText(*textRenderer, std::format("Swap Buffers: {:.3f}ms", averageTimeMs("SwapBuffers")), 10, 130, 0.3f,
+                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    UI::UIManager::Instance().Render(rendererUI, windowWidth, windowHeight);
+    Profiler::ProfileGPU("UIUpscale", &Renderer2D::EndPass, &rendererUI);
 }

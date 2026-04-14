@@ -1,33 +1,29 @@
 #include "Mesh.h"
 
-#include <bit>
-#include <cstdint>
 #include <utility>
 
-namespace
-{
-void *VertexAttribOffset(std::size_t bytes) { return std::bit_cast<void *>(static_cast<std::uintptr_t>(bytes)); }
-} // namespace
+#include "Graphics/Core/RenderState.h"
+#include "Graphics/Core/GraphicsRuntime.h"
 
-Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib)
+Mesh::Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib)
 {
     this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib));
 }
 
-Mesh::Mesh(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib, std::vector<GLfloat> instances,
-           std::vector<GLuint> SizeAttribInstance)
+Mesh::Mesh(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib,
+           std::vector<float> instances, std::vector<std::uint32_t> sizeAttribInstance)
 {
-    this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib), std::move(instances), std::move(SizeAttribInstance));
+    this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib), std::move(instances), std::move(sizeAttribInstance));
 }
 
 Mesh::Mesh(const Mesh &mesh)
 {
-    this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.SizeAttribInstance);
+    this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.sizeAttribInstance);
     for (const Texture &texture : mesh.textures)
     {
         this->textures.push_back(texture.Copy());
     }
-    this->shader = Shader(mesh.shader);
+    this->shaderProgram = ShaderProgram(mesh.shaderProgram);
     this->position = mesh.position;
     this->scale = mesh.scale;
     this->rotation = mesh.rotation;
@@ -40,12 +36,12 @@ Mesh &Mesh::operator=(const Mesh &mesh)
         return *this;
     }
     this->Destroy();
-    this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.SizeAttribInstance);
+    this->Initialize(mesh.vertices, mesh.indices, mesh.sizeAttrib, mesh.instances, mesh.sizeAttribInstance);
     for (const Texture &texture : mesh.textures)
     {
         this->textures.push_back(texture.Copy());
     }
-    this->shader = Shader(mesh.shader);
+    this->shaderProgram = ShaderProgram(mesh.shaderProgram);
     this->position = mesh.position;
     this->scale = mesh.scale;
     this->rotation = mesh.rotation;
@@ -54,9 +50,9 @@ Mesh &Mesh::operator=(const Mesh &mesh)
 
 Mesh::Mesh(Mesh &&mesh) noexcept
     : vertices(std::move(mesh.vertices)), indices(std::move(mesh.indices)), sizeAttrib(std::move(mesh.sizeAttrib)),
-      textures(std::move(mesh.textures)), shader(std::move(mesh.shader)), position(std::move(mesh.position)), scale(std::move(mesh.scale)),
-      rotation(std::move(mesh.rotation)), instancing(mesh.instancing), instances(std::move(mesh.instances)),
-      SizeAttribInstance(std::move(mesh.SizeAttribInstance)), bVAO(std::move(mesh.bVAO)), bUBO(std::move(mesh.bUBO)),
+      textures(std::move(mesh.textures)), shaderProgram(std::move(mesh.shaderProgram)), position(std::move(mesh.position)),
+      scale(std::move(mesh.scale)), rotation(std::move(mesh.rotation)), instancing(mesh.instancing), instances(std::move(mesh.instances)),
+      sizeAttribInstance(std::move(mesh.sizeAttribInstance)), geometry(std::move(mesh.geometry)), modelBuffer(std::move(mesh.modelBuffer)),
       uniformCache(std::move(mesh.uniformCache))
 {
     mesh.instancing = 1;
@@ -78,32 +74,32 @@ void Mesh::Swap(Mesh &mesh) noexcept
     std::swap(this->indices, mesh.indices);
     std::swap(this->sizeAttrib, mesh.sizeAttrib);
     std::swap(this->instances, mesh.instances);
-    std::swap(this->SizeAttribInstance, mesh.SizeAttribInstance);
+    std::swap(this->sizeAttribInstance, mesh.sizeAttribInstance);
     std::swap(this->textures, mesh.textures);
     std::swap(this->instancing, mesh.instancing);
-    std::swap(this->bVAO, mesh.bVAO);
-    std::swap(this->bUBO, mesh.bUBO);
-    std::swap(this->shader, mesh.shader);
+    std::swap(this->geometry, mesh.geometry);
+    std::swap(this->modelBuffer, mesh.modelBuffer);
+    std::swap(this->shaderProgram, mesh.shaderProgram);
     std::swap(this->position, mesh.position);
     std::swap(this->scale, mesh.scale);
     std::swap(this->rotation, mesh.rotation);
 }
 
-void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib)
+void Mesh::Initialize(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib)
 {
     this->Initialize(std::move(vertices), std::move(indices), std::move(sizeAttrib), {}, {});
 }
 
-void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices, std::vector<GLuint> sizeAttrib,
-                      std::vector<GLfloat> instances, std::vector<GLuint> SizeAttribInstance)
+void Mesh::Initialize(std::vector<float> vertices, std::vector<std::uint32_t> indices, std::vector<std::uint32_t> sizeAttrib,
+                      std::vector<float> instances, std::vector<std::uint32_t> sizeAttribInstance)
 {
     this->vertices = std::move(vertices);
     this->indices = std::move(indices);
-    this->sizeAttrib = sizeAttrib;
-    this->instances = instances;
-    this->SizeAttribInstance = SizeAttribInstance;
+    this->sizeAttrib = std::move(sizeAttrib);
+    this->instances = std::move(instances);
+    this->sizeAttribInstance = std::move(sizeAttribInstance);
 
-    if (instances.empty())
+    if (this->instances.empty())
     {
         this->instancing = 1;
     }
@@ -111,86 +107,34 @@ void Mesh::Initialize(std::vector<GLfloat> vertices, std::vector<GLuint> indices
     {
         // Calculate instances based on total components per instance
         int componentsPerInstance = 0;
-        for (GLuint size : SizeAttribInstance)
+        for (std::uint32_t size : this->sizeAttribInstance)
         {
             componentsPerInstance += static_cast<int>(size);
         }
-        this->instancing = (componentsPerInstance > 0) ? instances.size() / componentsPerInstance : 1;
+        this->instancing = (componentsPerInstance > 0) ? this->instances.size() / componentsPerInstance : 1;
     }
 
-    this->bVAO.Initialize();
-    if (glGetError() != GL_NO_ERROR)
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr)
     {
-        LOG_ERROR(1, "VAO initialization failed");
-    }
-    this->bVAO.Bind();
-
-    VBO bVBO(this->vertices);
-    EBO bEBO(this->indices);
-
-    int numComponents = 0;
-    for (GLuint i = 0; i < sizeAttrib.size(); i++)
-    {
-        numComponents += static_cast<int>(sizeAttrib[i]);
+        GeometryCreateInfo createInfo;
+        createInfo.layout.vertexAttributes = this->sizeAttrib;
+        createInfo.layout.instanceAttributes = this->sizeAttribInstance;
+        createInfo.vertexData.assign(this->vertices.begin(), this->vertices.end());
+        createInfo.indexData.assign(this->indices.begin(), this->indices.end());
+        createInfo.instanceData.assign(this->instances.begin(), this->instances.end());
+        createInfo.debugName = "mesh_geometry";
+        this->geometry = device->CreateGeometry(createInfo);
     }
 
-    int offset = 0;
-    GLuint i = 0;
-    for (; i < sizeAttrib.size(); i++)
-    {
-        this->bVAO.LinkAttrib(bVBO, i, sizeAttrib[i], GL_FLOAT, static_cast<GLsizeiptr>(numComponents * sizeof(GLfloat)),
-                              VertexAttribOffset(static_cast<std::size_t>(offset) * sizeof(GLfloat)));
-        offset += static_cast<int>(sizeAttrib[i]);
-    }
-
-    if (!instances.empty())
-    {
-        VBO instanceVBO(instances);
-        instanceVBO.Bind();
-
-        numComponents = 0;
-        for (GLuint i = 0; i < SizeAttribInstance.size(); i++)
-        {
-            numComponents += static_cast<int>(SizeAttribInstance[i]);
-        }
-
-        offset = 0;
-        i = sizeAttrib.size();
-        for (; i < sizeAttrib.size() + SizeAttribInstance.size(); i++)
-        {
-            this->bVAO.LinkAttrib(instanceVBO, i, SizeAttribInstance[i - sizeAttrib.size()], GL_FLOAT,
-                                  static_cast<GLsizeiptr>(numComponents * sizeof(GLfloat)),
-                                  VertexAttribOffset(static_cast<std::size_t>(offset) * sizeof(GLfloat)));
-            offset += static_cast<int>(SizeAttribInstance[i - sizeAttrib.size()]);
-        }
-
-        i = sizeAttrib.size();
-        for (; i < sizeAttrib.size() + SizeAttribInstance.size(); i++)
-        {
-            glVertexAttribDivisor(i, 1);
-        }
-
-        this->bVAO.Unbind();
-        bVBO.Unbind();
-        instanceVBO.Unbind();
-        bEBO.Unbind();
-    }
-    else
-    {
-        this->bVAO.Unbind();
-        bVBO.Unbind();
-        bEBO.Unbind();
-    }
-
-    this->bUBO.initialize(sizeof(glm::mat4), MESH_MODEL_BINDING_POINT);
+    this->modelBuffer.Initialize(BufferUsage::Uniform, sizeof(glm::mat4), MESH_MODEL_BINDING_POINT, true);
 }
 
 void Mesh::Destroy()
 {
-    this->bVAO.Destroy();
-    this->bUBO.Destroy();
-    this->shader.Destroy();
-    for (GLuint i = 0; i < this->textures.size(); i++)
+    this->geometry.reset();
+    this->modelBuffer.Destroy();
+    this->shaderProgram.Destroy();
+    for (std::size_t i = 0; i < this->textures.size(); i++)
     {
         this->textures[i].Destroy();
     }
@@ -200,42 +144,48 @@ void Mesh::Destroy()
 
 void Mesh::AddTexture(Texture texture) { this->textures.push_back(texture.Copy()); }
 
-void Mesh::AddTexture(const char *image, const char *name, GLenum format, GLenum pixelType)
+void Mesh::AddTexture(const char *image, const char *name, TextureFormat format, TexturePixelType pixelType)
 {
-    GLuint slot = this->textures.size();
+    const std::uint32_t slot = static_cast<std::uint32_t>(this->textures.size());
     this->textures.push_back(Texture(image, name, slot, format, pixelType));
 }
 
 void Mesh::Render(Camera &camera)
 {
-    if (!this->shader.IsCompiled())
+    if (!this->shaderProgram.IsCompiled())
     {
-        LOG_WARNING("Shader not compiled");
+        LOG_WARNING("ShaderProgram not compiled");
         return;
     }
-    this->shader.Bind();
-    this->bVAO.Bind();
-    for (GLuint i = 0; i < this->textures.size(); i++)
+    this->shaderProgram.Bind();
+    if (this->geometry != nullptr)
     {
-        this->textures[i].texUnit(this->shader);
+        this->geometry->Bind();
+    }
+    for (std::size_t i = 0; i < this->textures.size(); i++)
+    {
+        this->textures[i].texUnit(this->shaderProgram);
 
         this->textures[i].Bind();
     }
-    this->bUBO.BindToBindingPoint();
+    this->modelBuffer.BindToBindingPoint();
     this->Draw();
     if (camera.IsWireframe())
     {
-        GLint wireframe = GL_TRUE;
-        this->InitUniform1i("wireframe", &wireframe);
+        int wireframe = 1;
+        this->SetUniform1i("wireframe", &wireframe);
         this->Draw(true);
-        wireframe = GL_FALSE;
-        this->InitUniform1i("wireframe", &wireframe);
+        wireframe = 0;
+        this->SetUniform1i("wireframe", &wireframe);
     }
 
-    this->bVAO.Unbind();
-    this->shader.Unbind();
-    this->bUBO.Unbind();
-    for (GLuint i = 0; i < this->textures.size(); i++)
+    if (this->geometry != nullptr)
+    {
+        this->geometry->Unbind();
+    }
+    this->shaderProgram.Unbind();
+    this->modelBuffer.Unbind();
+    for (std::size_t i = 0; i < this->textures.size(); i++)
     {
         this->textures[i].Unbind();
     }
@@ -243,37 +193,37 @@ void Mesh::Render(Camera &camera)
 
 void Mesh::Draw(bool wireframe) const
 {
+    if (this->geometry == nullptr)
+    {
+        return;
+    }
+
     if (wireframe)
     {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        // Optional: disable depth testing for wireframe to avoid z-fighting
-        // glDisable(GL_DEPTH_TEST);
+        GraphicsRenderState::SetWireframe(true);
     }
     else
     {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        // glEnable(GL_DEPTH_TEST);
+        GraphicsRenderState::SetWireframe(false);
     }
 
     if (this->instancing > 1)
     {
-        glDrawElementsInstanced(GL_TRIANGLES, static_cast<GLsizei>(this->indices.size()), GL_UNSIGNED_INT, nullptr,
-                                static_cast<GLsizei>(this->instancing));
+        this->geometry->DrawIndexedInstanced();
     }
     else
     {
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(this->indices.size()), GL_UNSIGNED_INT, nullptr);
+        this->geometry->DrawIndexed();
     }
 
-    // Reset to fill mode after drawing
     if (wireframe)
     {
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glEnable(GL_DEPTH_TEST);
+        GraphicsRenderState::SetWireframe(false);
+        GraphicsRenderState::SetDepthTest(true);
     }
 }
 
-void Mesh::UpdateUBO()
+void Mesh::UploadTransform()
 {
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, this->position);
@@ -282,5 +232,5 @@ void Mesh::UpdateUBO()
     model = glm::rotate(model, glm::radians(this->rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
     model = glm::scale(model, this->scale);
 
-    this->bUBO.uploadData(glm::value_ptr(model), sizeof(glm::mat4));
+    this->modelBuffer.UploadData(glm::value_ptr(model), sizeof(glm::mat4));
 }

@@ -1,7 +1,8 @@
-#include "Core/Container.h"
-#include "utilities.h"
-#include <glad/glad.h>
+#include "UIContainer.h"
+#include "Graphics/Core/RenderState.h"
+#include "Graphics/Core/GraphicsDiagnostics.h"
 #include "Logger.h"
+#include "utilities.h"
 
 namespace UI
 {
@@ -10,7 +11,7 @@ ContainerBase::ContainerBase(Bounds bounds) : ComponentBase(bounds)
 {
     contentSize = localBounds.scale;
     // Use container-specific shader with texture and scroll support
-    this->mesh.SetShader(GET_RESOURCE_PATH("shader/UI/container.vert"), GET_RESOURCE_PATH("shader/UI/container.frag"));
+    this->sprite.SetShader(GET_RESOURCE_PATH("shader/UI/container.vert"), GET_RESOURCE_PATH("shader/UI/container.frag"));
     UpdateTheme();
 }
 
@@ -28,7 +29,7 @@ void ContainerBase::Initialize()
     {
         child->Initialize();
     }
-    InitializedFBO();
+    InitializeRenderTarget();
     RecalculateChildBounds();
 }
 
@@ -67,78 +68,76 @@ void ContainerBase::Update()
     if (dirtySelfLayout || dirtyChildLayout)
     {
         RecalculateChildBounds();
-        InitializedFBO();
+        InitializeRenderTarget();
     }
 }
 
-// FBO helper functions
-void ContainerBase::InitializedFBO()
+// Render target helper functions
+void UIContainerBase::InitializeRenderTarget()
 {
     if (contentSize.x <= 0 || contentSize.y <= 0)
     {
         return;
     }
 
-    if (fbo.GetWidth() != static_cast<int>(contentSize.x) || fbo.GetHeight() != static_cast<int>(contentSize.y))
+    if (renderTarget.GetWidth() != static_cast<int>(contentSize.x) || renderTarget.GetHeight() != static_cast<int>(contentSize.y))
     {
 
-        fbo.Init(static_cast<int>(contentSize.x), static_cast<int>(contentSize.y));
+        renderTarget.Init(static_cast<int>(contentSize.x), static_cast<int>(contentSize.y));
         fboInitialized = true;
-        GL_CHECK_ERROR_M("UIContainer FBO Init");
+        GRAPHICS_CHECK_ERRORS_M("UIContainer RenderTarget Init");
 
-        // Clear FBO to transparent immediately after init
-        GLint currentFBO;
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &currentFBO);
-        GLint viewport[4];
-        glGetIntegerv(GL_VIEWPORT, viewport);
+        // Clear render target to transparent immediately after init
+        const GraphicsRenderState::FramebufferState previousState = GraphicsRenderState::CaptureFramebufferState();
 
-        fbo.Bind();
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glBindFramebuffer(GL_FRAMEBUFFER, currentFBO);
-        glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+        renderTarget.Bind();
+        GraphicsRenderState::ClearTransparentColorBuffer();
+        GraphicsRenderState::RestoreFramebufferState(previousState);
 
         // Force re-render on next frame
         MarkFullDirty();
     }
 }
 
-void SaveFBOState(GLint &oldFBO, GLint viewport[4])
+void SaveRenderTargetState(std::uint32_t &oldFramebuffer, int viewport[4])
 {
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &oldFBO);
-    glGetIntegerv(GL_VIEWPORT, viewport);
+    const GraphicsRenderState::FramebufferState state = GraphicsRenderState::CaptureFramebufferState();
+    oldFramebuffer = state.framebuffer;
+    for (int i = 0; i < 4; ++i)
+    {
+        viewport[i] = state.viewport[i];
+    }
 }
 
-void RestoreFBOState(GLint oldFBO, GLint viewport[4])
+void RestoreRenderTargetState(std::uint32_t oldFramebuffer, int viewport[4])
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, oldFBO);
-    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    GraphicsRenderState::BindFramebuffer(oldFramebuffer);
+    GraphicsRenderState::SetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 }
 
 void ContainerBase::ClearZone(glm::vec4 bounds)
 {
-    glEnable(GL_SCISSOR_TEST);
+    GraphicsRenderState::SetScissorTest(true);
     // Flip Y for OpenGL (Bottom-Left origin)
     // Bounds are (x, y, w, h) in Top-Left origin
-    GLint yGl = static_cast<GLint>(contentSize.y - (bounds.y + bounds.w));
+    const int yGl = static_cast<int>(contentSize.y - (bounds.y + bounds.w));
 
-    glScissor(static_cast<GLint>(bounds.x), yGl, static_cast<GLsizei>(bounds.z), static_cast<GLsizei>(bounds.w));
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glDisable(GL_SCISSOR_TEST);
+    GraphicsRenderState::SetScissor(static_cast<int>(bounds.x), yGl, static_cast<int>(bounds.z), static_cast<int>(bounds.w));
+    GraphicsRenderState::ClearTransparentColorBuffer();
+    GraphicsRenderState::SetScissorTest(false);
 }
 
 void ContainerBase::RenderChildren()
 {
-    GLint oldFBO;
-    GLint viewport[4];
-    SaveFBOState(oldFBO, viewport);
+    std::uint32_t oldFramebuffer = 0;
+    int viewport[4];
+    SaveRenderTargetState(oldFramebuffer, viewport);
 
-    fbo.Bind();
-    GL_CHECK_ERROR_M("RenderDirtyChildren Bind");
+    renderTarget.Bind();
+    GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Bind");
 
-    // Set viewport to FBO size
-    glViewport(0, 0, static_cast<GLsizei>(contentSize.x), static_cast<GLsizei>(contentSize.y));
+    // Set viewport to render target size
+    GraphicsRenderState::SetViewport(0, 0, static_cast<int>(contentSize.x), static_cast<int>(contentSize.y));
 
     // Determine dirty level: layout vs appearance only
     bool hasLayoutDirty = IsSelfLayoutDirty(); // If we resized, we must re-render all (anchors changed)
@@ -158,9 +157,8 @@ void ContainerBase::RenderChildren()
 
     if (hasLayoutDirty)
     {
-        // Layout changed: clear entire FBO and re-render all
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        // Layout changed: clear the full render target and re-render all
+        GraphicsRenderState::ClearTransparentColorBuffer();
 
         for (auto &child : children)
         {
@@ -184,8 +182,8 @@ void ContainerBase::RenderChildren()
         }
     }
 
-    RestoreFBOState(oldFBO, viewport);
-    GL_CHECK_ERROR_M("RenderDirtyChildren Restore");
+    RestoreRenderTargetState(oldFramebuffer, viewport);
+    GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Restore");
 }
 
 void ContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
@@ -204,26 +202,13 @@ void ContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
     // offset already includes anchor offset from cachedBoundsInParent
     RenderChildren();
 
-    // Draw the FBO texture
-    mesh.BindShader();
-    mesh.BindVAO();
-
-    mesh.InitUniform2f("offset", glm::value_ptr(offset));
-    mesh.InitUniform2f("scale", glm::value_ptr(localBounds.scale));
-    mesh.InitUniform2f("containerSize", glm::value_ptr(containerSize));
-    mesh.InitUniform2f("scrollOffset", glm::value_ptr(scrollOffset));
-    mesh.InitUniform2f("contentSize", glm::value_ptr(contentSize));
-    mesh.InitUniform4f("color", glm::value_ptr(this->color.Get()));
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, fbo.GetTextureID());
-    GLint texSamplerLoc = 0;
-    mesh.InitUniform1i("textureSampler", &texSamplerLoc);
-
-    mesh.Draw();
-
-    mesh.UnbindVAO();
-    mesh.UnbindShader();
+    sprite.Draw({.offset = offset,
+                 .scale = localBounds.scale,
+                 .containerSize = containerSize,
+                 .scrollOffset = scrollOffset,
+                 .contentSize = contentSize,
+                 .color = this->color.Get()},
+                &renderTarget.GetTexture());
 
     ClearDirty();
 }

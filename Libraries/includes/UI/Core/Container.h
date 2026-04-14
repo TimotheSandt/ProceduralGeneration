@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
-#include "Component.h"
-#include "FBO.h"
+#include "UIComponent.h"
+#include "RenderTarget.h"
 #include "Utilities.h"
 
 namespace UI
@@ -40,7 +40,7 @@ class ContainerBase : public ComponentBase
   protected:
     std::vector<std::shared_ptr<ComponentBase>> children;
 
-    FBO fbo;
+    RenderTarget renderTarget;
     bool fboInitialized = false;
 
     glm::vec2 scrollOffset = {0, 0};
@@ -101,14 +101,14 @@ class ContainerBase : public ComponentBase
     DeferredValue<float> spacing = 0.0f;
 
   protected:
-    void InitializedFBO();
+    void InitializeRenderTarget();
     virtual void RecalculateChildBounds();
 
     void RenderChildren();
 
     void UpdateTheme() override;
 
-    // Clear a specific zone in the FBO
+    // Clear a specific zone in the render target
     void ClearZone(glm::vec4 bounds);
 };
 

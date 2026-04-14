@@ -126,7 +126,7 @@ void Grid::GenerateNormals()
 void Grid::GenerateMesh()
 {
 
-    std::vector<GLfloat> vertices;
+    std::vector<float> vertices;
     vertices.reserve(this->points.size() * 3);
     for (const auto &vec : this->points)
     {
@@ -143,7 +143,7 @@ void Grid::GenerateMesh()
         vertices.push_back(vec.Color.z);
     }
 
-    std::vector<GLuint> indices;
+    std::vector<std::uint32_t> indices;
     indices.reserve(this->triangles.size() * 3);
     for (const auto &triangle : this->triangles)
     {
@@ -154,7 +154,7 @@ void Grid::GenerateMesh()
 
     this->mesh.Initialize(vertices, indices, {3, 3, 3});
     this->mesh.SetShader(GET_RESOURCE_PATH("shader/default.vert"), GET_RESOURCE_PATH("shader/default.frag"));
-    this->mesh.UpdateUBO();
+    this->mesh.UploadTransform();
 }
 
 void Grid::TransformPoints(const std::function<void(Vertex &, unsigned int)> &func)
@@ -166,4 +166,4 @@ void Grid::TransformPoints(const std::function<void(Vertex &, unsigned int)> &fu
     GenerateNormals();
 }
 
-void Grid::Render(Camera &camera) { this->mesh.Render(camera); }
+void Grid::Render(const Renderer3D &renderer3D, Camera &camera) { renderer3D.DrawMesh(this->mesh, camera); }

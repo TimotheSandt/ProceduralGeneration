@@ -1,15 +1,17 @@
 #include "Window.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
+#include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
+#include "Graphics/Core/GraphicsDiagnostics.h"
+#include "Graphics/Core/RenderState.h"
+#include "Graphics/Core/GraphicsRuntime.h"
+#include "InputManager.h"
+#include "Profiler.h"
 #include "Logger.h"
 #include "utilities.h"
 
-bool Window::isOpenGLInitialized = false;
-GLint Window::GLFW_MAJOR_VERSION = 4;
-GLint Window::GLFW_MINOR_VERSION = 3;
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 Window::Window()
 {
@@ -36,12 +38,6 @@ Window::Window()
     this->parameters.windowedHeight = this->parameters.height;
     this->parameters.windowedPosX = this->parameters.posX;
     this->parameters.windowedPosY = this->parameters.posY;
-
-    // Initialize resolution scaling parameters
-    this->parameters.renderScale = 1.0f;
-    this->parameters.enableUpscaling = false;
-    this->parameters.renderWidth = this->parameters.width;
-    this->parameters.renderHeight = this->parameters.height;
 }
 
 Window::~Window() { this->Close(); }
@@ -61,8 +57,6 @@ Window &Window::operator=(Window &&other) noexcept
 void Window::Swap(Window &other) noexcept
 {
     std::swap(this->window, other.window);
-    std::swap(this->FBORendering, other.FBORendering);
-    std::swap(this->FBOUpscaled, other.FBOUpscaled);
     std::swap(this->parameters, other.parameters);
     std::swap(this->inputManager, other.inputManager);
     std::swap(this->fpsCounter, other.fpsCounter);
@@ -71,7 +65,13 @@ void Window::Swap(Window &other) noexcept
 
 int Window::Init()
 {
-    // Create a window of size 800x800 and called "OpenGL"
+    if (!IsGraphicsAPIActive(GraphicsAPI::OpenGL))
+    {
+        LOG_ERROR(1, "Window currently supports only the OpenGL runtime backend");
+        return -1;
+    }
+
+    // Create a window for the active graphics runtime.
     this->window = glfwCreateWindow(this->parameters.width, this->parameters.height, this->parameters.title.c_str(), nullptr, nullptr);
     if (!this->window)
     {
@@ -79,39 +79,21 @@ int Window::Init()
         return -1;
     }
 
-    // Make the window's context current
-    glfwMakeContextCurrent(this->window);
-
-    // Initialize GLAD to load all OpenGL function pointers
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    if (!OpenGLWindowContext::Initialize(this->window, this->parameters.vsync, this->parameters.width, this->parameters.height))
     {
-        LOG_FATAL(-1, "Failed to initialize GLAD");
         this->Close();
         return -1;
     }
-    GL_CHECK_ERROR_M("gladLoadGL");
-
-    // Define the viewport dimensions
-    glViewport(0, 0, this->parameters.width, this->parameters.height);
-    GL_CHECK_ERROR_M("glViewport");
-
-    glfwSwapInterval(this->parameters.vsync ? 1 : 0);
-    GL_CHECK_ERROR_M("glfwSwapInterval");
-
-    glEnable(GL_DEPTH_TEST);
-    GL_CHECK_ERROR_M("glEnable");
 
     glfwGetWindowPos(this->window, &this->parameters.posX, &this->parameters.posY);
-    GL_CHECK_ERROR_M("glfwGetWindowPos");
+    GRAPHICS_CHECK_ERRORS_M("glfwGetWindowPos");
 
     glfwSetWindowUserPointer(this->window, this);
-    GL_CHECK_ERROR_M("glfwSetWindowUserPointer");
+    GRAPHICS_CHECK_ERRORS_M("glfwSetWindowUserPointer");
 
     this->SetupCallbacks();
 
     this->ChangeWindowState(this->parameters.windowState);
-    this->InitFBOs();
-
     this->inputManager = &InputManager::GetInstance(this->window);
 
     return 0;
@@ -126,9 +108,6 @@ void Window::Close()
 
     this->ClearCallbacks();
 
-    this->FBORendering.Destroy();
-    this->FBOUpscaled.Destroy();
-
     InputManager::RemoveInstance(this->window);
     this->inputManager = nullptr;
 
@@ -140,66 +119,11 @@ void Window::Close()
 #endif
 }
 
-bool Window::InitOpenGL()
-{
-    if (isOpenGLInitialized)
-    {
-        return isOpenGLInitialized;
-    }
-
-    // Initialize GLFW
-    if (!glfwInit())
-    {
-        LOG_FATAL(-1, "Failed to initialize GLFW");
-        return isOpenGLInitialized = false;
-    }
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, GLFW_MAJOR_VERSION);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, GLFW_MINOR_VERSION);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
-    glfwWindowHint(GLFW_CENTER_CURSOR, GLFW_TRUE);
-    glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_TRUE);
-    glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
-    glfwWindowHint(GLFW_FOCUSED, GLFW_TRUE);
-
-    glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
-    glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_TRUE);
-
-#ifdef DEBUG
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
-#endif
-
-    SetupErrorHandling();
-
-    return isOpenGLInitialized = true;
-}
-
-void Window::TerminateOpenGL()
-{
-    if (!isOpenGLInitialized)
-    {
-        return;
-    }
-    glfwSetErrorCallback(nullptr);
-    glfwTerminate();
-    isOpenGLInitialized = false;
-}
-
-void Window::Clear() const
-{
-    glClearColor(this->parameters.clearColor.r, this->parameters.clearColor.g, this->parameters.clearColor.b,
-                 this->parameters.clearColor.a);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    GL_CHECK_ERROR_M("glClear");
-}
-
 bool Window::NewFrame()
 {
     Profiler::Profile("PollEvents", &glfwPollEvents);
     Profiler::Process();
     this->inputManager->Update();
-    this->HandleInput();
 
     if (!Profiler::Profile("HealthCheck", &Window::IsWindowHealthy, this))
     {
@@ -209,11 +133,6 @@ bool Window::NewFrame()
 
     this->fpsCounter.newFrame(this->parameters.maxFPS);
 
-    if (this->parameters.enableUpscaling)
-    {
-        this->BindRenderFBO();
-    }
-
     if (this->parameters.trueEveryms == 0)
     {
         this->fpsCounter.updateStat();
@@ -222,14 +141,13 @@ bool Window::NewFrame()
 
     auto now = this->fpsCounter.getTime();
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - this->lastTime).count();
-    if (elapsed >= static_cast<decltype(elapsed)>(this->parameters.trueEveryms))
+    if (elapsed >= static_cast<long long>(this->parameters.trueEveryms))
     {
         this->fpsCounter.updateStat();
         this->lastTime = now;
-        return true;
     }
 
-    return false;
+    return true;
 }
 
 void Window::SwapBuffers()
@@ -239,52 +157,8 @@ void Window::SwapBuffers()
         return;
     }
 
-    if (this->parameters.enableUpscaling)
-    {
-        Profiler::ProfileGPU("Upscale", &Window::UnbindRenderFBO, this);
-    }
-
     glfwSwapBuffers(this->window);
-    GL_CHECK_ERROR_M("glfwSwapBuffers");
-}
-
-void Window::HandleInput()
-{
-    if (this->inputManager->IsKeyJustPressed(KeyButton::ESCAPE))
-    {
-        glfwSetWindowShouldClose(window, true);
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::F11))
-    {
-        this->ToggleBorderless();
-    }
-
-#ifdef DEBUG
-    if (this->inputManager->IsKeyJustPressed(KeyButton::F12))
-    {
-        this->ToggleFullscreen();
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_1))
-    {
-        this->SetRenderScale(0.25f); // 25%
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_2))
-    {
-        this->SetRenderScale(0.5f); // 50%
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_3))
-    {
-        this->SetRenderScale(0.75f); // 75%
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_4))
-    {
-        this->SetRenderScale(1.0f); // 100% (native)
-    }
-    if (this->inputManager->IsKeyJustPressed(KeyButton::NUM_5))
-    {
-        this->EnableUpscaling(!parameters.enableUpscaling);
-    }
-#endif
+    GRAPHICS_CHECK_ERRORS_M("glfwSwapBuffers");
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -369,7 +243,7 @@ void Window::ActivateFullscreen()
 
     // Switch to fullscreen
     glfwSetWindowMonitor(this->window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
-    GL_CHECK_ERROR_M("glfwSetWindowMonitor");
+    GRAPHICS_CHECK_ERRORS_M("glfwSetWindowMonitor");
 
     // Update internal parameters
     this->parameters.width = mode->width;
@@ -399,9 +273,9 @@ void Window::ActivateWindowed()
 
     glfwSetWindowMonitor(this->window, nullptr, this->parameters.windowedPosX, this->parameters.windowedPosY,
                          this->parameters.windowedWidth, this->parameters.windowedHeight, GLFW_DONT_CARE);
-    GL_CHECK_ERROR_M("glfwSetWindowMonitor");
+    GRAPHICS_CHECK_ERRORS_M("glfwSetWindowMonitor");
     glfwSetWindowAttrib(this->window, GLFW_DECORATED, GLFW_TRUE);
-    GL_CHECK_ERROR_M("glfwSetWindowAttrib");
+    GRAPHICS_CHECK_ERRORS_M("glfwSetWindowAttrib");
 
     // Update internal parameters
     this->parameters.width = this->parameters.windowedWidth;
@@ -454,9 +328,9 @@ void Window::ActivateBorderless()
 #endif
 
     glfwSetWindowAttrib(this->window, GLFW_DECORATED, GLFW_FALSE);
-    GL_CHECK_ERROR_M("glfwSetWindowAttrib");
+    GRAPHICS_CHECK_ERRORS_M("glfwSetWindowAttrib");
     glfwSetWindowMonitor(this->window, nullptr, 0, 0, width, height, GLFW_DONT_CARE);
-    GL_CHECK_ERROR_M("glfwSetWindowMonitor");
+    GRAPHICS_CHECK_ERRORS_M("glfwSetWindowMonitor");
 
     // Update internal parameters
     this->parameters.width = width;
@@ -475,9 +349,9 @@ void Window::SaveWindowedParameters()
     }
 
     glfwGetWindowSize(this->window, &this->parameters.windowedWidth, &this->parameters.windowedHeight);
-    GL_CHECK_ERROR_M("glfwGetWindowSize");
+    GRAPHICS_CHECK_ERRORS_M("glfwGetWindowSize");
     glfwGetWindowPos(this->window, &this->parameters.windowedPosX, &this->parameters.windowedPosY);
-    GL_CHECK_ERROR_M("glfwGetWindowPos");
+    GRAPHICS_CHECK_ERRORS_M("glfwGetWindowPos");
 }
 
 void Window::PostWindowStateChange() const
@@ -486,24 +360,8 @@ void Window::PostWindowStateChange() const
     {
         return;
     }
-    glfwMakeContextCurrent(this->window);
-    GL_CHECK_ERROR_M("glfwMakeContextCurrent");
 
-    glfwSwapInterval(this->parameters.vsync ? 1 : 0);
-    GL_CHECK_ERROR_M("glfwSwapInterval");
-
-    glEnable(GL_DEPTH_TEST);
-
-    glClearColor(this->parameters.clearColor.r, this->parameters.clearColor.g, this->parameters.clearColor.b,
-                 this->parameters.clearColor.a);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    GL_CHECK_ERROR_M("glClear");
-
-    glfwSwapBuffers(this->window);
-    GL_CHECK_ERROR_M("glfwSwapBuffers");
-
-    glfwFocusWindow(this->window);
-    GL_CHECK_ERROR_M("glfwFocusWindow");
+    OpenGLWindowContext::ApplyDefaultFramebufferState(this->window, this->parameters.vsync, this->parameters.clearColor);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -574,10 +432,7 @@ void Window::CallbackResize(GLFWwindow *window, int width, int height)
 
     this->parameters.width = width;
     this->parameters.height = height;
-
-    UpdateFBOResotution();
-
-    glViewport(0, 0, this->parameters.width, this->parameters.height);
+    GraphicsRenderState::SetViewport(0, 0, this->parameters.width, this->parameters.height);
 }
 
 void Window::CallbackPosition(GLFWwindow *window, int x, int y)
@@ -591,36 +446,20 @@ void Window::CallbackPosition(GLFWwindow *window, int x, int y)
 void Window::CallbackFocus(GLFWwindow *window, int focused)
 {
     UNREFERENCED_PARAMETER(window);
+    UNREFERENCED_PARAMETER(focused);
 
-    if (!focused)
-    {
-        LOG_DEBUGGING("Window lost focus");
-        if (this->parameters.windowState == WindowState::FULLSCREEN)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(75));
-            this->ActivateBorderless();
-            this->parameters.windowState = WindowState::FULLSCREEN_UNFOCUSED;
-        }
+    LOG_DEBUGGING("Window focus changed");
+
 #ifdef _WIN32
-        // Rendre la barre de tâches visible
-        ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_SHOW);
-#endif
+    if (this->parameters.windowState == WindowState::BORDERLESS)
+    {
+        ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_HIDE);
     }
     else
     {
-        LOG_DEBUGGING("Window regained focus");
-        if (this->parameters.windowState == WindowState::FULLSCREEN || this->parameters.windowState == WindowState::FULLSCREEN_UNFOCUSED)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(75));
-            this->ActivateFullscreen();
-        }
-#ifdef _WIN32
-        else if (this->parameters.windowState == WindowState::BORDERLESS)
-        {
-            ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_HIDE);
-        }
-#endif
+        ShowWindow(FindWindowA("Shell_TrayWnd", nullptr), SW_SHOW);
     }
+#endif
 }
 
 void Window::ClearCallbacks()
@@ -633,50 +472,6 @@ void Window::ClearCallbacks()
     glfwSetWindowIconifyCallback(this->window, nullptr);
     glfwSetWindowMaximizeCallback(this->window, nullptr);
     glfwSetWindowCloseCallback(this->window, nullptr);
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////     ERROR HANDLING     ///////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////
-
-void Window::SetupErrorHandling()
-{
-#ifdef _WIN32
-    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOALIGNMENTFAULTEXCEPT | SEM_NOOPENFILEERRORBOX);
-#endif
-
-    // Callback d'erreur GLFW global
-    glfwSetErrorCallback(
-        [](int error_code, const char *description)
-        {
-            LOG_ERROR(error_code, "GLFW Error: ", description);
-
-            // Log plus détaillé pour certaines erreurs critiques
-            switch (error_code)
-            {
-                case GLFW_INVALID_ENUM:
-                    LOG_ERROR(error_code, "Invalid enum parameter");
-                    break;
-                case GLFW_INVALID_VALUE:
-                    LOG_ERROR(error_code, "Invalid value parameter");
-                    break;
-                case GLFW_OUT_OF_MEMORY:
-                    LOG_ERROR(error_code, "Out of memory");
-                    break;
-                case GLFW_API_UNAVAILABLE:
-                    LOG_ERROR(error_code, "API unavailable");
-                    break;
-                case GLFW_VERSION_UNAVAILABLE:
-                    LOG_ERROR(error_code, "Version unavailable");
-                    break;
-                case GLFW_PLATFORM_ERROR:
-                    LOG_ERROR(error_code, "Platform error");
-                    break;
-                case GLFW_FORMAT_UNAVAILABLE:
-                    LOG_ERROR(error_code, "Format unavailable");
-                    break;
-            }
-        });
 }
 
 // Fonction pour vérifier l'état de la fenêtre
@@ -692,18 +487,8 @@ bool Window::IsWindowHealthy() const
     if (currentContext != this->window)
     {
         LOG_WARNING("OpenGL context mismatch");
-        glfwMakeContextCurrent(this->window);
+        OpenGLWindowContext::EnsureContextCurrent(this->window);
     }
-
-#ifdef DEBUG
-    // Vérifier les erreurs OpenGL*
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR)
-    {
-        LOG_ERROR(error, "OpenGL Error detected");
-        return false;
-    }
-#endif
 
     return true;
 }

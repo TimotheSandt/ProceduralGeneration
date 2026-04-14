@@ -5,8 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "SSBO.h"
-#include "UBO.h"
+#include "Buffer.h"
 
 namespace lght
 {
@@ -235,9 +234,9 @@ class LightManager
 
     void Destroy();
 
-    void initSSBO();
-    void updateSSBO();
-    void BindSSBO() const;
+    void Initialize();
+    void UploadChanges();
+    void Bind() const;
 
     void AddLight(lght::Light Light);
     void AddLight(std::vector<lght::Light> Light);
@@ -264,7 +263,7 @@ class LightManager
     lght::Light ambientLight;
     int size = 0;
 
-    SSBO LightSSBO;
+    Buffer lightBuffer;
 
   private:
     std::vector<bool> LightChanged;

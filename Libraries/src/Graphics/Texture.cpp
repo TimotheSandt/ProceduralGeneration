@@ -1,9 +1,17 @@
 #include "Texture.h"
 
-Texture::Texture() : ID(0), slot(0), format(GL_RGBA), pixelType(GL_UNSIGNED_BYTE), Width(0), Height(0), UniformName("") {}
+#include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
+#include "Graphics/Core/GraphicsRuntime.h"
+
+#include <cstring>
+
+Texture::Texture()
+    : ID(0), slot(0), format(TextureFormat::RGBA8), pixelType(TexturePixelType::UnsignedByte), Width(0), Height(0), UniformName("")
+{
+}
 
 Texture::Texture(Texture &&other) noexcept
-    : ID(0), slot(0), format(GL_RGBA), pixelType(GL_UNSIGNED_BYTE), Width(0), Height(0), UniformName("")
+    : ID(0), slot(0), format(TextureFormat::RGBA8), pixelType(TexturePixelType::UnsignedByte), Width(0), Height(0), UniformName("")
 {
     this->Swap(other);
 }
@@ -21,6 +29,7 @@ Texture &Texture::operator=(Texture &&other) noexcept
 void Texture::Swap(Texture &other) noexcept
 {
     std::swap(this->ID, other.ID);
+    std::swap(this->backendResource, other.backendResource);
     std::swap(this->slot, other.slot);
     std::swap(this->format, other.format);
     std::swap(this->pixelType, other.pixelType);
@@ -33,8 +42,8 @@ void Texture::Copy(const Texture &texture)
 {
     int width = 0;
     int height = 0;
-    GLenum format = GL_RGBA;
-    GLenum pixelType = GL_UNSIGNED_BYTE;
+    TextureFormat format = TextureFormat::RGBA8;
+    TexturePixelType pixelType = TexturePixelType::UnsignedByte;
     void *data = texture.GetTextureData(width, height, format, pixelType);
     this->SetTextureData(data, width, height, format, pixelType);
     std::free(data);
@@ -43,14 +52,16 @@ void Texture::Copy(const Texture &texture)
 Texture Texture::Copy() const
 {
     int w, h;
-    GLenum f, p;
+    TextureFormat f;
+    TexturePixelType p;
     void *data = this->GetTextureData(w, h, f, p);
     Texture texture(data, w, h, this->UniformName, this->slot, f, p);
     std::free(data);
     return texture;
 }
 
-Texture::Texture(const std::string &image, const char *name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter)
+Texture::Texture(const std::string &image, const char *name, std::uint32_t slot, TextureFormat format, TexturePixelType pixelType,
+                 TextureFilterMode filter)
     : slot(slot), format(format), pixelType(pixelType), Width(0), Height(0), UniformName(name)
 {
     stbi_set_flip_vertically_on_load(true);
@@ -72,8 +83,8 @@ Texture::Texture(const std::string &image, const char *name, GLuint slot, GLenum
             238, 130, 238, 255  // Violet pixel
         };
         bytes = bytesDefault;
-        this->format = GL_RGBA;
-        this->pixelType = GL_UNSIGNED_BYTE;
+        this->format = TextureFormat::RGBA8;
+        this->pixelType = TexturePixelType::UnsignedByte;
     }
 
     this->SetTextureData(bytes, this->Width, this->Height, this->format, pixelType, filter);
@@ -84,7 +95,8 @@ Texture::Texture(const std::string &image, const char *name, GLuint slot, GLenum
     }
 }
 
-Texture::Texture(void *data, int width, int height, const char *name, GLuint slot, GLenum format, GLenum pixelType, GLenum filter)
+Texture::Texture(void *data, int width, int height, const char *name, std::uint32_t slot, TextureFormat format, TexturePixelType pixelType,
+                 TextureFilterMode filter)
     : slot(slot), format(format), pixelType(pixelType), Width(width), Height(height), UniformName(name)
 {
     this->SetTextureData(data, width, height, this->format, pixelType, filter);
@@ -92,81 +104,103 @@ Texture::Texture(void *data, int width, int height, const char *name, GLuint slo
 
 Texture::~Texture() { this->Destroy(); }
 
-void Texture::SetTextureData(void *data, int width, int height, GLenum format, GLenum pixelType, GLenum filter)
+void Texture::SetTextureData(void *data, int width, int height, TextureFormat format, TexturePixelType pixelType, TextureFilterMode filter)
 {
+    static_cast<void>(filter);
     this->Destroy();
     this->Width = width;
     this->Height = height;
     this->format = format;
     this->pixelType = pixelType;
 
-    glGenTextures(1, &this->ID);
-    this->Bind();
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    {
+        TextureCreateInfo createInfo;
+        createInfo.desc.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
+        createInfo.desc.format = format;
+        createInfo.desc.mipLevels = 1;
+        createInfo.desc.renderTarget = false;
+        createInfo.debugName = this->UniformName;
+        createInfo.generateMipmaps = format != TextureFormat::R8;
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(filter));
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(filter));
+        const size_t dataSize = data != nullptr ? static_cast<size_t>(width) * static_cast<size_t>(height) * GetComponentCount(format) *
+                                                      GetPixelTypeSize(pixelType)
+                                                : 0;
+        if (dataSize > 0)
+        {
+            createInfo.initialData.resize(dataSize);
+            std::memcpy(createInfo.initialData.data(), data, dataSize);
+        }
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(this->format), this->Width, this->Height, 0, this->format, pixelType, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    this->Unbind();
+        std::unique_ptr<ITextureResource> resource = device->CreateTexture(createInfo);
+        if (auto *openGLResource = dynamic_cast<OpenGLTextureResource *>(resource.get()); openGLResource != nullptr)
+        {
+            this->ID = openGLResource->GetTextureID();
+            this->backendResource = std::move(resource);
+            if (this->ID != 0)
+            {
+                return;
+            }
+            this->backendResource.reset();
+        }
+    }
 }
 
-void *Texture::GetTextureData(int &width, int &height, GLenum &format, GLenum &pixelType) const
+void *Texture::GetTextureData(int &width, int &height, TextureFormat &format, TexturePixelType &pixelType) const
 {
     width = this->Width;
     height = this->Height;
     format = this->format;
     pixelType = this->pixelType;
 
-    this->Bind();
+    if (this->backendResource == nullptr)
+    {
+        return nullptr;
+    }
 
-    size_t dataSize = GetDataSize();
-    void *data = std::malloc(dataSize);
-    glGetTexImage(GL_TEXTURE_2D, 0, this->format, this->pixelType, data);
-    this->Unbind();
+    std::vector<std::byte> rawData;
+    this->backendResource->Readback(rawData);
+    void *data = std::malloc(rawData.size());
+    if (data != nullptr && !rawData.empty())
+    {
+        std::memcpy(data, rawData.data(), rawData.size());
+    }
     return data;
 }
 
-size_t Texture::GetPixelTypeSize(GLenum pixelType) const
+size_t Texture::GetPixelTypeSize(TexturePixelType pixelType) const
 {
     switch (pixelType)
     {
-        case GL_UNSIGNED_BYTE:
-        case GL_BYTE:
+        case TexturePixelType::UnsignedByte:
+        case TexturePixelType::Byte:
             return 1;
-        case GL_UNSIGNED_SHORT:
-        case GL_SHORT:
-        case GL_HALF_FLOAT:
+        case TexturePixelType::UnsignedShort:
+        case TexturePixelType::Short:
+        case TexturePixelType::HalfFloat:
             return 2;
-        case GL_UNSIGNED_INT:
-        case GL_INT:
-        case GL_FLOAT:
+        case TexturePixelType::UnsignedInt:
+        case TexturePixelType::Int:
+        case TexturePixelType::Float:
             return 4;
-        case GL_DOUBLE:
+        case TexturePixelType::Double:
             return 8;
         default:
             return 1;
     }
 }
 
-size_t Texture::GetComponentCount(GLenum format) const
+size_t Texture::GetComponentCount(TextureFormat format) const
 {
     switch (format)
     {
-        case GL_RED:
-        case GL_DEPTH_COMPONENT:
+        case TextureFormat::R8:
+        case TextureFormat::R32UI:
+        case TextureFormat::Depth32Float:
             return 1;
-        case GL_RG:
-            return 2;
-        case GL_RGB:
-        case GL_BGR:
-            return 3;
-        case GL_RGBA:
-        case GL_BGRA:
+        case TextureFormat::Depth24Stencil8:
+        case TextureFormat::RGBA8:
+        case TextureFormat::BGRA8:
             return 4;
         default:
             return 4;
@@ -175,63 +209,96 @@ size_t Texture::GetComponentCount(GLenum format) const
 
 size_t Texture::GetDataSize() const { return Width * Height * GetComponentCount(format) * GetPixelTypeSize(pixelType); }
 
-void Texture::SetFramebufferTexture(const char *uniformName, GLuint slot, int width, int height, GLuint FBO)
+static bool IsDepthFormat(TextureFormat format)
+{
+    return format == TextureFormat::Depth32Float || format == TextureFormat::Depth24Stencil8;
+}
+
+void Texture::SetFramebufferTexture(const char *uniformName, std::uint32_t slot, int width, int height,
+                                    std::uint32_t renderTargetHandle, std::uint32_t colorIndex, TextureFormat format)
 {
     this->Destroy();
     this->slot = slot;
     this->UniformName = uniformName;
     this->Width = width;
     this->Height = height;
-    this->format = GL_RGBA;
-    this->pixelType = GL_UNSIGNED_BYTE;
+    this->format = format;
+    this->pixelType = IsDepthFormat(format) ? TexturePixelType::Float : TexturePixelType::UnsignedByte;
 
-    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    {
+        TextureCreateInfo createInfo;
+        createInfo.desc.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
+        createInfo.desc.format = format;
+        createInfo.desc.mipLevels = 1;
+        createInfo.desc.renderTarget = true;
+        createInfo.debugName = this->UniformName;
+        createInfo.generateMipmaps = false;
 
-    glGenTextures(1, &this->ID);
-    glBindTexture(GL_TEXTURE_2D, this->ID);
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(this->format), this->Width, this->Height, 0, this->format, this->pixelType, nullptr);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->ID, 0);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        std::unique_ptr<ITextureResource> resource = device->CreateTexture(createInfo);
+        if (auto *openGLResource = dynamic_cast<OpenGLTextureResource *>(resource.get()); openGLResource != nullptr)
+        {
+            this->ID = openGLResource->GetTextureID();
+            this->backendResource = std::move(resource);
+            if (this->ID != 0)
+            {
+                if (IsDepthFormat(format))
+                {
+                    this->backendResource->AttachAsDepthToFramebuffer(renderTargetHandle);
+                }
+                else
+                {
+                    this->backendResource->AttachToFramebuffer(renderTargetHandle, colorIndex);
+                }
+                return;
+            }
+            this->backendResource.reset();
+        }
+    }
 }
 
 void Texture::ResizeFramebufferTexture(int width, int height)
 {
     this->Width = width;
     this->Height = height;
-    glBindTexture(GL_TEXTURE_2D, this->ID);
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(this->format), this->Width, this->Height, 0, this->format, GL_UNSIGNED_BYTE, nullptr);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    if (this->backendResource != nullptr)
+    {
+        this->backendResource->Resize(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
+    }
 }
 
-void Texture::texUnit(const Shader &shader) const
+void Texture::texUnit(const ShaderProgram &shaderProgram) const
 {
-    shader.Bind();
-    glUniform1i(glGetUniformLocation(shader.GetID(), this->UniformName), static_cast<GLint>(this->slot));
+    shaderProgram.Bind();
+    const int location = shaderProgram.GetUniformLocation(this->UniformName);
+    const int slotValue = static_cast<int>(this->slot);
+    shaderProgram.SetUniformInts(location, &slotValue, 1);
 }
 
 void Texture::Bind() const
 {
-    glActiveTexture(GL_TEXTURE0 + this->slot);
-    glBindTexture(GL_TEXTURE_2D, this->ID);
+    if (this->backendResource != nullptr)
+    {
+        this->backendResource->Bind(this->slot);
+    }
 }
 
-void Texture::Unbind() const { glBindTexture(GL_TEXTURE_2D, 0); }
+void Texture::Unbind() const
+{
+    if (this->backendResource != nullptr)
+    {
+        this->backendResource->Unbind();
+    }
+}
 
 void Texture::Destroy()
 {
-    if (this->ID == 0)
+    if (this->backendResource != nullptr)
     {
+        this->backendResource.reset();
+        this->ID = 0;
         return;
     }
-    glDeleteTextures(1, &this->ID);
+
     this->ID = 0;
 }

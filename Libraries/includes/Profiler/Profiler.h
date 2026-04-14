@@ -8,8 +8,7 @@
 #include <mutex>
 #include <queue>
 #include <vector>
-#include <GLFW/glfw3.h>
-#include <glad/glad.h>
+#include "Graphics/Core/GraphicsRuntime.h"
 #include "RingBuffer.h"
 
 #define MAX_QUERIES 12
@@ -75,14 +74,25 @@ class Profiler
 
     static void ProfileGPU(const std::string &name, const std::function<void()> &func)
     {
-        std::array<GLuint, 2> queries;
-        glGenQueries(2, queries.data());
+        const IGraphicsDevice *device = TryGetActiveGraphicsDevice();
+        if (device == nullptr)
+        {
+            Profile(name, func);
+            return;
+        }
 
-        glQueryCounter(queries[0], GL_TIMESTAMP);
+        std::unique_ptr<IGPUTimestampQueryResource> query = device->CreateTimestampQuery({.debugName = name});
+        if (query == nullptr)
+        {
+            Profile(name, func);
+            return;
+        }
+
+        query->Begin();
         func();
-        glQueryCounter(queries[1], GL_TIMESTAMP);
+        query->End();
 
-        AddQuery(name, queries);
+        AddQuery(name, std::move(query));
 
         ProcessQueries(name);
     }
@@ -90,24 +100,28 @@ class Profiler
     template <typename Func, typename... Args>
     static auto ProfileGPU(const std::string &name, Func &&func, Args &&...args) -> std::invoke_result_t<Func, Args...>
     {
-        std::array<GLuint, 2> queries;
-        glGenQueries(2, queries.data());
+        const IGraphicsDevice *device = TryGetActiveGraphicsDevice();
+        std::unique_ptr<IGPUTimestampQueryResource> query = device != nullptr ? device->CreateTimestampQuery({.debugName = name}) : nullptr;
+        if (query == nullptr)
+        {
+            return Profile(name, std::forward<Func>(func), std::forward<Args>(args)...);
+        }
 
-        glQueryCounter(queries[0], GL_TIMESTAMP);
+        query->Begin();
         if constexpr (std::is_void_v<std::invoke_result_t<Func, Args...>>)
         {
             std::invoke(std::forward<Func>(func), std::forward<Args>(args)...);
-            glQueryCounter(queries[1], GL_TIMESTAMP);
+            query->End();
 
-            AddQuery(name, queries);
+            AddQuery(name, std::move(query));
             ProcessQueries(name);
         }
         else
         {
             auto result = std::invoke(std::forward<Func>(func), std::forward<Args>(args)...);
-            glQueryCounter(queries[1], GL_TIMESTAMP);
+            query->End();
 
-            AddQuery(name, queries);
+            AddQuery(name, std::move(query));
             ProcessQueries(name);
 
             return result;
@@ -142,20 +156,10 @@ class Profiler
     {
         while (!getQueries(name).empty())
         {
-            GLint available;
-            std::array<GLuint, 2> q = getQueries(name).front();
-            glGetQueryObjectiv(q[1], GL_QUERY_RESULT_AVAILABLE, &available);
-            if (available == GL_TRUE)
+            const auto &q = getQueries(name).front();
+            if (q.query != nullptr && q.query->IsReady())
             {
-                GLuint64 startTime, endTime;
-                glGetQueryObjectui64v(q[0], GL_QUERY_RESULT, &startTime);
-                glGetQueryObjectui64v(q[1], GL_QUERY_RESULT, &endTime);
-
-                std::chrono::nanoseconds GPUTime = std::chrono::nanoseconds((endTime - startTime));
-
-                AddTime(name, GPUTime);
-                glDeleteQueries(1, &q[0]);
-                glDeleteQueries(1, &q[1]);
+                AddTime(name, q.query->GetElapsedTime());
                 PopQuery(name);
             }
             else
@@ -163,8 +167,6 @@ class Profiler
                 auto now = std::chrono::high_resolution_clock::now();
                 if ((now - getQueryData()[name].lastUpdate) >= std::chrono::milliseconds(QUERY_TIMEOUT_MS))
                 {
-                    glDeleteQueries(1, &q[0]);
-                    glDeleteQueries(1, &q[1]);
                     PopQuery(name);
                 }
                 else
@@ -187,15 +189,14 @@ class Profiler
         }
     }
 
-    static void AddQuery(const std::string &name, std::array<GLuint, 2> queries)
+    static void AddQuery(const std::string &name, std::unique_ptr<IGPUTimestampQueryResource> query)
     {
         std::lock_guard<std::mutex> lock(getQueryMutex());
         if (getQueries(name).size() >= MAX_QUERIES)
         {
-            glDeleteQueries(2, getQueries(name).front().data());
             getQueries(name).pop();
         }
-        getQueries(name).push(queries);
+        getQueries(name).push({.query = std::move(query)});
         getQueryData()[name].lastUpdate = std::chrono::high_resolution_clock::now();
     }
 
@@ -222,7 +223,12 @@ class Profiler
 
     struct QueryData
     {
-        std::queue<std::array<GLuint, 2>> queries;
+        struct QueryItem
+        {
+            std::unique_ptr<IGPUTimestampQueryResource> query;
+        };
+
+        std::queue<QueryItem> queries;
         std::chrono::high_resolution_clock::time_point lastUpdate;
     };
 
@@ -240,7 +246,9 @@ class Profiler
 
     static RingBuffer<std::chrono::nanoseconds> &getTimer(const std::string &name) { return getProfilerData()[name].buffer; }
 
-    static std::queue<std::array<GLuint, 2>> &getQueries(const std::string &name) { return getQueryData()[name].queries; }
+    using QueryItem = QueryData::QueryItem;
+
+    static std::queue<QueryItem> &getQueries(const std::string &name) { return getQueryData()[name].queries; }
 
     static std::mutex &getProfilerMutex()
     {

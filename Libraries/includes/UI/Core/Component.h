@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "InputManager.h"
-#include "Mesh.h"
+#include "Sprite.h"
 
 #include "Bounds.h"
 #include "../Rendering/Theme.h"
@@ -26,7 +26,7 @@ class ComponentBase : public std::enable_shared_from_this<ComponentBase>
 {
   protected:
     Bounds localBounds;
-    Mesh mesh;
+    Sprite sprite;
 
     std::weak_ptr<ContainerBase> parent;
 
@@ -35,7 +35,7 @@ class ComponentBase : public std::enable_shared_from_this<ComponentBase>
     // Three-tier dirty system
     bool dirtyAppearance = true;   // Color/visibility - zone clear only
     bool dirtyChildLayout = false; // Child size/position - cascade/full clear
-    bool dirtySelfLayout = true;   // Own size - full FBO reset
+    bool dirtySelfLayout = true;   // Own size - full render target reset
 
     std::weak_ptr<Theme> theme;
     DeferredValue<IdentifierKind> kind;
@@ -129,9 +129,6 @@ class ComponentBase : public std::enable_shared_from_this<ComponentBase>
     void NotifyParentFullDirty();
 
     virtual void UpdateTheme();
-
-  private:
-    std::vector<GLfloat> GetVertices() const;
 };
 
 // Helper template for chaining
