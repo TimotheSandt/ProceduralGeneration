@@ -5,6 +5,7 @@
 #include "Graphics/Backends/Vulkan/VulkanGraphicsBackend.h"
 #include "Graphics/AccelerationStructure.h"
 #include "Graphics/GPUTimestampQuery.h"
+#include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsDevice.h"
 #include "Graphics/Core/GraphicsResources.h"
 #include "Graphics/Core/GraphicsRuntime.h"
@@ -592,6 +593,33 @@ TestSuite CreateGraphicsCoreSuite()
                 ClearGraphicsRuntime();
                 Assert(TryGetActiveGraphicsBackend() == nullptr, "Runtime should clear backend bindings");
                 Assert(TryGetActiveGraphicsDevice() == nullptr, "Runtime should clear device bindings");
+            });
+
+    AddTest(suite, "vulkan render state tracks framebuffer and viewport",
+            []
+            {
+                const VulkanGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
+                BindGraphicsRuntime({.api = GraphicsAPI::Vulkan, .backend = &backend, .device = device.get()});
+
+                GraphicsRenderState::BindFramebuffer(7);
+                GraphicsRenderState::SetViewport(10, 20, 640, 360);
+                GraphicsRenderState::SetDepthTest(true);
+                GraphicsRenderState::SetBlend(true);
+                GraphicsRenderState::SetScissorTest(true);
+
+                const GraphicsRenderState::FramebufferState state = GraphicsRenderState::CaptureFramebufferState();
+
+                AssertEqual(state.framebuffer, 7u, "Vulkan render state should track the bound framebuffer");
+                AssertEqual(state.viewport[0], 10, "Vulkan render state should track viewport x");
+                AssertEqual(state.viewport[1], 20, "Vulkan render state should track viewport y");
+                AssertEqual(state.viewport[2], 640, "Vulkan render state should track viewport width");
+                AssertEqual(state.viewport[3], 360, "Vulkan render state should track viewport height");
+                Assert(state.depthTest, "Vulkan render state should track depth test");
+                Assert(state.blend, "Vulkan render state should track blending");
+                Assert(state.scissorTest, "Vulkan render state should track scissor test");
+
+                ClearGraphicsRuntime();
             });
 
     return suite;
