@@ -3,6 +3,8 @@
 #include "Graphics/Backends/Metal/MetalGraphicsBackend.h"
 #include "Graphics/Backends/OpenGL/OpenGLGraphicsBackend.h"
 #include "Graphics/Backends/Vulkan/VulkanGraphicsBackend.h"
+#include "Graphics/AccelerationStructure.h"
+#include "Graphics/GPUTimestampQuery.h"
 #include "Graphics/Core/GraphicsDevice.h"
 #include "Graphics/Core/GraphicsResources.h"
 #include "Graphics/Core/GraphicsRuntime.h"
@@ -538,6 +540,32 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(rayProgram != nullptr, "Vulkan foundation should create ray-tracing shader descriptors");
                 Assert(accelerationStructure != nullptr, "Vulkan foundation should create acceleration-structure descriptors");
                 Assert(timestampQuery != nullptr, "Vulkan foundation should create timestamp-query descriptors");
+            });
+
+    AddTest(suite, "vulkan facades expose acceleration structures and gpu timing",
+            []
+            {
+                const VulkanGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
+                BindGraphicsRuntime({.api = GraphicsAPI::Vulkan, .backend = &backend, .device = device.get()});
+
+                AccelerationStructure accelerationStructure(
+                    {.desc = {.type = AccelerationStructureType::BottomLevel, .primitiveCount = 12}, .debugName = "facade_blas"});
+                GPUTimestampQuery query({.debugName = "facade_timestamp"});
+
+                query.Begin();
+                query.End();
+
+                Assert(accelerationStructure.IsInitialized(), "AccelerationStructure facade should initialize on Vulkan");
+                AssertEqual(accelerationStructure.GetAPI(), GraphicsAPI::Vulkan, "AccelerationStructure facade should preserve the API tag");
+                AssertEqual(accelerationStructure.GetDescription().primitiveCount, 12u,
+                            "AccelerationStructure facade should preserve primitive counts");
+                Assert(query.IsInitialized(), "GPUTimestampQuery facade should initialize on Vulkan");
+                Assert(query.IsReady(), "GPUTimestampQuery facade should report a completed CPU-backed interval");
+                Assert(query.GetElapsedTime() >= std::chrono::nanoseconds::zero(),
+                       "GPUTimestampQuery facade should return a non-negative elapsed time");
+
+                ClearGraphicsRuntime();
             });
 
     AddTest(suite, "metal backend remains a stub",
