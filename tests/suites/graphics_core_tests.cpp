@@ -496,8 +496,12 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(!capabilities.supportsRuntimeShaderCompilation, "Vulkan should not rely on runtime shader compilation");
                 Assert(capabilities.supportsComputeShaders, "Vulkan should expose compute shader support");
                 Assert(capabilities.supportsFramebufferBlit, "Vulkan should support blit-style transfers");
-                Assert(!capabilities.supportsAccelerationStructures,
-                       "Vulkan should keep acceleration structures disabled until the backend is implemented");
+                Assert(capabilities.supportsAccelerationStructures,
+                       "Vulkan foundation should expose acceleration-structure intent through capabilities");
+                Assert(capabilities.supportsRayTracingPipelines,
+                       "Vulkan foundation should expose ray-tracing pipeline intent through capabilities");
+                Assert(capabilities.supportsRayQueries, "Vulkan foundation should expose ray-query intent through capabilities");
+                Assert(capabilities.supportsTemporalUpscaling, "Vulkan foundation should advertise temporal upscaling hooks");
             });
 
     AddTest(suite, "metal backend capabilities keep wireframe optional",
@@ -511,13 +515,35 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(!capabilities.supportsWireframeRendering, "Metal should keep wireframe support conservative by default");
             });
 
-    AddTest(suite, "stub backends do not create devices yet",
+    AddTest(suite, "vulkan foundation creates a device and hardware acceleration resources",
             []
             {
                 const VulkanGraphicsBackend vulkanBackend;
-                const MetalGraphicsBackend metalBackend;
+                const std::unique_ptr<IGraphicsDevice> device = vulkanBackend.CreateDevice({});
+                const std::unique_ptr<IShaderProgramResource> rayProgram =
+                    device->CreateShaderProgram({.desc = {.stages = ShaderStageBit(ShaderStage::RayGeneration) |
+                                                                   ShaderStageBit(ShaderStage::Miss) |
+                                                                   ShaderStageBit(ShaderStage::ClosestHit)},
+                                                 .debugName = "vk_rt_program"});
+                const std::unique_ptr<IAccelerationStructureResource> accelerationStructure =
+                    device->CreateAccelerationStructure({.desc = {.type = AccelerationStructureType::TopLevel, .instanceCount = 8},
+                                                        .debugName = "vk_tlas"});
+                const std::unique_ptr<IGPUTimestampQueryResource> timestampQuery =
+                    device->CreateTimestampQuery({.debugName = "vk_gpu_time"});
 
-                Assert(vulkanBackend.CreateDevice({}) == nullptr, "Vulkan should not create a device before implementation");
+                Assert(device != nullptr, "Vulkan foundation should create a graphics device");
+                AssertEqual(device->GetAPI(), GraphicsAPI::Vulkan, "Vulkan devices should report the Vulkan API");
+                Assert(device->SupportsShaderStages(ShaderStageBit(ShaderStage::RayGeneration) | ShaderStageBit(ShaderStage::Miss)),
+                       "Vulkan devices should accept ray-tracing shader stages");
+                Assert(rayProgram != nullptr, "Vulkan foundation should create ray-tracing shader descriptors");
+                Assert(accelerationStructure != nullptr, "Vulkan foundation should create acceleration-structure descriptors");
+                Assert(timestampQuery != nullptr, "Vulkan foundation should create timestamp-query descriptors");
+            });
+
+    AddTest(suite, "metal backend remains a stub",
+            []
+            {
+                const MetalGraphicsBackend metalBackend;
                 Assert(metalBackend.CreateDevice({}) == nullptr, "Metal should not create a device before implementation");
             });
 

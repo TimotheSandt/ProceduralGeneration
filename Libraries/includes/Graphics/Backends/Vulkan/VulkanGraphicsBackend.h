@@ -22,8 +22,12 @@ class VulkanGraphicsBackend final : public IGraphicsBackend
                                          .supportsFramebufferBlit = true,
                                          .supportsWireframeRendering = true,
                                          .supportsWindowPresentation = true,
-                                         .supportsRayTracingPipelines = false,
-                                         .supportsAccelerationStructures = false,
-                                         .supportsRayQueries = false,
-                                         .maxColorAttachments = 8};
+                                         .supportsRayTracingPipelines = true,
+                                         .supportsAccelerationStructures = true,
+                                         .supportsRayQueries = true,
+                                         .supportsTemporalUpscaling = true,
+                                         .supportsFrameGeneration = true,
+                                         .maxColorAttachments = 8,
+                                         .maxAccelerationStructureInstances = 1024};
+    bool initialized = false;
 };
