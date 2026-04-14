@@ -6,6 +6,7 @@
 #include "Texture.h"
 
 #include <cstdint>
+#include <glm/vec4.hpp>
 #include <vector>
 
 class RenderTarget
@@ -60,6 +61,13 @@ class RenderTarget
 
     int GetWidth() const { return width; }
     int GetHeight() const { return height; }
+
+    // Read one unsigned-integer pixel from a color attachment (e.g. R32UI object IDs).
+    // x/y are in screen-space top-left coordinates; Y-flip is handled internally.
+    // Returns 0 if the render target is not initialized or the backend does not support it.
+    std::uint32_t ReadPixelUInt(std::uint32_t attachmentIndex, int x, int y) const;
+    // Read one RGBA8 pixel (components in [0, 255]). Use for standard colour attachments.
+    glm::uvec4 ReadPixelRGBA8(std::uint32_t attachmentIndex, int x, int y) const;
 
     // Legacy single-texture accessors (equivalent to GetTexture(0)).
     std::uint32_t GetTextureID() const { return colorTextures.empty() ? 0 : colorTextures[0].GetID(); }

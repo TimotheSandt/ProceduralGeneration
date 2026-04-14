@@ -3,6 +3,7 @@
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Graphics/Core/GraphicsTypes.h"
 #include "Graphics/Core/RenderState.h"
+#include "Graphics/Upscaling/IAdvancedUpscaleMode.h"
 #include "Graphics/Upscaling/Modes/BilinearBlitUpscaleMode.h"
 
 Renderer::Renderer(GraphicsAPI requiredApi) : requiredApi(requiredApi)
@@ -78,6 +79,40 @@ void Renderer::SetMotionVectorsEnabled(bool enabled) noexcept { motionVectorsEna
 
 void Renderer::SetDepthAsTextureEnabled(bool enabled) noexcept { depthAsTextureEnabled = enabled; }
 
+void Renderer::SetJitterSequenceLength(std::uint32_t length) noexcept
+{
+    jitterSequenceLength = length > 0 ? length : 1;
+    jitterIndex = jitterIndex % jitterSequenceLength;
+}
+
+// Halton low-discrepancy sequence for one component.
+// Returns a value in (0, 1) for sample index i and the given base.
+static float Halton(std::uint32_t index, std::uint32_t base)
+{
+    float result = 0.0f;
+    float denominator = 1.0f;
+    while (index > 0)
+    {
+        denominator *= static_cast<float>(base);
+        result += static_cast<float>(index % base) / denominator;
+        index /= base;
+    }
+    return result;
+}
+
+static glm::vec2 HaltonJitter(std::uint32_t index, std::uint32_t sequenceLength,
+                               int renderWidth, int renderHeight)
+{
+    // Sample index cycles through [1, sequenceLength] (avoid index 0 which gives (0,0)).
+    const std::uint32_t sampleIndex = (index % sequenceLength) + 1;
+
+    // Halton(2,3): X in base 2, Y in base 3 — standard choice for TAA/DLSS.
+    // Map from (0,1) to (-0.5, 0.5) pixel range, then convert to NDC.
+    const float jx = (Halton(sampleIndex, 2) - 0.5f) * 2.0f / static_cast<float>(renderWidth);
+    const float jy = (Halton(sampleIndex, 3) - 0.5f) * 2.0f / static_cast<float>(renderHeight);
+    return {jx, jy};
+}
+
 void Renderer::BeginPass()
 {
     int width = 0;
@@ -88,6 +123,21 @@ void Renderer::BeginPass()
     if (!IsRuntimeCompatible() || !HasValidFrameExtent())
     {
         return;
+    }
+
+    // Advance the jitter sequence automatically when temporal resources are needed.
+    if (jitterMode == JitterMode::Auto)
+    {
+        if (NeedsTemporalResources())
+        {
+            currentJitter = HaltonJitter(jitterIndex, jitterSequenceLength, width, height);
+            jitterIndex = (jitterIndex + 1) % jitterSequenceLength;
+        }
+        else
+        {
+            currentJitter = {0.0f, 0.0f};
+            jitterIndex = 0;
+        }
     }
 
     if (UsesRenderTarget())
@@ -148,7 +198,30 @@ void Renderer::EndPass()
 
         if (activeUpscaleMode != nullptr)
         {
-            activeUpscaleMode->Upscale(rt, outputWidth, outputHeight);
+            // For advanced modes, build the full UpscaleInput so Execute() receives
+            // depth, motion vectors, history, and jitter.
+            if (auto *advanced = dynamic_cast<IAdvancedUpscaleMode *>(activeUpscaleMode))
+            {
+                UpscaleInput upscaleInput;
+                upscaleInput.color            = &rt.GetTexture(0);
+                upscaleInput.depth            = rt.TryGetDepthTexture();
+                upscaleInput.motionVectors    = (motionVectorsEnabled && rt.GetColorAttachmentCount() > 1)
+                                                    ? &rt.GetTexture(1) : nullptr;
+                upscaleInput.historyColor     = historyTarget.IsInitialized()
+                                                    ? &historyTarget.GetTexture(0) : nullptr;
+                upscaleInput.renderResolution = {static_cast<float>(frameWidth), static_cast<float>(frameHeight)};
+                upscaleInput.outputResolution = {static_cast<float>(outputWidth), static_cast<float>(outputHeight)};
+                upscaleInput.jitter           = currentJitter;
+                upscaleInput.deltaTimeSeconds = deltaTime;
+                upscaleInput.resetHistory     = resetHistoryNextFrame;
+
+                UpscaleOutput upscaleOutput;
+                advanced->Execute(upscaleInput, upscaleOutput);
+            }
+            else
+            {
+                activeUpscaleMode->Upscale(rt, outputWidth, outputHeight);
+            }
         }
 
         if (frameGenMode != nullptr)
@@ -206,7 +279,7 @@ bool Renderer::SetActiveUpscaleMode(std::string_view name)
         return true;
     }
 
-    for (const auto &mode : upscaleModes)
+    for (auto &mode : upscaleModes)
     {
         if (mode && mode->GetName() == name && mode->SupportsRenderer(*this))
         {

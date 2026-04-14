@@ -43,6 +43,10 @@ class Camera
     void SetFOV(float fov) { this->FOV = fov; }
     void SetNearPlane(float nearPlane) { this->nearPlane = nearPlane; }
     void SetFarPlane(float farPlane) { this->farPlane = farPlane; }
+    // Sub-pixel jitter applied to the projection matrix (NDC space, typically [-0.5/w, 0.5/w]).
+    // Set by the renderer when a temporal upscaling or frame generation mode is active.
+    // Clear by passing {0, 0}.
+    void SetJitter(glm::vec2 jitter) { this->jitter = jitter; }
 
     void Move(const glm::vec3 &delta);
     void MoveForward(float distance);
@@ -64,6 +68,7 @@ class Camera
     float GetFOV() const { return this->FOV; }
     float GetNearPlane() const { return this->nearPlane; }
     float GetFarPlane() const { return this->farPlane; }
+    glm::vec2 GetJitter() const { return this->jitter; }
 
   private:
     void Copy(const Camera &other);
@@ -86,6 +91,7 @@ class Camera
     float sensitivity = 100.0f;
 
     bool firstClick = true;
+    glm::vec2 jitter = {0.0f, 0.0f};
 
     Buffer cameraBuffer;
     bool isWireframe = false;

@@ -19,12 +19,19 @@ void Renderer3D::OnClear(const glm::vec4 &clearColor, bool clearDepth) const
     GraphicsRenderState::ClearBuffers(true, clearDepth);
 }
 
-void Renderer3D::SetCamera(Camera &camera) const
+void Renderer3D::SetCamera(Camera &camera)
 {
-    if (IsRuntimeCompatible())
+    if (!IsRuntimeCompatible())
     {
-        camera.Bind();
+        return;
     }
+
+    activeCamera = &camera;
+
+    // Apply the current sub-pixel jitter (zero when no temporal mode is active).
+    camera.SetJitter(GetCameraJitter());
+    camera.UpdateMatrix();
+    camera.Bind();
 }
 
 void Renderer3D::DrawMesh(Mesh &mesh, Camera &camera) const
