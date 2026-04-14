@@ -40,7 +40,8 @@ struct WindowContextState
     VkExtent2D extent{};
     std::vector<VkImage> images;
     std::vector<VkImageView> imageViews;
-    std::vector<VkImageLayout> imageLayouts;
+    VkRenderPass renderPass = VK_NULL_HANDLE;
+    std::vector<VkFramebuffer> framebuffers;
     VkCommandPool commandPool = VK_NULL_HANDLE;
     std::vector<VkCommandBuffer> commandBuffers;
     std::array<WindowFrameSync, MaxFramesInFlight> frameSync{};
@@ -55,7 +56,7 @@ void DestroySwapchainResources(WindowContextState &state)
     {
         state.images.clear();
         state.imageViews.clear();
-        state.imageLayouts.clear();
+        state.framebuffers.clear();
         state.commandBuffers.clear();
         state.swapchain = VK_NULL_HANDLE;
         return;
@@ -68,6 +69,21 @@ void DestroySwapchainResources(WindowContextState &state)
     }
     state.commandBuffers.clear();
 
+    for (VkFramebuffer framebuffer : state.framebuffers)
+    {
+        if (framebuffer != VK_NULL_HANDLE)
+        {
+            vkDestroyFramebuffer(state.deviceContext->device, framebuffer, nullptr);
+        }
+    }
+    state.framebuffers.clear();
+
+    if (state.renderPass != VK_NULL_HANDLE)
+    {
+        vkDestroyRenderPass(state.deviceContext->device, state.renderPass, nullptr);
+        state.renderPass = VK_NULL_HANDLE;
+    }
+
     for (VkImageView imageView : state.imageViews)
     {
         if (imageView != VK_NULL_HANDLE)
@@ -77,7 +93,6 @@ void DestroySwapchainResources(WindowContextState &state)
     }
     state.imageViews.clear();
     state.images.clear();
-    state.imageLayouts.clear();
 
     if (state.swapchain != VK_NULL_HANDLE)
     {
@@ -295,7 +310,6 @@ bool CreateSwapchain(WindowContextState &state, GLFWwindow *window, bool enableV
     vkGetSwapchainImagesKHR(state.deviceContext->device, state.swapchain, &swapchainImageCount, nullptr);
     state.images.resize(swapchainImageCount);
     vkGetSwapchainImagesKHR(state.deviceContext->device, state.swapchain, &swapchainImageCount, state.images.data());
-    state.imageLayouts.assign(swapchainImageCount, VK_IMAGE_LAYOUT_UNDEFINED);
 
     state.imageViews.resize(swapchainImageCount, VK_NULL_HANDLE);
     for (std::uint32_t i = 0; i < swapchainImageCount; ++i)
@@ -318,6 +332,66 @@ bool CreateSwapchain(WindowContextState &state, GLFWwindow *window, bool enableV
         if (vkCreateImageView(state.deviceContext->device, &viewCreateInfo, nullptr, &state.imageViews[i]) != VK_SUCCESS)
         {
             LOG_ERROR(1, "Failed to create Vulkan swapchain image view");
+            return false;
+        }
+    }
+
+    VkAttachmentDescription colorAttachment{};
+    colorAttachment.format = state.surfaceFormat.format;
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference colorAttachmentRef{};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorAttachmentRef;
+
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    VkRenderPassCreateInfo renderPassCreateInfo{};
+    renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassCreateInfo.attachmentCount = 1;
+    renderPassCreateInfo.pAttachments = &colorAttachment;
+    renderPassCreateInfo.subpassCount = 1;
+    renderPassCreateInfo.pSubpasses = &subpass;
+    renderPassCreateInfo.dependencyCount = 1;
+    renderPassCreateInfo.pDependencies = &dependency;
+
+    if (vkCreateRenderPass(state.deviceContext->device, &renderPassCreateInfo, nullptr, &state.renderPass) != VK_SUCCESS)
+    {
+        LOG_ERROR(1, "Failed to create Vulkan swapchain render pass");
+        return false;
+    }
+
+    state.framebuffers.resize(swapchainImageCount, VK_NULL_HANDLE);
+    for (std::uint32_t i = 0; i < swapchainImageCount; ++i)
+    {
+        VkFramebufferCreateInfo framebufferCreateInfo{};
+        framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferCreateInfo.renderPass = state.renderPass;
+        framebufferCreateInfo.attachmentCount = 1;
+        framebufferCreateInfo.pAttachments = &state.imageViews[i];
+        framebufferCreateInfo.width = state.extent.width;
+        framebufferCreateInfo.height = state.extent.height;
+        framebufferCreateInfo.layers = 1;
+
+        if (vkCreateFramebuffer(state.deviceContext->device, &framebufferCreateInfo, nullptr, &state.framebuffers[i]) != VK_SUCCESS)
+        {
+            LOG_ERROR(1, "Failed to create Vulkan swapchain framebuffer");
             return false;
         }
     }
@@ -374,24 +448,22 @@ bool RecordPresentCommand(WindowContextState &state, std::uint32_t imageIndex)
         return false;
     }
 
-    if (state.imageLayouts[imageIndex] != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-    {
-        VkImageMemoryBarrier barrier{};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout = state.imageLayouts[imageIndex];
-        barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = state.images[imageIndex];
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
+    const glm::vec4 clearColor = VulkanRenderState::GetClearColor();
+    const VkClearValue clearValue = {
+        .color = {.float32 = {clearColor.r, clearColor.g, clearColor.b, clearColor.a}},
+    };
 
-        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1,
-                             &barrier);
-    }
+    VkRenderPassBeginInfo renderPassBeginInfo{};
+    renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassBeginInfo.renderPass = state.renderPass;
+    renderPassBeginInfo.framebuffer = state.framebuffers[imageIndex];
+    renderPassBeginInfo.renderArea.offset = {0, 0};
+    renderPassBeginInfo.renderArea.extent = state.extent;
+    renderPassBeginInfo.clearValueCount = 1;
+    renderPassBeginInfo.pClearValues = &clearValue;
+
+    vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdEndRenderPass(commandBuffer);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
     {
@@ -528,7 +600,6 @@ void Present(GLFWwindow *window) noexcept
     }
     else
     {
-        state->imageLayouts[imageIndex] = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         state->frameIndex = (state->frameIndex + 1) % MaxFramesInFlight;
     }
 }

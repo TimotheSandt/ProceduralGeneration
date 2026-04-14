@@ -27,6 +27,7 @@ void SetAlphaBlend() noexcept;
 void SetPremultipliedAlphaBlend() noexcept;
 void SetScissorTest(bool enabled) noexcept;
 void SetScissor(int x, int y, int width, int height) noexcept;
+glm::vec4 GetClearColor() noexcept;
 
 FramebufferState CaptureFramebufferState() noexcept;
 void RestoreFramebufferState(const FramebufferState &state) noexcept;

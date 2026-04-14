@@ -55,6 +55,8 @@ void SetScissor(int x, int y, int width, int height) noexcept
     scissorRect[3] = height;
 }
 
+glm::vec4 GetClearColor() noexcept { return clearColor; }
+
 FramebufferState CaptureFramebufferState() noexcept { return state; }
 
 void RestoreFramebufferState(const FramebufferState &captured) noexcept
