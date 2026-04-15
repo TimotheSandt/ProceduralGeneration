@@ -1,5 +1,7 @@
 #include "RenderTarget.h"
 
+#include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
+#include "Graphics/Backends/Vulkan/VulkanGraphicsResources.h"
 #include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Logger.h"
@@ -97,8 +99,23 @@ void RenderTarget::Init(const RenderTargetDesc &desc)
         if (renderTarget != nullptr)
         {
             this->backendRenderTarget = std::move(renderTarget);
-            this->ID = 1;
-            this->depthBufferID = 0;
+            if (const auto *openGLRenderTarget = dynamic_cast<const OpenGLRenderTargetResource *>(this->backendRenderTarget.get());
+                openGLRenderTarget != nullptr)
+            {
+                this->ID = openGLRenderTarget->GetFramebufferID();
+                this->depthBufferID = openGLRenderTarget->GetDepthBufferID();
+            }
+            else if (const auto *vulkanRenderTarget = dynamic_cast<const VulkanRenderTargetResource *>(this->backendRenderTarget.get());
+                     vulkanRenderTarget != nullptr)
+            {
+                this->ID = vulkanRenderTarget->GetHandle();
+                this->depthBufferID = 0;
+            }
+            else
+            {
+                this->ID = 1;
+                this->depthBufferID = 0;
+            }
         }
     }
 

@@ -6,7 +6,9 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
+#include <array>
 #include <cstring>
+#include <unordered_map>
 
 namespace
 {
@@ -121,6 +123,144 @@ void DestroyBufferHandle(const std::shared_ptr<VulkanDeviceContext> &deviceConte
     }
     buffer = VK_NULL_HANDLE;
     memory = VK_NULL_HANDLE;
+}
+
+VkFormat ToVulkanFormat(TextureFormat format) noexcept
+{
+    switch (format)
+    {
+        case TextureFormat::BGRA8:
+            return VK_FORMAT_B8G8R8A8_UNORM;
+        case TextureFormat::Depth24Stencil8:
+            return VK_FORMAT_D24_UNORM_S8_UINT;
+        case TextureFormat::Depth32Float:
+            return VK_FORMAT_D32_SFLOAT;
+        case TextureFormat::R8:
+            return VK_FORMAT_R8_UNORM;
+        case TextureFormat::R32UI:
+            return VK_FORMAT_R32_UINT;
+        case TextureFormat::RG16F:
+            return VK_FORMAT_R16G16_SFLOAT;
+        case TextureFormat::RGBA8:
+        default:
+            return VK_FORMAT_R8G8B8A8_UNORM;
+    }
+}
+
+VkImageAspectFlags ToAspectMask(TextureFormat format) noexcept
+{
+    switch (format)
+    {
+        case TextureFormat::Depth24Stencil8:
+            return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        case TextureFormat::Depth32Float:
+            return VK_IMAGE_ASPECT_DEPTH_BIT;
+        default:
+            return VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+}
+
+VkImageUsageFlags ToImageUsageFlags(const TextureDesc &desc) noexcept
+{
+    VkImageUsageFlags usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    if (desc.renderTarget)
+    {
+        usage |= (ToAspectMask(desc.format) & VK_IMAGE_ASPECT_COLOR_BIT) != 0 ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+                                                                               : VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    }
+    return usage;
+}
+
+bool CreateImageHandle(const std::shared_ptr<VulkanDeviceContext> &deviceContext, const TextureDesc &desc, VkImage &imageOut,
+                       VkDeviceMemory &memoryOut)
+{
+    if (deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE || deviceContext->backend == nullptr ||
+        desc.extent.width == 0 || desc.extent.height == 0)
+    {
+        return false;
+    }
+
+    VkImageCreateInfo imageCreateInfo{};
+    imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageCreateInfo.extent.width = desc.extent.width;
+    imageCreateInfo.extent.height = desc.extent.height;
+    imageCreateInfo.extent.depth = 1;
+    imageCreateInfo.mipLevels = std::max(1u, desc.mipLevels);
+    imageCreateInfo.arrayLayers = 1;
+    imageCreateInfo.format = ToVulkanFormat(desc.format);
+    imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageCreateInfo.usage = ToImageUsageFlags(desc);
+    imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateImage(deviceContext->device, &imageCreateInfo, nullptr, &imageOut) != VK_SUCCESS)
+    {
+        return false;
+    }
+
+    VkMemoryRequirements memoryRequirements{};
+    vkGetImageMemoryRequirements(deviceContext->device, imageOut, &memoryRequirements);
+
+    VkMemoryAllocateInfo allocateInfo{};
+    allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocateInfo.allocationSize = memoryRequirements.size;
+    allocateInfo.memoryTypeIndex =
+        FindMemoryType(*deviceContext->backend, memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (allocateInfo.memoryTypeIndex == UINT32_MAX ||
+        vkAllocateMemory(deviceContext->device, &allocateInfo, nullptr, &memoryOut) != VK_SUCCESS)
+    {
+        vkDestroyImage(deviceContext->device, imageOut, nullptr);
+        imageOut = VK_NULL_HANDLE;
+        return false;
+    }
+
+    if (vkBindImageMemory(deviceContext->device, imageOut, memoryOut, 0) != VK_SUCCESS)
+    {
+        vkDestroyImage(deviceContext->device, imageOut, nullptr);
+        vkFreeMemory(deviceContext->device, memoryOut, nullptr);
+        imageOut = VK_NULL_HANDLE;
+        memoryOut = VK_NULL_HANDLE;
+        return false;
+    }
+
+    return true;
+}
+
+void DestroyImageHandle(const std::shared_ptr<VulkanDeviceContext> &deviceContext, VkImage &image, VkDeviceMemory &memory, VkImageView &imageView,
+                        VkSampler &sampler)
+{
+    if (deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE)
+    {
+        image = VK_NULL_HANDLE;
+        memory = VK_NULL_HANDLE;
+        imageView = VK_NULL_HANDLE;
+        sampler = VK_NULL_HANDLE;
+        return;
+    }
+
+    if (sampler != VK_NULL_HANDLE)
+    {
+        vkDestroySampler(deviceContext->device, sampler, nullptr);
+    }
+    if (imageView != VK_NULL_HANDLE)
+    {
+        vkDestroyImageView(deviceContext->device, imageView, nullptr);
+    }
+    if (image != VK_NULL_HANDLE)
+    {
+        vkDestroyImage(deviceContext->device, image, nullptr);
+    }
+    if (memory != VK_NULL_HANDLE)
+    {
+        vkFreeMemory(deviceContext->device, memory, nullptr);
+    }
+
+    image = VK_NULL_HANDLE;
+    memory = VK_NULL_HANDLE;
+    imageView = VK_NULL_HANDLE;
+    sampler = VK_NULL_HANDLE;
 }
 
 } // namespace
@@ -445,11 +585,14 @@ void VulkanGeometryResource::UploadBuffer(VkBuffer bufferHandle, VkDeviceMemory 
     vkUnmapMemory(deviceContext->device, memoryHandle);
 }
 
-VulkanTextureResource::VulkanTextureResource(TextureCreateInfo createInfo)
-    : desc(createInfo.desc), debugName(std::move(createInfo.debugName)), storage(std::move(createInfo.initialData))
+VulkanTextureResource::VulkanTextureResource(std::shared_ptr<VulkanDeviceContext> deviceContextIn, TextureCreateInfo createInfo)
+    : deviceContext(std::move(deviceContextIn)), desc(createInfo.desc), debugName(std::move(createInfo.debugName)),
+      storage(std::move(createInfo.initialData))
 {
     Resize(desc.extent.width, desc.extent.height);
 }
+
+VulkanTextureResource::~VulkanTextureResource() { DestroyImage(); }
 
 GraphicsAPI VulkanTextureResource::GetAPI() const noexcept { return GraphicsAPI::Vulkan; }
 
@@ -465,20 +608,27 @@ void VulkanTextureResource::Readback(std::vector<std::byte> &output) const { out
 
 void VulkanTextureResource::Resize(std::uint32_t width, std::uint32_t height)
 {
+    DestroyImage();
     desc.extent = {width, height};
     const std::size_t pixelCount = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
     storage.resize(pixelCount * GetPixelSize(desc.format));
+    CreateImage();
 }
 
 void VulkanTextureResource::AttachToFramebuffer(std::uint32_t framebufferHandle, std::uint32_t colorIndex) const
 {
-    static_cast<void>(framebufferHandle);
-    static_cast<void>(colorIndex);
+    if (VulkanRenderTargetResource *renderTarget = VulkanRenderTargetResource::FindByHandle(framebufferHandle); renderTarget != nullptr)
+    {
+        renderTarget->RegisterColorAttachment(colorIndex, this);
+    }
 }
 
 void VulkanTextureResource::AttachAsDepthToFramebuffer(std::uint32_t framebufferHandle) const
 {
-    static_cast<void>(framebufferHandle);
+    if (VulkanRenderTargetResource *renderTarget = VulkanRenderTargetResource::FindByHandle(framebufferHandle); renderTarget != nullptr)
+    {
+        renderTarget->RegisterDepthAttachment(this);
+    }
 }
 
 std::size_t VulkanTextureResource::GetPixelSize(TextureFormat format) noexcept
@@ -500,12 +650,75 @@ std::size_t VulkanTextureResource::GetPixelSize(TextureFormat format) noexcept
     }
 }
 
-VulkanRenderTargetResource::VulkanRenderTargetResource(RenderTargetCreateInfo createInfo)
-    : desc(createInfo.desc),
+VkFormat VulkanTextureResource::ToVulkanFormat(TextureFormat format) noexcept { return ::ToVulkanFormat(format); }
+
+VkImageAspectFlags VulkanTextureResource::ToAspectMask(TextureFormat format) noexcept { return ::ToAspectMask(format); }
+
+bool VulkanTextureResource::CreateImage()
+{
+    if (!CreateImageHandle(deviceContext, desc, image, memory))
+    {
+        return false;
+    }
+
+    VkImageViewCreateInfo imageViewCreateInfo{};
+    imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    imageViewCreateInfo.image = image;
+    imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    imageViewCreateInfo.format = ToVulkanFormat(desc.format);
+    imageViewCreateInfo.subresourceRange.aspectMask = ToAspectMask(desc.format);
+    imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+    imageViewCreateInfo.subresourceRange.levelCount = std::max(1u, desc.mipLevels);
+    imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+    imageViewCreateInfo.subresourceRange.layerCount = 1;
+
+    if (vkCreateImageView(deviceContext->device, &imageViewCreateInfo, nullptr, &imageView) != VK_SUCCESS)
+    {
+        DestroyImage();
+        return false;
+    }
+
+    VkSamplerCreateInfo samplerCreateInfo{};
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.maxLod = static_cast<float>(std::max(1u, desc.mipLevels));
+
+    if (vkCreateSampler(deviceContext->device, &samplerCreateInfo, nullptr, &sampler) != VK_SUCCESS)
+    {
+        DestroyImage();
+        return false;
+    }
+
+    return true;
+}
+
+void VulkanTextureResource::DestroyImage() noexcept { DestroyImageHandle(deviceContext, image, memory, imageView, sampler); }
+
+namespace
+{
+
+std::unordered_map<std::uint32_t, VulkanRenderTargetResource *> g_vulkanRenderTargets;
+std::uint32_t g_nextVulkanRenderTargetHandle = 1;
+
+}
+
+VulkanRenderTargetResource::VulkanRenderTargetResource(std::shared_ptr<VulkanDeviceContext> deviceContextIn, RenderTargetCreateInfo createInfo)
+    : deviceContext(std::move(deviceContextIn)),
+      desc(createInfo.desc),
       debugName(std::move(createInfo.debugName)),
       activeColorAttachmentCount(static_cast<std::uint32_t>(createInfo.desc.colorAttachments.size()))
 {
+    colorAttachments.resize(desc.colorAttachments.size(), nullptr);
+    handle = g_nextVulkanRenderTargetHandle++;
+    RegisterSelf();
 }
+
+VulkanRenderTargetResource::~VulkanRenderTargetResource() { UnregisterSelf(); }
 
 GraphicsAPI VulkanRenderTargetResource::GetAPI() const noexcept { return GraphicsAPI::Vulkan; }
 
@@ -521,7 +734,29 @@ void VulkanRenderTargetResource::Resize(std::uint32_t width, std::uint32_t heigh
 
 bool VulkanRenderTargetResource::IsComplete() const
 {
-    return desc.extent.width > 0 && desc.extent.height > 0 && !desc.colorAttachments.empty();
+    if (desc.extent.width == 0 || desc.extent.height == 0 || colorAttachments.empty())
+    {
+        return false;
+    }
+
+    const std::uint32_t attachmentCount = std::min(activeColorAttachmentCount, static_cast<std::uint32_t>(colorAttachments.size()));
+    for (std::uint32_t i = 0; i < attachmentCount; ++i)
+    {
+        if (colorAttachments[i] == nullptr || colorAttachments[i]->GetDescription().extent.width != desc.extent.width ||
+            colorAttachments[i]->GetDescription().extent.height != desc.extent.height)
+        {
+            return false;
+        }
+    }
+
+    if (desc.hasDepthBuffer && desc.depthAsTexture &&
+        (depthAttachment == nullptr || depthAttachment->GetDescription().extent.width != desc.extent.width ||
+         depthAttachment->GetDescription().extent.height != desc.extent.height))
+    {
+        return false;
+    }
+
+    return true;
 }
 
 void VulkanRenderTargetResource::BlitFromDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth,
@@ -556,6 +791,29 @@ void VulkanRenderTargetResource::SetDrawBuffers(std::uint32_t count)
 {
     activeColorAttachmentCount = std::min(count, static_cast<std::uint32_t>(desc.colorAttachments.size()));
 }
+
+std::uint32_t VulkanRenderTargetResource::GetHandle() const noexcept { return handle; }
+
+VulkanRenderTargetResource *VulkanRenderTargetResource::FindByHandle(std::uint32_t handle) noexcept
+{
+    const auto it = g_vulkanRenderTargets.find(handle);
+    return it == g_vulkanRenderTargets.end() ? nullptr : it->second;
+}
+
+void VulkanRenderTargetResource::RegisterColorAttachment(std::uint32_t colorIndex, const VulkanTextureResource *texture) noexcept
+{
+    if (colorIndex >= colorAttachments.size())
+    {
+        return;
+    }
+    colorAttachments[colorIndex] = texture;
+}
+
+void VulkanRenderTargetResource::RegisterDepthAttachment(const VulkanTextureResource *texture) noexcept { depthAttachment = texture; }
+
+void VulkanRenderTargetResource::RegisterSelf() noexcept { g_vulkanRenderTargets[handle] = this; }
+
+void VulkanRenderTargetResource::UnregisterSelf() noexcept { g_vulkanRenderTargets.erase(handle); }
 
 VulkanAccelerationStructureResource::VulkanAccelerationStructureResource(AccelerationStructureCreateInfo createInfo)
     : desc(createInfo.desc), debugName(std::move(createInfo.debugName))

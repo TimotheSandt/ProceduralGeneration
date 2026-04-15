@@ -110,7 +110,8 @@ class VulkanGeometryResource final : public IGeometryResource
 class VulkanTextureResource final : public ITextureResource
 {
   public:
-    explicit VulkanTextureResource(TextureCreateInfo createInfo);
+    VulkanTextureResource(std::shared_ptr<VulkanDeviceContext> deviceContext, TextureCreateInfo createInfo);
+    ~VulkanTextureResource() override;
 
     GraphicsAPI GetAPI() const noexcept override;
     std::string_view GetDebugName() const noexcept override;
@@ -124,16 +125,26 @@ class VulkanTextureResource final : public ITextureResource
 
   private:
     static std::size_t GetPixelSize(TextureFormat format) noexcept;
+    static VkFormat ToVulkanFormat(TextureFormat format) noexcept;
+    static VkImageAspectFlags ToAspectMask(TextureFormat format) noexcept;
+    bool CreateImage();
+    void DestroyImage() noexcept;
 
+    std::shared_ptr<VulkanDeviceContext> deviceContext;
     TextureDesc desc;
     std::string debugName;
     std::vector<std::byte> storage;
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView imageView = VK_NULL_HANDLE;
+    VkSampler sampler = VK_NULL_HANDLE;
 };
 
 class VulkanRenderTargetResource final : public IRenderTargetResource
 {
   public:
-    explicit VulkanRenderTargetResource(RenderTargetCreateInfo createInfo);
+    VulkanRenderTargetResource(std::shared_ptr<VulkanDeviceContext> deviceContext, RenderTargetCreateInfo createInfo);
+    ~VulkanRenderTargetResource() override;
 
     GraphicsAPI GetAPI() const noexcept override;
     std::string_view GetDebugName() const noexcept override;
@@ -147,11 +158,22 @@ class VulkanRenderTargetResource final : public IRenderTargetResource
                 std::uint32_t dstHeight) const override;
     void BlitToDefault(std::uint32_t srcWidth, std::uint32_t srcHeight, std::uint32_t dstWidth, std::uint32_t dstHeight) const override;
     void SetDrawBuffers(std::uint32_t count) override;
+    std::uint32_t GetHandle() const noexcept;
+    static VulkanRenderTargetResource *FindByHandle(std::uint32_t handle) noexcept;
+    void RegisterColorAttachment(std::uint32_t colorIndex, const VulkanTextureResource *texture) noexcept;
+    void RegisterDepthAttachment(const VulkanTextureResource *texture) noexcept;
 
   private:
+    void RegisterSelf() noexcept;
+    void UnregisterSelf() noexcept;
+
+    std::shared_ptr<VulkanDeviceContext> deviceContext;
     RenderTargetDesc desc;
     std::string debugName;
     std::uint32_t activeColorAttachmentCount = 0;
+    std::uint32_t handle = 0;
+    std::vector<const VulkanTextureResource *> colorAttachments;
+    const VulkanTextureResource *depthAttachment = nullptr;
 };
 
 class VulkanAccelerationStructureResource final : public IAccelerationStructureResource

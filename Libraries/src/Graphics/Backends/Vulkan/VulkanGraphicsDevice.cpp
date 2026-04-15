@@ -72,12 +72,12 @@ std::unique_ptr<IShaderProgramResource> VulkanGraphicsDevice::CreateShaderProgra
 
 std::unique_ptr<ITextureResource> VulkanGraphicsDevice::CreateTexture(const TextureCreateInfo &createInfo) const
 {
-    return std::make_unique<VulkanTextureResource>(createInfo);
+    return std::make_unique<VulkanTextureResource>(deviceContext, createInfo);
 }
 
 std::unique_ptr<IRenderTargetResource> VulkanGraphicsDevice::CreateRenderTarget(const RenderTargetCreateInfo &createInfo) const
 {
-    return std::make_unique<VulkanRenderTargetResource>(createInfo);
+    return std::make_unique<VulkanRenderTargetResource>(deviceContext, createInfo);
 }
 
 std::unique_ptr<IAccelerationStructureResource> VulkanGraphicsDevice::CreateAccelerationStructure(
