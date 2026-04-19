@@ -8,7 +8,7 @@
 namespace
 {
 
-bool EqualsIgnoreCase(std::string_view left, std::string_view right) noexcept
+bool EqualsIgnoreCase(std::string left, std::string right) noexcept
 {
     if (left.size() != right.size())
     {
@@ -48,7 +48,7 @@ std::string JoinAvailableApis()
 
 } // namespace
 
-std::string_view GraphicsAPIToString(GraphicsAPI api) noexcept
+std::string GraphicsAPIToString(GraphicsAPI api) noexcept
 {
     switch (api)
     {
@@ -63,7 +63,7 @@ std::string_view GraphicsAPIToString(GraphicsAPI api) noexcept
     return "Unknown";
 }
 
-std::optional<GraphicsAPI> ParseGraphicsAPI(std::string_view value) noexcept
+std::optional<GraphicsAPI> ParseGraphicsAPI(std::string value) noexcept
 {
     if (EqualsIgnoreCase(value, "opengl") || EqualsIgnoreCase(value, "gl"))
     {

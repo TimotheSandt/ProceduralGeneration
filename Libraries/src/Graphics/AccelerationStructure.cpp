@@ -49,9 +49,9 @@ GraphicsAPI AccelerationStructure::GetAPI() const noexcept
     return resource != nullptr ? resource->GetAPI() : GraphicsAPI::OpenGL;
 }
 
-std::string_view AccelerationStructure::GetDebugName() const noexcept
+std::string AccelerationStructure::GetDebugName() const noexcept
 {
-    return resource != nullptr ? resource->GetDebugName() : std::string_view(debugName);
+    return resource != nullptr ? resource->GetDebugName() : std::string(debugName);
 }
 
 const AccelerationStructureDesc &AccelerationStructure::GetDescription() const noexcept

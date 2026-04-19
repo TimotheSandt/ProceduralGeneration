@@ -5,12 +5,14 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <limits>
 #include <memory>
 #include <unordered_map>
 #include <vector>
 
 #include "Graphics/Backends/Vulkan/VulkanGraphicsDevice.h"
+#include "Graphics/Backends/Vulkan/VulkanPipelineCache.h"
 #include "Graphics/Backends/Vulkan/VulkanRenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Logger.h"
@@ -28,6 +30,7 @@ struct WindowFrameSync
     VkSemaphore imageAvailable = VK_NULL_HANDLE;
     VkSemaphore renderFinished = VK_NULL_HANDLE;
     VkFence inFlightFence = VK_NULL_HANDLE;
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
 };
 
 struct WindowContextState
@@ -40,12 +43,23 @@ struct WindowContextState
     VkExtent2D extent{};
     std::vector<VkImage> images;
     std::vector<VkImageView> imageViews;
+    VkImage depthImage = VK_NULL_HANDLE;
+    VkDeviceMemory depthMemory = VK_NULL_HANDLE;
+    VkImageView depthImageView = VK_NULL_HANDLE;
+    VkFormat depthFormat = VK_FORMAT_UNDEFINED;
     VkRenderPass renderPass = VK_NULL_HANDLE;
     std::vector<VkFramebuffer> framebuffers;
     VkCommandPool commandPool = VK_NULL_HANDLE;
-    std::vector<VkCommandBuffer> commandBuffers;
     std::array<WindowFrameSync, MaxFramesInFlight> frameSync{};
+    std::vector<VkFence> imagesInFlight;
     std::uint32_t frameIndex = 0;
+    // Per-frame state set by BeginFrame, consumed by Present
+    std::uint32_t currentImageIndex = 0;
+    bool frameActive = false;
+    // FPS / frame counters for diagnosing device-lost timing
+    std::uint64_t framesSubmitted = 0;
+    std::uint32_t fpsWindowFrames = 0;
+    std::chrono::steady_clock::time_point fpsWindowStart{};
 };
 
 std::unordered_map<GLFWwindow *, WindowContextState> windowContexts;
@@ -57,17 +71,12 @@ void DestroySwapchainResources(WindowContextState &state)
         state.images.clear();
         state.imageViews.clear();
         state.framebuffers.clear();
-        state.commandBuffers.clear();
+        state.imagesInFlight.clear();
         state.swapchain = VK_NULL_HANDLE;
         return;
     }
 
-    if (!state.commandBuffers.empty() && state.commandPool != VK_NULL_HANDLE)
-    {
-        vkFreeCommandBuffers(state.deviceContext->device, state.commandPool, static_cast<std::uint32_t>(state.commandBuffers.size()),
-                             state.commandBuffers.data());
-    }
-    state.commandBuffers.clear();
+    state.imagesInFlight.clear();
 
     for (VkFramebuffer framebuffer : state.framebuffers)
     {
@@ -77,6 +86,23 @@ void DestroySwapchainResources(WindowContextState &state)
         }
     }
     state.framebuffers.clear();
+
+    if (state.depthImageView != VK_NULL_HANDLE)
+    {
+        vkDestroyImageView(state.deviceContext->device, state.depthImageView, nullptr);
+        state.depthImageView = VK_NULL_HANDLE;
+    }
+    if (state.depthImage != VK_NULL_HANDLE)
+    {
+        vkDestroyImage(state.deviceContext->device, state.depthImage, nullptr);
+        state.depthImage = VK_NULL_HANDLE;
+    }
+    if (state.depthMemory != VK_NULL_HANDLE)
+    {
+        vkFreeMemory(state.deviceContext->device, state.depthMemory, nullptr);
+        state.depthMemory = VK_NULL_HANDLE;
+    }
+    state.depthFormat = VK_FORMAT_UNDEFINED;
 
     if (state.renderPass != VK_NULL_HANDLE)
     {
@@ -129,6 +155,8 @@ void DestroyWindowContext(WindowContextState &state)
                 vkDestroyFence(state.deviceContext->device, frameSync.inFlightFence, nullptr);
                 frameSync.inFlightFence = VK_NULL_HANDLE;
             }
+            // cmd buffers are freed when the pool is destroyed
+            frameSync.commandBuffer = VK_NULL_HANDLE;
         }
 
         if (state.commandPool != VK_NULL_HANDLE)
@@ -179,6 +207,96 @@ VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR> &presentM
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
+VkFormat ChooseDepthFormat(VkPhysicalDevice physicalDevice)
+{
+    const VkFormat candidates[] = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
+    for (VkFormat format : candidates)
+    {
+        VkFormatProperties props{};
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+        if ((props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0)
+        {
+            return format;
+        }
+    }
+    return VK_FORMAT_UNDEFINED;
+}
+
+std::uint32_t FindMemoryTypeLocal(const VkPhysicalDeviceMemoryProperties &memProps, std::uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+    for (std::uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
+    {
+        if ((typeFilter & (1u << i)) != 0 && (memProps.memoryTypes[i].propertyFlags & properties) == properties)
+        {
+            return i;
+        }
+    }
+    return UINT32_MAX;
+}
+
+bool CreateDepthResources(WindowContextState &state)
+{
+    state.depthFormat = ChooseDepthFormat(state.deviceContext->backend->physicalDevice);
+    if (state.depthFormat == VK_FORMAT_UNDEFINED)
+    {
+        LOG_ERROR(1, "[Vulkan] No supported depth format found");
+        return false;
+    }
+
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = state.depthFormat;
+    imageInfo.extent = {state.extent.width, state.extent.height, 1};
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    if (vkCreateImage(state.deviceContext->device, &imageInfo, nullptr, &state.depthImage) != VK_SUCCESS)
+    {
+        LOG_ERROR(1, "[Vulkan] Failed to create depth image");
+        return false;
+    }
+
+    VkMemoryRequirements memReq{};
+    vkGetImageMemoryRequirements(state.deviceContext->device, state.depthImage, &memReq);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReq.size;
+    allocInfo.memoryTypeIndex =
+        FindMemoryTypeLocal(state.deviceContext->backend->memoryProperties, memReq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (allocInfo.memoryTypeIndex == UINT32_MAX ||
+        vkAllocateMemory(state.deviceContext->device, &allocInfo, nullptr, &state.depthMemory) != VK_SUCCESS)
+    {
+        LOG_ERROR(1, "[Vulkan] Failed to allocate depth image memory");
+        return false;
+    }
+    vkBindImageMemory(state.deviceContext->device, state.depthImage, state.depthMemory, 0);
+
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = state.depthImage;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = state.depthFormat;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    if (vkCreateImageView(state.deviceContext->device, &viewInfo, nullptr, &state.depthImageView) != VK_SUCCESS)
+    {
+        LOG_ERROR(1, "[Vulkan] Failed to create depth image view");
+        return false;
+    }
+    return true;
+}
+
 VkExtent2D ChooseExtent(const VkSurfaceCapabilitiesKHR &capabilities, int width, int height)
 {
     if (capabilities.currentExtent.width != std::numeric_limits<std::uint32_t>::max())
@@ -214,6 +332,23 @@ bool CreateFrameSyncObjects(WindowContextState &state)
         }
     }
 
+    VkCommandBufferAllocateInfo allocateInfo{};
+    allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocateInfo.commandPool = state.commandPool;
+    allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocateInfo.commandBufferCount = MaxFramesInFlight;
+
+    std::array<VkCommandBuffer, MaxFramesInFlight> buffers{};
+    if (vkAllocateCommandBuffers(state.deviceContext->device, &allocateInfo, buffers.data()) != VK_SUCCESS)
+    {
+        LOG_ERROR(1, "Failed to allocate Vulkan per-frame command buffers");
+        return false;
+    }
+    for (std::size_t i = 0; i < MaxFramesInFlight; ++i)
+    {
+        state.frameSync[i].commandBuffer = buffers[i];
+    }
+
     return true;
 }
 
@@ -235,6 +370,8 @@ bool CreateCommandPool(WindowContextState &state)
 
 bool CreateSwapchain(WindowContextState &state, GLFWwindow *window, bool enableVsync, int width, int height)
 {
+    UNUSED(window);
+
     VkBool32 presentSupported = VK_FALSE;
     if (vkGetPhysicalDeviceSurfaceSupportKHR(state.deviceContext->backend->physicalDevice,
                                              state.deviceContext->backend->graphicsQueueFamilyIndex, state.surface,
@@ -336,36 +473,55 @@ bool CreateSwapchain(WindowContextState &state, GLFWwindow *window, bool enableV
         }
     }
 
-    VkAttachmentDescription colorAttachment{};
-    colorAttachment.format = state.surfaceFormat.format;
-    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    if (!CreateDepthResources(state))
+    {
+        return false;
+    }
+
+    VkAttachmentDescription attachments[2]{};
+    attachments[0].format = state.surfaceFormat.format;
+    attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    attachments[1].format = state.depthFormat;
+    attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference colorAttachmentRef{};
     colorAttachmentRef.attachment = 0;
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    VkAttachmentReference depthAttachmentRef{};
+    depthAttachmentRef.attachment = 1;
+    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     VkSubpassDescription subpass{};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
     VkSubpassDependency dependency{};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     VkRenderPassCreateInfo renderPassCreateInfo{};
     renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    renderPassCreateInfo.attachmentCount = 1;
-    renderPassCreateInfo.pAttachments = &colorAttachment;
+    renderPassCreateInfo.attachmentCount = 2;
+    renderPassCreateInfo.pAttachments = attachments;
     renderPassCreateInfo.subpassCount = 1;
     renderPassCreateInfo.pSubpasses = &subpass;
     renderPassCreateInfo.dependencyCount = 1;
@@ -380,11 +536,13 @@ bool CreateSwapchain(WindowContextState &state, GLFWwindow *window, bool enableV
     state.framebuffers.resize(swapchainImageCount, VK_NULL_HANDLE);
     for (std::uint32_t i = 0; i < swapchainImageCount; ++i)
     {
+        VkImageView fbAttachments[2] = {state.imageViews[i], state.depthImageView};
+
         VkFramebufferCreateInfo framebufferCreateInfo{};
         framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebufferCreateInfo.renderPass = state.renderPass;
-        framebufferCreateInfo.attachmentCount = 1;
-        framebufferCreateInfo.pAttachments = &state.imageViews[i];
+        framebufferCreateInfo.attachmentCount = 2;
+        framebufferCreateInfo.pAttachments = fbAttachments;
         framebufferCreateInfo.width = state.extent.width;
         framebufferCreateInfo.height = state.extent.height;
         framebufferCreateInfo.layers = 1;
@@ -396,20 +554,10 @@ bool CreateSwapchain(WindowContextState &state, GLFWwindow *window, bool enableV
         }
     }
 
-    state.commandBuffers.resize(swapchainImageCount, VK_NULL_HANDLE);
-    VkCommandBufferAllocateInfo allocateInfo{};
-    allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocateInfo.commandPool = state.commandPool;
-    allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocateInfo.commandBufferCount = static_cast<std::uint32_t>(state.commandBuffers.size());
-
-    if (vkAllocateCommandBuffers(state.deviceContext->device, &allocateInfo, state.commandBuffers.data()) != VK_SUCCESS)
-    {
-        LOG_ERROR(1, "Failed to allocate Vulkan command buffers");
-        return false;
-    }
+    state.imagesInFlight.assign(swapchainImageCount, VK_NULL_HANDLE);
 
     VulkanRenderState::SetViewport(0, 0, static_cast<int>(state.extent.width), static_cast<int>(state.extent.height));
+
     return true;
 }
 
@@ -433,9 +581,52 @@ bool RecreateSwapchain(WindowContextState &state, GLFWwindow *window, bool enabl
     return CreateSwapchain(state, window, enableVsync, framebufferWidth, framebufferHeight);
 }
 
-bool RecordPresentCommand(WindowContextState &state, std::uint32_t imageIndex)
+// BeginFrame: acquires the swapchain image, begins the command buffer and render pass.
+// The render pass is left open so that draw calls recorded between BeginFrame and Present
+// are executed inside it. VulkanRenderState holds the active command buffer for draw calls.
+bool BeginFrame(WindowContextState &state, GLFWwindow *window)
 {
-    VkCommandBuffer commandBuffer = state.commandBuffers[imageIndex];
+    if (state.frameActive)
+    {
+        LOG_INFO("[Vulkan] BeginFrame called while a frame is already active — skipped");
+        return true;
+    }
+
+    WindowFrameSync &frameSync = state.frameSync[state.frameIndex];
+
+    if (const VkResult waitResult = vkWaitForFences(state.deviceContext->device, 1, &frameSync.inFlightFence, VK_TRUE, UINT64_MAX);
+        waitResult != VK_SUCCESS)
+    {
+        LOG_ERROR(static_cast<int>(waitResult), "[Vulkan] BeginFrame: failed to wait for in-flight fence");
+        return false;
+    }
+
+    VkResult acquireResult = vkAcquireNextImageKHR(state.deviceContext->device, state.swapchain, UINT64_MAX, frameSync.imageAvailable,
+                                                   VK_NULL_HANDLE, &state.currentImageIndex);
+    if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        LOG_INFO("[Vulkan] BeginFrame: swapchain out of date, recreating");
+        return RecreateSwapchain(state, window, state.presentMode == VK_PRESENT_MODE_FIFO_KHR);
+    }
+    if (acquireResult != VK_SUCCESS && acquireResult != VK_SUBOPTIMAL_KHR)
+    {
+        LOG_ERROR(static_cast<int>(acquireResult), "[Vulkan] BeginFrame: failed to acquire swapchain image");
+        return false;
+    }
+
+    // If this swapchain image was last used by a still-in-flight frame, wait for it to finish.
+    if (state.currentImageIndex < state.imagesInFlight.size() &&
+        state.imagesInFlight[state.currentImageIndex] != VK_NULL_HANDLE &&
+        state.imagesInFlight[state.currentImageIndex] != frameSync.inFlightFence)
+    {
+        vkWaitForFences(state.deviceContext->device, 1, &state.imagesInFlight[state.currentImageIndex], VK_TRUE, UINT64_MAX);
+    }
+    if (state.currentImageIndex < state.imagesInFlight.size())
+    {
+        state.imagesInFlight[state.currentImageIndex] = frameSync.inFlightFence;
+    }
+
+    VkCommandBuffer commandBuffer = frameSync.commandBuffer;
     vkResetCommandBuffer(commandBuffer, 0);
 
     VkCommandBufferBeginInfo beginInfo{};
@@ -444,33 +635,60 @@ bool RecordPresentCommand(WindowContextState &state, std::uint32_t imageIndex)
 
     if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
     {
-        LOG_ERROR(1, "Failed to begin Vulkan present command buffer");
+        LOG_ERROR(1, "[Vulkan] BeginFrame: failed to begin command buffer");
         return false;
     }
 
+    // Reset this frame slot's descriptor pool. Pools are per-slot so resetting one cannot recycle
+    // descriptors still in use by another in-flight frame's GPU work — the fence wait above
+    // guarantees the previous use of this slot is complete.
+    VulkanPipelineCache::ResetFrameDescriptors(state.deviceContext->device, state.frameIndex);
+    VulkanRenderState::ClearTextureBindings();
+
+    // Free any VkBuffer/VkDeviceMemory whose retirement is now beyond the in-flight window. The
+    // fence wait above covers the previous use of this slot, so resources retired then are safe
+    // to destroy now.
+    VulkanRenderState::DrainExpiredRetirements(state.deviceContext->device, MaxFramesInFlight);
+
     const glm::vec4 clearColor = VulkanRenderState::GetClearColor();
-    const VkClearValue clearValue = {
-        .color = {.float32 = {clearColor.r, clearColor.g, clearColor.b, clearColor.a}},
-    };
+
+    VkClearValue clearValues[2]{};
+    clearValues[0].color = {.float32 = {clearColor.r, clearColor.g, clearColor.b, clearColor.a}};
+    clearValues[1].depthStencil = {1.0f, 0};
 
     VkRenderPassBeginInfo renderPassBeginInfo{};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBeginInfo.renderPass = state.renderPass;
-    renderPassBeginInfo.framebuffer = state.framebuffers[imageIndex];
+    renderPassBeginInfo.framebuffer = state.framebuffers[state.currentImageIndex];
     renderPassBeginInfo.renderArea.offset = {0, 0};
     renderPassBeginInfo.renderArea.extent = state.extent;
-    renderPassBeginInfo.clearValueCount = 1;
-    renderPassBeginInfo.pClearValues = &clearValue;
+    renderPassBeginInfo.clearValueCount = 2;
+    renderPassBeginInfo.pClearValues = clearValues;
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdEndRenderPass(commandBuffer);
 
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
-    {
-        LOG_ERROR(1, "Failed to finalize Vulkan present command buffer");
-        return false;
-    }
+    // Set viewport and scissor dynamically so the pipeline can use them.
+    // Negative-height viewport flips the Y axis so that GLSL written for OpenGL (Y up in NDC)
+    // renders correctly under Vulkan (whose NDC Y is down). Requires VK_KHR_maintenance1, which
+    // is core in Vulkan 1.1+ — we target 1.2.
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = static_cast<float>(state.extent.height);
+    viewport.width = static_cast<float>(state.extent.width);
+    viewport.height = -static_cast<float>(state.extent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = state.extent;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    // Expose the command buffer globally so draw calls can record into it
+    VulkanRenderState::SetCurrentCommandBuffer(commandBuffer, state.extent);
+
+    state.frameActive = true;
     return true;
 }
 
@@ -516,16 +734,47 @@ bool Initialize(GLFWwindow *window, bool enableVsync, int width, int height)
     return true;
 }
 
-void ApplyDefaultFramebufferState(GLFWwindow *window, bool enableVsync) noexcept
+void ApplyDefaultFramebufferState(GLFWwindow *window, bool enableVsync, const glm::vec4 &clearColor) noexcept
 {
     WindowContextState *state = FindWindowContext(window);
     if (state == nullptr)
     {
+        LOG_ERROR(1, "[Vulkan] ApplyDefaultFramebufferState: no window context found");
         return;
     }
 
-    RecreateSwapchain(*state, window, enableVsync);
+    // Make sure the next BeginFrame uses the requested clear color
+    VulkanRenderState::ClearColor(clearColor);
+
+    // If a frame was not properly closed, close it now (shouldn't happen normally)
+    if (state->frameActive)
+    {
+        LOG_INFO("[Vulkan] ApplyDefaultFramebufferState: previous frame still active, closing it");
+        VkCommandBuffer commandBuffer = state->frameSync[state->frameIndex].commandBuffer;
+        vkCmdEndRenderPass(commandBuffer);
+        vkEndCommandBuffer(commandBuffer);
+        VulkanRenderState::SetCurrentCommandBuffer(VK_NULL_HANDLE, {});
+        state->frameActive = false;
+    }
+
+    int framebufferWidth = 0;
+    int framebufferHeight = 0;
+    glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+
+    if (framebufferWidth > 0 && framebufferHeight > 0 &&
+        (static_cast<std::uint32_t>(framebufferWidth) != state->extent.width ||
+         static_cast<std::uint32_t>(framebufferHeight) != state->extent.height))
+    {
+        LOG_INFO("[Vulkan] ApplyDefaultFramebufferState: extent changed to " + std::to_string(framebufferWidth) + "x" +
+                 std::to_string(framebufferHeight) + ", recreating swapchain");
+        RecreateSwapchain(*state, window, enableVsync);
+    }
+
+    VulkanRenderState::SetViewport(0, 0, static_cast<int>(state->extent.width), static_cast<int>(state->extent.height));
     VulkanRenderState::SetDepthTest(true);
+
+    // Begin the frame: acquire image, open render pass, expose command buffer
+    BeginFrame(*state, window);
 }
 
 void Present(GLFWwindow *window) noexcept
@@ -536,49 +785,69 @@ void Present(GLFWwindow *window) noexcept
         return;
     }
 
+    if (!state->frameActive)
+    {
+        LOG_ERROR(1, "[Vulkan] Present called with no active frame — was ApplyDefaultFramebufferState called this frame?");
+        return;
+    }
+
     WindowFrameSync &frameSync = state->frameSync[state->frameIndex];
-    if (vkWaitForFences(state->deviceContext->device, 1, &frameSync.inFlightFence, VK_TRUE, UINT64_MAX) != VK_SUCCESS)
+    VkCommandBuffer commandBuffer = frameSync.commandBuffer;
+
+    // End the render pass that was opened in BeginFrame
+    vkCmdEndRenderPass(commandBuffer);
+
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
     {
-        LOG_ERROR(1, "Failed to wait for Vulkan frame fence");
+        LOG_ERROR(1, "[Vulkan] Present: failed to end command buffer");
+        VulkanRenderState::SetCurrentCommandBuffer(VK_NULL_HANDLE, {});
+        state->frameActive = false;
         return;
     }
 
-    std::uint32_t imageIndex = 0;
-    VkResult acquireResult =
-        vkAcquireNextImageKHR(state->deviceContext->device, state->swapchain, UINT64_MAX, frameSync.imageAvailable, VK_NULL_HANDLE, &imageIndex);
-    if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR)
-    {
-        ApplyDefaultFramebufferState(window, state->presentMode == VK_PRESENT_MODE_FIFO_KHR);
-        return;
-    }
-    if (acquireResult != VK_SUCCESS && acquireResult != VK_SUBOPTIMAL_KHR)
-    {
-        LOG_ERROR(static_cast<int>(acquireResult), "Failed to acquire Vulkan swapchain image");
-        return;
-    }
-
-    if (!RecordPresentCommand(*state, imageIndex))
-    {
-        return;
-    }
+    // Clear the global command buffer so that any late draw calls are ignored
+    VulkanRenderState::SetCurrentCommandBuffer(VK_NULL_HANDLE, {});
+    state->frameActive = false;
 
     vkResetFences(state->deviceContext->device, 1, &frameSync.inFlightFence);
 
-    constexpr VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    constexpr VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = &frameSync.imageAvailable;
     submitInfo.pWaitDstStageMask = &waitStage;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &state->commandBuffers[imageIndex];
+    submitInfo.pCommandBuffers = &commandBuffer;
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = &frameSync.renderFinished;
 
-    if (vkQueueSubmit(state->deviceContext->graphicsQueue, 1, &submitInfo, frameSync.inFlightFence) != VK_SUCCESS)
+    if (const VkResult submitResult = vkQueueSubmit(state->deviceContext->graphicsQueue, 1, &submitInfo, frameSync.inFlightFence);
+        submitResult != VK_SUCCESS)
     {
-        LOG_ERROR(1, "Failed to submit Vulkan present command buffer");
+        LOG_ERROR(static_cast<int>(submitResult), "[Vulkan] Present: vkQueueSubmit failed (frameIndex=", state->frameIndex,
+                  ", imageIndex=", state->currentImageIndex, " framesSinceStart=", state->framesSubmitted,
+                  ") — device likely lost; subsequent fence waits will also fail");
         return;
+    }
+
+    ++state->framesSubmitted;
+    {
+        const auto now = std::chrono::steady_clock::now();
+        if (state->fpsWindowStart.time_since_epoch().count() == 0)
+        {
+            state->fpsWindowStart = now;
+            state->fpsWindowFrames = 0;
+        }
+        ++state->fpsWindowFrames;
+        const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - state->fpsWindowStart).count();
+        if (elapsedMs >= 1000)
+        {
+            const double fps = (static_cast<double>(state->fpsWindowFrames) * 1000.0) / static_cast<double>(elapsedMs);
+            LOG_DEBUG("[Vulkan] FPS=", fps, " framesSinceStart=", state->framesSubmitted);
+            state->fpsWindowStart = now;
+            state->fpsWindowFrames = 0;
+        }
     }
 
     VkPresentInfoKHR presentInfo{};
@@ -587,16 +856,16 @@ void Present(GLFWwindow *window) noexcept
     presentInfo.pWaitSemaphores = &frameSync.renderFinished;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &state->swapchain;
-    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pImageIndices = &state->currentImageIndex;
 
     const VkResult presentResult = vkQueuePresentKHR(state->deviceContext->graphicsQueue, &presentInfo);
     if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR)
     {
-        ApplyDefaultFramebufferState(window, state->presentMode == VK_PRESENT_MODE_FIFO_KHR);
+        RecreateSwapchain(*state, window, state->presentMode == VK_PRESENT_MODE_FIFO_KHR);
     }
     else if (presentResult != VK_SUCCESS)
     {
-        LOG_ERROR(static_cast<int>(presentResult), "Failed to present Vulkan swapchain image");
+        LOG_ERROR(static_cast<int>(presentResult), "[Vulkan] Present: failed to present swapchain image");
     }
     else
     {
@@ -614,6 +883,24 @@ void Shutdown(GLFWwindow *window) noexcept
 
     DestroyWindowContext(it->second);
     windowContexts.erase(it);
+}
+
+VkRenderPass GetSwapchainRenderPass(GLFWwindow *window) noexcept
+{
+    WindowContextState *state = FindWindowContext(window);
+    return state == nullptr ? VK_NULL_HANDLE : state->renderPass;
+}
+
+VkRenderPass GetAnySwapchainRenderPass() noexcept
+{
+    for (auto &entry : windowContexts)
+    {
+        if (entry.second.renderPass != VK_NULL_HANDLE)
+        {
+            return entry.second.renderPass;
+        }
+    }
+    return VK_NULL_HANDLE;
 }
 
 } // namespace VulkanWindowContext

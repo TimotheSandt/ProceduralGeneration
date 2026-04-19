@@ -4,7 +4,7 @@
 #include "Graphics/Backends/Vulkan/VulkanDiagnostics.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 
-void LogActiveGraphicsBackendErrors(std::string_view context) noexcept
+void LogActiveGraphicsBackendErrors(std::string context) noexcept
 {
     if (IsGraphicsAPIActive(GraphicsAPI::OpenGL))
     {

@@ -9,7 +9,7 @@
 #include <glm/vec2.hpp>
 #include <glm/vec4.hpp>
 #include <memory>
-#include <string_view>
+#include <string>
 #include <vector>
 
 class Renderer
@@ -53,16 +53,16 @@ class Renderer
     // Upscale modes.
     // -------------------------------------------------------------------------
     void RegisterUpscaleMode(std::unique_ptr<IUpscaleMode> mode);
-    bool SetActiveUpscaleMode(std::string_view name);
-    std::string_view GetActiveUpscaleMode() const noexcept;
-    std::vector<std::string_view> GetRegisteredUpscaleModes() const;
+    bool SetActiveUpscaleMode(std::string name);
+    std::string GetActiveUpscaleMode() const noexcept;
+    std::vector<std::string> GetRegisteredUpscaleModes() const;
     UpscaleRequirements GetActiveUpscaleModeRequirements() const noexcept;
 
     // -------------------------------------------------------------------------
     // Post-processing passes — executed in order before upscaling.
     // -------------------------------------------------------------------------
     void AddPostProcessPass(std::unique_ptr<IPostProcessPass> pass);
-    void RemovePostProcessPass(std::string_view name);
+    void RemovePostProcessPass(std::string name);
 
     // -------------------------------------------------------------------------
     // Frame generation — executed after upscaling.

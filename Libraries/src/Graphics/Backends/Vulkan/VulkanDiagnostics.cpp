@@ -5,7 +5,7 @@
 namespace VulkanDiagnostics
 {
 
-void LogErrors(std::string_view context) noexcept
+void LogErrors(std::string context) noexcept
 {
     if (!context.empty())
     {

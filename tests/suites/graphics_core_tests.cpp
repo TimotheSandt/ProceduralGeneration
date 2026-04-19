@@ -27,7 +27,7 @@ class FakeAccelerationStructureResource final : public IAccelerationStructureRes
     }
 
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDebugName() const noexcept override { return debugName; }
+    std::string GetDebugName() const noexcept override { return debugName; }
     const AccelerationStructureDesc &GetDescription() const noexcept override { return desc; }
 
   private:
@@ -44,11 +44,11 @@ class FakeShaderProgramResource final : public IShaderProgramResource
     }
 
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDebugName() const noexcept override { return debugName; }
+    std::string GetDebugName() const noexcept override { return debugName; }
     const ShaderProgramDesc &GetDescription() const noexcept override { return desc; }
     void Bind() const override {}
     void Unbind() const override {}
-    int GetUniformLocation(std::string_view) const override { return 0; }
+    int GetUniformLocation(std::string) const override { return 0; }
     void SetFloatUniform(int, const float *, std::size_t) const override {}
     void SetIntUniform(int, const int *, std::size_t) const override {}
     void SetMatrix4Uniform(int, const float *) const override {}
@@ -64,7 +64,7 @@ class FakeBufferResource final : public IBufferResource
     explicit FakeBufferResource(BufferCreateInfo createInfo) : desc(createInfo.desc), debugName(std::move(createInfo.debugName)) {}
 
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDebugName() const noexcept override { return debugName; }
+    std::string GetDebugName() const noexcept override { return debugName; }
     const BufferDesc &GetDescription() const noexcept override { return desc; }
     void Bind() const override {}
     void BindToBindingPoint(std::uint32_t) const override {}
@@ -90,7 +90,7 @@ class FakeGeometryResource final : public IGeometryResource
     }
 
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDebugName() const noexcept override { return debugName; }
+    std::string GetDebugName() const noexcept override { return debugName; }
     const GeometryLayout &GetLayout() const noexcept override { return layout; }
     std::size_t GetIndexCount() const noexcept override { return indexCount; }
     std::size_t GetInstanceCount() const noexcept override { return instanceCount; }
@@ -115,7 +115,7 @@ class FakeTextureResource final : public ITextureResource
     explicit FakeTextureResource(TextureCreateInfo createInfo) : desc(createInfo.desc), debugName(std::move(createInfo.debugName)) {}
 
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDebugName() const noexcept override { return debugName; }
+    std::string GetDebugName() const noexcept override { return debugName; }
     const TextureDesc &GetDescription() const noexcept override { return desc; }
     void Bind(std::uint32_t) const override {}
     void Unbind() const override {}
@@ -137,7 +137,7 @@ class FakeRenderTargetResource final : public IRenderTargetResource
     }
 
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDebugName() const noexcept override { return debugName; }
+    std::string GetDebugName() const noexcept override { return debugName; }
     const RenderTargetDesc &GetDescription() const noexcept override { return desc; }
     void Bind() const override {}
     void Unbind() const override {}
@@ -157,7 +157,7 @@ class FakeRayTracingDevice final : public IGraphicsDevice
 {
   public:
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDeviceName() const noexcept override { return "Fake Ray Tracing Device"; }
+    std::string GetDeviceName() const noexcept override { return "Fake Ray Tracing Device"; }
     const GraphicsCapabilities &GetCapabilities() const noexcept override { return capabilities; }
 
     bool SupportsShaderStages(ShaderStageMask stages) const noexcept override { return (stages & supportedStages) == stages; }
@@ -374,7 +374,7 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(shaderProgram != nullptr, "OpenGL should create shader program resources for supported shader stages");
                 Assert(texture != nullptr, "OpenGL should create texture resources");
                 AssertEqual(shaderProgram->GetAPI(), GraphicsAPI::OpenGL, "Shader resources should keep the OpenGL API tag");
-                AssertEqual(shaderProgram->GetDebugName(), std::string_view("ui_shader"), "Shader debug names should be preserved");
+                AssertEqual(shaderProgram->GetDebugName(), std::string("ui_shader"), "Shader debug names should be preserved");
                 AssertEqual(texture->GetDescription().extent.width, 256u, "Texture width should be preserved in the resource descriptor");
                 Assert(texture->GetDescription().renderTarget, "Texture descriptors should preserve render-target intent");
             });
@@ -485,7 +485,7 @@ TestSuite CreateGraphicsCoreSuite()
             AssertEqual(accelerationStructure->GetDescription().instanceCount, 64u,
                         "The fake acceleration structure should preserve instance counts");
             Assert(accelerationStructure->GetDescription().allowUpdate, "The fake acceleration structure should preserve update flags");
-            AssertEqual(accelerationStructure->GetDebugName(), std::string_view("scene_tlas"),
+            AssertEqual(accelerationStructure->GetDebugName(), std::string("scene_tlas"),
                         "The fake acceleration structure should preserve debug names");
         });
 

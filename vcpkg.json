@@ -7,6 +7,7 @@
     "glm",
     "stb",
     "freetype",
-    "vulkan"
+    "vulkan",
+    "shaderc"
   ]
 }

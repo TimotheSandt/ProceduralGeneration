@@ -57,8 +57,7 @@ void ApplyDefaultFramebufferState(GLFWwindow *window, bool enableVsync, const gl
             OpenGLWindowContext::ApplyDefaultFramebufferState(window, enableVsync, clearColor);
             return;
         case GraphicsAPI::Vulkan:
-            static_cast<void>(clearColor);
-            VulkanWindowContext::ApplyDefaultFramebufferState(window, enableVsync);
+            VulkanWindowContext::ApplyDefaultFramebufferState(window, enableVsync, clearColor);
             return;
         case GraphicsAPI::Metal:
             return;

@@ -17,6 +17,8 @@ struct VulkanBackendContext
     std::uint32_t graphicsQueueFamilyIndex = UINT32_MAX;
     std::vector<const char *> enabledInstanceExtensions;
     std::vector<const char *> enabledDeviceExtensions;
+    std::vector<const char *> enabledInstanceLayers;
+    VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
     GraphicsCapabilities capabilities{};
     std::string deviceName;
 };

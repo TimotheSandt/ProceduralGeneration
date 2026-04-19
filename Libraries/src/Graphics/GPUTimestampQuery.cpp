@@ -47,9 +47,9 @@ GraphicsAPI GPUTimestampQuery::GetAPI() const noexcept
     return resource != nullptr ? resource->GetAPI() : GraphicsAPI::OpenGL;
 }
 
-std::string_view GPUTimestampQuery::GetDebugName() const noexcept
+std::string GPUTimestampQuery::GetDebugName() const noexcept
 {
-    return resource != nullptr ? resource->GetDebugName() : std::string_view(debugName);
+    return resource != nullptr ? resource->GetDebugName() : std::string(debugName);
 }
 
 void GPUTimestampQuery::Begin()

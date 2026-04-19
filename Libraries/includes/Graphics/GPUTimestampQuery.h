@@ -4,7 +4,7 @@
 
 #include <chrono>
 #include <memory>
-#include <string_view>
+#include <string>
 
 class GPUTimestampQuery
 {
@@ -25,7 +25,7 @@ class GPUTimestampQuery
 
     bool IsInitialized() const noexcept { return resource != nullptr; }
     GraphicsAPI GetAPI() const noexcept;
-    std::string_view GetDebugName() const noexcept;
+    std::string GetDebugName() const noexcept;
 
     void Begin();
     void End();

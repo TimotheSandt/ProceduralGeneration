@@ -254,7 +254,7 @@ class VignettePass final : public IPostProcessPass
   public:
     VignettePass();
 
-    std::string_view GetName() const noexcept override { return "vignette"; }
+    std::string GetName() const noexcept override { return "vignette"; }
     void Process(RenderTarget &target, int width, int height) const override;
 
   private:
@@ -308,7 +308,7 @@ Subclass `RenderTargetUpscaleMode`. It provides name storage and a default `Supp
 class MySharpUpscaleMode final : public RenderTargetUpscaleMode
 {
   public:
-    explicit MySharpUpscaleMode(std::string_view name = "my-sharp");
+    explicit MySharpUpscaleMode(std::string name = "my-sharp");
 
     void Upscale(const RenderTarget &source, int outputWidth, int outputHeight) const override;
 
@@ -323,7 +323,7 @@ class MySharpUpscaleMode final : public RenderTargetUpscaleMode
 #include "Graphics/RenderTarget.h"
 #include "Graphics/Core/RenderState.h"
 
-MySharpUpscaleMode::MySharpUpscaleMode(std::string_view name) : RenderTargetUpscaleMode(name)
+MySharpUpscaleMode::MySharpUpscaleMode(std::string name) : RenderTargetUpscaleMode(name)
 {
     upscaleShader.SetShader("shader/upscaling/sharp.vert", "shader/upscaling/sharp.frag");
 }
@@ -365,7 +365,7 @@ Use this when you need to restrict the mode to a specific renderer type or fully
 class MyFullMode final : public IUpscaleMode
 {
   public:
-    std::string_view GetName() const noexcept override { return "my-full-mode"; }
+    std::string GetName() const noexcept override { return "my-full-mode"; }
 
     bool SupportsRenderer(const Renderer &renderer) const noexcept override
     {
@@ -389,7 +389,7 @@ For techniques that need depth, motion vectors, history, or exposure, implement 
 class MyTAAMode final : public IAdvancedUpscaleMode
 {
   public:
-    std::string_view GetName() const noexcept override { return "my-taa"; }
+    std::string GetName() const noexcept override { return "my-taa"; }
 
     bool SupportsRenderer(const Renderer &) const noexcept override { return true; }
 

@@ -3,6 +3,8 @@
 #include <vulkan/vulkan.h>
 
 #include "Graphics/Backends/Vulkan/VulkanGraphicsResources.h"
+#include "Graphics/Backends/Vulkan/VulkanPipelineCache.h"
+#include "Graphics/Backends/Vulkan/VulkanRenderState.h"
 #include "Logger.h"
 
 namespace
@@ -33,6 +35,10 @@ VulkanGraphicsDevice::~VulkanGraphicsDevice()
 {
     if (deviceContext != nullptr && deviceContext->device != VK_NULL_HANDLE)
     {
+        vkDeviceWaitIdle(deviceContext->device);
+        // Flush any buffers still in the deferred-destroy queue before tearing the device down.
+        VulkanRenderState::DrainAllRetirements(deviceContext->device);
+        VulkanPipelineCache::DestroyAll(deviceContext);
         vkDestroyDevice(deviceContext->device, nullptr);
         deviceContext->device = VK_NULL_HANDLE;
         deviceContext->graphicsQueue = VK_NULL_HANDLE;
@@ -41,7 +47,7 @@ VulkanGraphicsDevice::~VulkanGraphicsDevice()
 
 GraphicsAPI VulkanGraphicsDevice::GetAPI() const noexcept { return GraphicsAPI::Vulkan; }
 
-std::string_view VulkanGraphicsDevice::GetDeviceName() const noexcept { return deviceName; }
+std::string VulkanGraphicsDevice::GetDeviceName() const noexcept { return deviceName; }
 
 const GraphicsCapabilities &VulkanGraphicsDevice::GetCapabilities() const noexcept { return capabilities; }
 

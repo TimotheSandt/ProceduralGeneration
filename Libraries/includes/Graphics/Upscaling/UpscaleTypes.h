@@ -1,7 +1,7 @@
 #pragma once
 
 #include <glm/vec2.hpp>
-#include <string_view>
+#include <string>
 
 class Texture;
 
@@ -83,7 +83,7 @@ struct FrameGenerationOutput
 
 struct UpscaleModeDesc
 {
-    std::string_view name{};
+    std::string name{};
     UpscaleQualityMode quality = UpscaleQualityMode::Native;
     UpscaleRequirements requirements{};
     bool supportsReactiveMask = false;
@@ -94,7 +94,7 @@ struct UpscaleModeDesc
 
 struct FrameGenerationModeDesc
 {
-    std::string_view name{};
+    std::string name{};
     FrameGenerationQualityMode quality = FrameGenerationQualityMode::Off;
     bool needsDepth = false;
     bool needsMotionVectors = true;

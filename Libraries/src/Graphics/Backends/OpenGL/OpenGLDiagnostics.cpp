@@ -7,7 +7,7 @@
 namespace OpenGLDiagnostics
 {
 
-void LogErrors(std::string_view context) noexcept
+void LogErrors(std::string context) noexcept
 {
     if (glad_glGetError == nullptr)
     {

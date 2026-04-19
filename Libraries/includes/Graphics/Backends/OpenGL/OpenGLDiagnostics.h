@@ -1,10 +1,10 @@
 #pragma once
 
-#include <string_view>
+#include <string>
 
 namespace OpenGLDiagnostics
 {
 
-void LogErrors(std::string_view context) noexcept;
+void LogErrors(std::string context) noexcept;
 
 } // namespace OpenGLDiagnostics

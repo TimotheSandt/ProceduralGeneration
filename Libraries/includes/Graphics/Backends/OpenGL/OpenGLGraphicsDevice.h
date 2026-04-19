@@ -8,7 +8,7 @@ class OpenGLGraphicsDevice final : public IGraphicsDevice
     explicit OpenGLGraphicsDevice(GraphicsCapabilities capabilities);
 
     GraphicsAPI GetAPI() const noexcept override;
-    std::string_view GetDeviceName() const noexcept override;
+    std::string GetDeviceName() const noexcept override;
     const GraphicsCapabilities &GetCapabilities() const noexcept override;
     bool SupportsShaderStages(ShaderStageMask stages) const noexcept override;
     std::unique_ptr<IBufferResource> CreateBuffer(const BufferCreateInfo &createInfo) const override;

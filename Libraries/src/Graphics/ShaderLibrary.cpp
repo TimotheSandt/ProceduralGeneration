@@ -21,20 +21,6 @@ static constexpr std::uint32_t CACHE_MAGIC   = 0x43424853u;  // "SHBC"
 static constexpr std::uint32_t CACHE_VERSION = 1u;
 
 // ---------------------------------------------------------------------------
-// FNV-1a 64-bit
-// ---------------------------------------------------------------------------
-static std::uint64_t FNV1a64(const std::string &s)
-{
-    std::uint64_t hash = 14695981039346656037ull;
-    for (unsigned char c : s)
-    {
-        hash ^= c;
-        hash *= 1099511628211ull;
-    }
-    return hash;
-}
-
-// ---------------------------------------------------------------------------
 // ShaderLibrary
 // ---------------------------------------------------------------------------
 ShaderLibrary &ShaderLibrary::Instance()
@@ -107,7 +93,7 @@ void ShaderLibrary::SetBinaryCacheEnabled(bool enabled)
     binaryCacheEnabled = enabled;
 }
 
-void ShaderLibrary::SetBinaryCacheDirectory(std::string_view directory)
+void ShaderLibrary::SetBinaryCacheDirectory(std::string directory)
 {
     cacheDirectory = directory;
 }

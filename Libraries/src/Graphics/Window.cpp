@@ -22,7 +22,7 @@ Window::Window()
     this->parameters.height = 600;
     this->parameters.posX = 100;
     this->parameters.posY = 100;
-    this->parameters.maxFPS = 60;
+    this->parameters.maxFPS = 0;
     this->parameters.vsync = false;
 #ifdef DEBUG
     this->parameters.windowState = WindowState::WINDOWED;
@@ -130,6 +130,13 @@ bool Window::NewFrame()
     {
         LOG_WARNING("Window is not healthy");
         return false;
+    }
+
+    // For Vulkan (and other APIs that require per-frame state setup), acquire the
+    // swapchain image and open the render pass at the start of each frame.
+    if (this->window != nullptr)
+    {
+        GraphicsWindowContext::ApplyDefaultFramebufferState(this->window, this->parameters.vsync, this->parameters.clearColor);
     }
 
     this->fpsCounter.newFrame(this->parameters.maxFPS);
@@ -428,7 +435,7 @@ void Window::SetupCallbacks()
 
 void Window::CallbackResize(GLFWwindow *window, int width, int height)
 {
-    UNREFERENCED_PARAMETER(window);
+    UNUSED(window);
 
     this->parameters.width = width;
     this->parameters.height = height;
@@ -437,7 +444,7 @@ void Window::CallbackResize(GLFWwindow *window, int width, int height)
 
 void Window::CallbackPosition(GLFWwindow *window, int x, int y)
 {
-    UNREFERENCED_PARAMETER(window);
+    UNUSED(window);
 
     this->parameters.posX = x;
     this->parameters.posY = y;
@@ -445,8 +452,8 @@ void Window::CallbackPosition(GLFWwindow *window, int x, int y)
 
 void Window::CallbackFocus(GLFWwindow *window, int focused)
 {
-    UNREFERENCED_PARAMETER(window);
-    UNREFERENCED_PARAMETER(focused);
+    UNUSED(window);
+    UNUSED(focused);
 
     LOG_DEBUGGING("Window focus changed");
 

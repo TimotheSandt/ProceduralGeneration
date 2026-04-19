@@ -3,7 +3,7 @@
 #include "Graphics/Core/GraphicsResources.h"
 
 #include <memory>
-#include <string_view>
+#include <string>
 
 class AccelerationStructure
 {
@@ -24,7 +24,7 @@ class AccelerationStructure
 
     bool IsInitialized() const noexcept { return resource != nullptr; }
     GraphicsAPI GetAPI() const noexcept;
-    std::string_view GetDebugName() const noexcept;
+    std::string GetDebugName() const noexcept;
     const AccelerationStructureDesc &GetDescription() const noexcept;
 
   private:
