@@ -15,7 +15,7 @@ enum class ValueType : std::uint8_t
 };
 struct Value
 {
-    double value;
+    double value = 0.0;
     ValueType type = ValueType::PIXEL;
 };
 
@@ -38,13 +38,14 @@ enum class Anchor : std::uint8_t
 
 struct Bounds
 {
-    Value width, height;
+    Value width = Value{0.0, ValueType::PIXEL};
+    Value height = Value{0.0, ValueType::PIXEL};
     Anchor anchor = Anchor::TOP_LEFT;
-    std::array<glm::vec2, 4> pixelBounds;
+    std::array<glm::vec2, 4> pixelBounds = {};
 
     glm::vec2 scale = {0, 0};
 
-    Bounds() {}
+    Bounds() = default;
     Bounds(Value width, Value height) : Bounds(width, height, Anchor::TOP_LEFT) {}
     Bounds(Value width, Value height, Anchor anchor) : width(width), height(height), anchor(anchor) {}
 

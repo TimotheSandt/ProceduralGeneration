@@ -9,7 +9,6 @@
 #include "Renderer3D.h"
 #include "Profiler.h"
 #include "UIManager.h"
-#include "Rendering/TextRenderer.h"
 #include "InputManager.h"
 
 class Game
@@ -35,6 +34,5 @@ class Game
     
     Camera camera;
     std::unique_ptr<World> world = nullptr;
-    std::unique_ptr<UI::TextRenderer> textRenderer;
     bool stopped = false;
 };

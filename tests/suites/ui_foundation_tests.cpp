@@ -2,6 +2,7 @@
 
 #include "UI/Core/Bounds.h"
 #include "UI/Core/DeferredValue.h"
+#include "UI/Widgets.h"
 
 #include <memory>
 #include <stdexcept>
@@ -103,6 +104,42 @@ TestSuite CreateUIFoundationSuite()
                 DeferredValue<std::weak_ptr<int>> value(weak);
                 value.Set(weak);
                 Assert(!value.HasNewValue(), "Setting the same weak_ptr owner should not queue an update");
+            });
+
+    AddTest(suite, "label stores a fixed string",
+            []
+            {
+                auto label = CreateLabel(Bounds(), "Score");
+                AssertEqual(label->GetText(), "Score", "Label should store the initial text");
+
+                label->SetText("Lives");
+                AssertEqual(label->GetText(), "Lives", "Label should update when its string changes");
+            });
+
+    AddTest(suite, "text content composes static, values and methods",
+            []
+            {
+                struct Sample
+                {
+                    int value = 34;
+
+                    int GetValue() const { return value; }
+                };
+
+                int score = 12;
+                Sample sample;
+                TextContent content("Score: ");
+                content.AppendValue(&score).AppendText(" / ").AppendMethod(&sample, &Sample::GetValue);
+                auto text = CreateText(Bounds(), std::move(content));
+
+                AssertEqual(text->GetText(), "Score: 12 / 34", "Text should compose literals, bound values and methods");
+                text->ClearDirty();
+
+                score = 13;
+                sample.value = 35;
+                text->Update();
+                AssertEqual(text->GetText(), "Score: 13 / 35", "Text should refresh when bound sources change");
+                Assert(text->IsAppearanceDirty(), "Text should mark itself dirty when the composed string changes");
             });
 
     return suite;

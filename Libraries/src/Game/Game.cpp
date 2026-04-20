@@ -33,12 +33,8 @@ void Game::init()
     this->world = std::make_unique<World>();
     this->world->Init();
 
-    this->textRenderer = std::make_unique<UI::TextRenderer>();
-    textRenderer->init(*window.GetWidthptr(), *window.GetHeightptr());
-    textRenderer->loadFont(GET_RESOURCE_PATH("fonts/Roboto-Regular.ttf"), "default", 48);
-
     // Initialize UI system
-    UI::Manager::Instance().Init(*window.GetWidthptr(), *window.GetHeightptr());
+    UI::Manager::Instance().Init(*window.GetWidthptr(), *window.GetHeightptr(), &window);
 }
 
 void Game::stop()
@@ -58,7 +54,6 @@ void Game::stop()
         this->world->Destroy();
         this->world.reset();
     }
-    this->textRenderer.reset();
     UI::Manager::Instance().Shutdown();
     this->camera.Destroy();
     this->window.Close();
@@ -161,20 +156,11 @@ void Game::render()
     Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), std::ref(renderer3D), std::ref(this->camera));
     Profiler::ProfileGPU("Upscale", &Renderer3D::EndPass, &renderer3D);
 
+    UI::Manager::Instance().SetPerformanceStats(averageTimeMs("Render"), averageTimeMs("RenderWorld"), averageTimeMs("Upscale"),
+                                                averageTimeMs("UIUpscale"), averageTimeMs("SwapBuffers"));
+
     rendererUI.SetOutputResolution(windowWidth, windowHeight);
     rendererUI.BeginPass();
-    rendererUI.RenderText(*textRenderer, "fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, glm::vec3(1.0f, 0.8f, 1.0f),
-                          UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("Render: {:.3f}ms", averageTimeMs("Render")), 10, 50, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("Render World: {:.3f}ms", averageTimeMs("RenderWorld")), 10, 70, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("Upscale: {:.3f}ms", averageTimeMs("Upscale")), 10, 90, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("UI Upscale: {:.3f}ms", averageTimeMs("UIUpscale")), 10, 110, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("Swap Buffers: {:.3f}ms", averageTimeMs("SwapBuffers")), 10, 130, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
     UI::Manager::Instance().Render(rendererUI, windowWidth, windowHeight);
     Profiler::ProfileGPU("UIUpscale", &Renderer2D::EndPass, &rendererUI);
 }
