@@ -1,4 +1,7 @@
-#include "Graphics/Backends/Vulkan/VulkanRenderState.h"
+﻿#include "Graphics/Backends/Vulkan/VulkanRenderState.h"
+
+#include "Graphics/Backends/Vulkan/VulkanGraphicsResources.h"
+#include "Graphics/Backends/Vulkan/VulkanWindowContext.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -31,6 +34,7 @@ bool wireframe = false;
 int scissorRect[4] = {0, 0, 0, 0};
 VkCommandBuffer currentCommandBuffer = VK_NULL_HANDLE;
 VkExtent2D currentExtent{};
+VkRenderPass currentRenderPass = VK_NULL_HANDLE;
 std::unordered_map<std::uint32_t, BoundBuffer> uniformBindings;
 std::unordered_map<std::uint32_t, BoundBuffer> storageBindings;
 std::unordered_map<std::uint32_t, BoundTexture> textureBindings;
@@ -49,7 +53,63 @@ std::uint64_t frameCounter = 0;
 
 } // namespace
 
-void BindFramebuffer(unsigned int framebuffer) noexcept { state.framebuffer = framebuffer; }
+void SetFramebuffer(unsigned int framebuffer) noexcept { state.framebuffer = framebuffer; }
+
+void BindFramebuffer(unsigned int framebuffer) noexcept
+{
+    if (framebuffer == state.framebuffer)
+    {
+        if (framebuffer == 0 && currentCommandBuffer != VK_NULL_HANDLE && currentRenderPass == VK_NULL_HANDLE)
+        {
+            VulkanWindowContext::ResumeSwapchainRenderPass();
+        }
+        return;
+    }
+
+    const VkCommandBuffer cmd = currentCommandBuffer;
+    if (cmd == VK_NULL_HANDLE)
+    {
+        SetFramebuffer(framebuffer);
+        return;
+    }
+
+    const auto endActiveRenderPass = [&]() {
+        if (currentRenderPass != VK_NULL_HANDLE)
+        {
+            vkCmdEndRenderPass(cmd);
+            SetCurrentRenderPass(VK_NULL_HANDLE);
+        }
+    };
+
+    if (framebuffer == 0)
+    {
+        if (VulkanRenderTargetResource *currentTarget = VulkanRenderTargetResource::FindByHandle(state.framebuffer); currentTarget != nullptr)
+        {
+            currentTarget->Unbind();
+        }
+
+        if (currentRenderPass == VK_NULL_HANDLE)
+        {
+            VulkanWindowContext::ResumeSwapchainRenderPass();
+        }
+        SetFramebuffer(0);
+        return;
+    }
+
+    if (VulkanRenderTargetResource *currentTarget = VulkanRenderTargetResource::FindByHandle(state.framebuffer); currentTarget != nullptr)
+    {
+        currentTarget->Unbind();
+    }
+    endActiveRenderPass();
+
+    if (VulkanRenderTargetResource *renderTarget = VulkanRenderTargetResource::FindByHandle(framebuffer); renderTarget != nullptr)
+    {
+        renderTarget->Bind();
+        return;
+    }
+
+    SetFramebuffer(framebuffer);
+}
 
 void SetViewport(int x, int y, int width, int height) noexcept
 {
@@ -195,6 +255,10 @@ bool GetTextureBinding(std::uint32_t bindingPoint, VkImageView *outView, VkSampl
 
 void ClearTextureBindings() noexcept { textureBindings.clear(); }
 
+void SetCurrentRenderPass(VkRenderPass rp) noexcept { currentRenderPass = rp; }
+
+VkRenderPass GetCurrentRenderPass() noexcept { return currentRenderPass; }
+
 void SetWireframePushConstant(int wireframeValue) noexcept { wireframePushConstant = wireframeValue; }
 
 int GetWireframePushConstant() noexcept { return wireframePushConstant; }
@@ -260,3 +324,4 @@ void DrainAllRetirements(VkDevice device) noexcept
 }
 
 } // namespace VulkanRenderState
+

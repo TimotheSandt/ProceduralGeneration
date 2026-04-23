@@ -48,6 +48,7 @@ struct WindowContextState
     VkImageView depthImageView = VK_NULL_HANDLE;
     VkFormat depthFormat = VK_FORMAT_UNDEFINED;
     VkRenderPass renderPass = VK_NULL_HANDLE;
+    VkRenderPass renderPassLoad = VK_NULL_HANDLE;  // LOAD_OP_LOAD variant for resumed swapchain pass
     std::vector<VkFramebuffer> framebuffers;
     VkCommandPool commandPool = VK_NULL_HANDLE;
     std::array<WindowFrameSync, MaxFramesInFlight> frameSync{};
@@ -108,6 +109,12 @@ void DestroySwapchainResources(WindowContextState &state)
     {
         vkDestroyRenderPass(state.deviceContext->device, state.renderPass, nullptr);
         state.renderPass = VK_NULL_HANDLE;
+    }
+
+    if (state.renderPassLoad != VK_NULL_HANDLE)
+    {
+        vkDestroyRenderPass(state.deviceContext->device, state.renderPassLoad, nullptr);
+        state.renderPassLoad = VK_NULL_HANDLE;
     }
 
     for (VkImageView imageView : state.imageViews)
@@ -533,6 +540,19 @@ bool CreateSwapchain(WindowContextState &state, GLFWwindow *window, bool enableV
         return false;
     }
 
+    // LOAD variant: same structure but LOAD instead of CLEAR — used when resuming the swapchain
+    // render pass after an off-screen render target pass (so 3D content isn't wiped).
+    attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachments[0].initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;  // already written by the CLEAR pass
+    attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    if (vkCreateRenderPass(state.deviceContext->device, &renderPassCreateInfo, nullptr, &state.renderPassLoad) != VK_SUCCESS)
+    {
+        LOG_ERROR(1, "Failed to create Vulkan swapchain load render pass");
+        return false;
+    }
+
     state.framebuffers.resize(swapchainImageCount, VK_NULL_HANDLE);
     for (std::uint32_t i = 0; i < swapchainImageCount; ++i)
     {
@@ -687,6 +707,8 @@ bool BeginFrame(WindowContextState &state, GLFWwindow *window)
 
     // Expose the command buffer globally so draw calls can record into it
     VulkanRenderState::SetCurrentCommandBuffer(commandBuffer, state.extent);
+    VulkanRenderState::SetFramebuffer(0);
+    VulkanRenderState::SetCurrentRenderPass(state.renderPass);
 
     state.frameActive = true;
     return true;
@@ -696,6 +718,18 @@ WindowContextState *FindWindowContext(GLFWwindow *window) noexcept
 {
     const auto it = windowContexts.find(window);
     return it == windowContexts.end() ? nullptr : &it->second;
+}
+
+WindowContextState *FindActiveWindowContext() noexcept
+{
+    for (auto &entry : windowContexts)
+    {
+        if (entry.second.frameActive)
+        {
+            return &entry.second;
+        }
+    }
+    return nullptr;
 }
 
 } // namespace
@@ -754,6 +788,8 @@ void ApplyDefaultFramebufferState(GLFWwindow *window, bool enableVsync, const gl
         vkCmdEndRenderPass(commandBuffer);
         vkEndCommandBuffer(commandBuffer);
         VulkanRenderState::SetCurrentCommandBuffer(VK_NULL_HANDLE, {});
+        VulkanRenderState::SetCurrentRenderPass(VK_NULL_HANDLE);
+        VulkanRenderState::SetFramebuffer(0);
         state->frameActive = false;
     }
 
@@ -796,11 +832,15 @@ void Present(GLFWwindow *window) noexcept
 
     // End the render pass that was opened in BeginFrame
     vkCmdEndRenderPass(commandBuffer);
+    VulkanRenderState::SetCurrentRenderPass(VK_NULL_HANDLE);
+    VulkanRenderState::SetFramebuffer(0);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
     {
         LOG_ERROR(1, "[Vulkan] Present: failed to end command buffer");
         VulkanRenderState::SetCurrentCommandBuffer(VK_NULL_HANDLE, {});
+        VulkanRenderState::SetCurrentRenderPass(VK_NULL_HANDLE);
+        VulkanRenderState::SetFramebuffer(0);
         state->frameActive = false;
         return;
     }
@@ -901,6 +941,55 @@ VkRenderPass GetAnySwapchainRenderPass() noexcept
         }
     }
     return VK_NULL_HANDLE;
+}
+
+void ResumeSwapchainRenderPass() noexcept
+{
+    const WindowContextState *state = FindActiveWindowContext();
+    if (state == nullptr || state->renderPassLoad == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VkCommandBuffer cmd = VulkanRenderState::GetCurrentCommandBuffer();
+    if (cmd == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    VkRenderPassBeginInfo rpBegin{};
+    rpBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rpBegin.renderPass = state->renderPassLoad;
+    rpBegin.framebuffer = state->framebuffers[state->currentImageIndex];
+    rpBegin.renderArea.offset = {0, 0};
+    rpBegin.renderArea.extent = state->extent;
+    rpBegin.clearValueCount = 0;
+    rpBegin.pClearValues = nullptr;
+
+    vkCmdBeginRenderPass(cmd, &rpBegin, VK_SUBPASS_CONTENTS_INLINE);
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = static_cast<float>(state->extent.height);
+    viewport.width = static_cast<float>(state->extent.width);
+    viewport.height = -static_cast<float>(state->extent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = state->extent;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    VulkanRenderState::SetFramebuffer(0);
+    VulkanRenderState::SetCurrentRenderPass(state->renderPassLoad);
+}
+
+VkExtent2D GetActiveSwapchainExtent() noexcept
+{
+    const WindowContextState *state = FindActiveWindowContext();
+    return state != nullptr ? state->extent : VkExtent2D{0, 0};
 }
 
 } // namespace VulkanWindowContext

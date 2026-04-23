@@ -193,6 +193,8 @@ class VulkanRenderTargetResource final : public IRenderTargetResource
     const VulkanTextureResource *GetColorAttachment(std::uint32_t attachmentIndex) const noexcept;
     void RegisterSelf() noexcept;
     void UnregisterSelf() noexcept;
+    bool CreateOffscreenResources() noexcept;
+    void DestroyOffscreenResources() noexcept;
 
     std::shared_ptr<VulkanDeviceContext> deviceContext;
     RenderTargetDesc desc;
@@ -201,6 +203,9 @@ class VulkanRenderTargetResource final : public IRenderTargetResource
     std::uint32_t handle = 0;
     std::vector<const VulkanTextureResource *> colorAttachments;
     const VulkanTextureResource *depthAttachment = nullptr;
+    VkRenderPass offscreenRenderPass = VK_NULL_HANDLE;
+    VkRenderPass offscreenRenderPassLoad = VK_NULL_HANDLE;
+    VkFramebuffer offscreenFramebuffer = VK_NULL_HANDLE;
 };
 
 class VulkanAccelerationStructureResource final : public IAccelerationStructureResource

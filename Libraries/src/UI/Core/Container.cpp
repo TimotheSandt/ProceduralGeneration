@@ -92,6 +92,7 @@ void ContainerBase::InitializeRenderTarget()
 
         renderTarget.Bind();
         GraphicsRenderState::ClearTransparentColorBuffer();
+        renderTarget.Unbind();
         GraphicsRenderState::RestoreFramebufferState(previousState);
 
         // Force re-render on next frame
@@ -181,6 +182,9 @@ void ContainerBase::RenderChildren()
             }
         }
     }
+
+    renderTarget.Unbind();
+    GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Unbind");
 
     RestoreRenderTargetState(oldFramebuffer, viewport);
     GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Restore");

@@ -15,5 +15,7 @@ void Shutdown(GLFWwindow *window) noexcept;
 
 VkRenderPass GetSwapchainRenderPass(GLFWwindow *window) noexcept;
 VkRenderPass GetAnySwapchainRenderPass() noexcept;
+void ResumeSwapchainRenderPass() noexcept;
+VkExtent2D GetActiveSwapchainExtent() noexcept;
 
 } // namespace VulkanWindowContext

@@ -951,7 +951,11 @@ const VulkanPipelineCache::PipelineEntry *EnsurePipelineFor(const std::shared_pt
         return nullptr;
     }
 
-    VkRenderPass renderPass = VulkanWindowContext::GetAnySwapchainRenderPass();
+    VkRenderPass renderPass = VulkanRenderState::GetCurrentRenderPass();
+    if (renderPass == VK_NULL_HANDLE)
+    {
+        renderPass = VulkanWindowContext::GetAnySwapchainRenderPass();
+    }
     if (renderPass == VK_NULL_HANDLE)
     {
         return nullptr;
@@ -1424,7 +1428,11 @@ VulkanRenderTargetResource::VulkanRenderTargetResource(std::shared_ptr<VulkanDev
     RegisterSelf();
 }
 
-VulkanRenderTargetResource::~VulkanRenderTargetResource() { UnregisterSelf(); }
+VulkanRenderTargetResource::~VulkanRenderTargetResource()
+{
+    DestroyOffscreenResources();
+    UnregisterSelf();
+}
 
 GraphicsAPI VulkanRenderTargetResource::GetAPI() const noexcept { return GraphicsAPI::Vulkan; }
 
@@ -1432,11 +1440,127 @@ std::string VulkanRenderTargetResource::GetDebugName() const noexcept { return d
 
 const RenderTargetDesc &VulkanRenderTargetResource::GetDescription() const noexcept { return desc; }
 
-void VulkanRenderTargetResource::Bind() const {}
+void VulkanRenderTargetResource::Bind() const
+{
+    VkCommandBuffer cmd = VulkanRenderState::GetCurrentCommandBuffer();
+    if (cmd == VK_NULL_HANDLE)
+    {
+        return;
+    }
 
-void VulkanRenderTargetResource::Unbind() const {}
+    const VulkanTextureResource *color = colorAttachments.empty() ? nullptr : colorAttachments[0];
+    if (color == nullptr || color->imageView == VK_NULL_HANDLE)
+    {
+        return;
+    }
 
-void VulkanRenderTargetResource::Resize(std::uint32_t width, std::uint32_t height) { desc.extent = {width, height}; }
+    if (offscreenRenderPass == VK_NULL_HANDLE || offscreenFramebuffer == VK_NULL_HANDLE)
+    {
+        if (!const_cast<VulkanRenderTargetResource *>(this)->CreateOffscreenResources())
+        {
+            return;
+        }
+    }
+
+    VkRenderPass targetRenderPass = offscreenRenderPass;
+    VkClearValue clearValues[2]{};
+    clearValues[0].color = {0.0f, 0.0f, 0.0f, 0.0f};
+    clearValues[1].depthStencil = {1.0f, 0};
+    const bool hasDepth = depthAttachment != nullptr && depthAttachment->imageView != VK_NULL_HANDLE;
+    const bool resumeExistingContents = color->currentLayout != VK_IMAGE_LAYOUT_UNDEFINED;
+    if (resumeExistingContents && offscreenRenderPassLoad != VK_NULL_HANDLE)
+    {
+        targetRenderPass = offscreenRenderPassLoad;
+    }
+
+    const std::uint32_t previousFramebuffer = VulkanRenderState::CaptureFramebufferState().framebuffer;
+    if (previousFramebuffer != 0 && previousFramebuffer != handle)
+    {
+        if (VulkanRenderTargetResource *previousTarget = VulkanRenderTargetResource::FindByHandle(previousFramebuffer); previousTarget != nullptr)
+        {
+            for (const VulkanTextureResource *attachment : previousTarget->colorAttachments)
+            {
+                if (attachment != nullptr)
+                {
+                    attachment->currentLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                }
+            }
+            if (previousTarget->depthAttachment != nullptr && previousTarget->depthAttachment->imageView != VK_NULL_HANDLE)
+            {
+                previousTarget->depthAttachment->currentLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            }
+        }
+    }
+
+    if (VulkanRenderState::GetCurrentRenderPass() != VK_NULL_HANDLE)
+    {
+        vkCmdEndRenderPass(cmd);
+    }
+
+    VkRenderPassBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    beginInfo.renderPass = targetRenderPass;
+    beginInfo.framebuffer = offscreenFramebuffer;
+    beginInfo.renderArea.extent = {color->desc.extent.width, color->desc.extent.height};
+    beginInfo.clearValueCount = resumeExistingContents ? 0u : (hasDepth ? 2u : 1u);
+    beginInfo.pClearValues = resumeExistingContents ? nullptr : clearValues;
+
+    vkCmdBeginRenderPass(cmd, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    const float w = static_cast<float>(color->desc.extent.width);
+    const float h = static_cast<float>(color->desc.extent.height);
+    VkViewport viewport{0.0f, h, w, -h, 0.0f, 1.0f};
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor{{0, 0}, {color->desc.extent.width, color->desc.extent.height}};
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    VulkanRenderState::SetFramebuffer(handle);
+    VulkanRenderState::SetCurrentRenderPass(targetRenderPass);
+}
+
+void VulkanRenderTargetResource::Unbind() const
+{
+    VkCommandBuffer cmd = VulkanRenderState::GetCurrentCommandBuffer();
+    if (cmd == VK_NULL_HANDLE || offscreenRenderPass == VK_NULL_HANDLE)
+    {
+        VulkanRenderState::SetFramebuffer(0);
+        VulkanRenderState::SetCurrentRenderPass(VK_NULL_HANDLE);
+        return;
+    }
+
+    if (VulkanRenderState::GetCurrentRenderPass() == VK_NULL_HANDLE)
+    {
+        VulkanRenderState::SetFramebuffer(0);
+        VulkanRenderState::SetCurrentRenderPass(VK_NULL_HANDLE);
+        return;
+    }
+
+    vkCmdEndRenderPass(cmd);
+    VulkanRenderState::SetCurrentRenderPass(VK_NULL_HANDLE);
+
+    // render pass finalLayout transitions color attachments to SHADER_READ_ONLY_OPTIMAL
+    for (const VulkanTextureResource *attachment : colorAttachments)
+    {
+        if (attachment != nullptr)
+        {
+            attachment->currentLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        }
+    }
+    if (depthAttachment != nullptr && depthAttachment->imageView != VK_NULL_HANDLE)
+    {
+        depthAttachment->currentLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    }
+
+    VulkanRenderState::SetFramebuffer(0);
+    VulkanWindowContext::ResumeSwapchainRenderPass();
+}
+
+void VulkanRenderTargetResource::Resize(std::uint32_t width, std::uint32_t height)
+{
+    desc.extent = {width, height};
+    DestroyOffscreenResources();
+}
 
 bool VulkanRenderTargetResource::IsComplete() const
 {
@@ -1629,13 +1753,141 @@ void VulkanRenderTargetResource::RegisterColorAttachment(std::uint32_t colorInde
         return;
     }
     colorAttachments[colorIndex] = texture;
+    DestroyOffscreenResources();
 }
 
-void VulkanRenderTargetResource::RegisterDepthAttachment(const VulkanTextureResource *texture) noexcept { depthAttachment = texture; }
+void VulkanRenderTargetResource::RegisterDepthAttachment(const VulkanTextureResource *texture) noexcept
+{
+    depthAttachment = texture;
+    DestroyOffscreenResources();
+}
 
 const VulkanTextureResource *VulkanRenderTargetResource::GetColorAttachment(std::uint32_t attachmentIndex) const noexcept
 {
     return attachmentIndex < colorAttachments.size() ? colorAttachments[attachmentIndex] : nullptr;
+}
+
+bool VulkanRenderTargetResource::CreateOffscreenResources() noexcept
+{
+    if (deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE)
+    {
+        return false;
+    }
+
+    const VulkanTextureResource *color = colorAttachments.empty() ? nullptr : colorAttachments[0];
+    if (color == nullptr || color->imageView == VK_NULL_HANDLE)
+    {
+        return false;
+    }
+
+    DestroyOffscreenResources();
+
+    const bool hasDepth = depthAttachment != nullptr && depthAttachment->imageView != VK_NULL_HANDLE;
+
+    std::array<VkAttachmentDescription, 2> attachments{};
+    attachments[0].format = VulkanTextureResource::ToVulkanFormat(color->desc.format);
+    attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachments[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    if (hasDepth)
+    {
+        attachments[1].format = VulkanTextureResource::ToVulkanFormat(depthAttachment->desc.format);
+        attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    }
+
+    VkAttachmentReference colorRef{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    VkAttachmentReference depthRef{1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorRef;
+    if (hasDepth)
+    {
+        subpass.pDepthStencilAttachment = &depthRef;
+    }
+
+    VkRenderPassCreateInfo rpInfo{};
+    rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    rpInfo.attachmentCount = hasDepth ? 2u : 1u;
+    rpInfo.pAttachments = attachments.data();
+    rpInfo.subpassCount = 1;
+    rpInfo.pSubpasses = &subpass;
+
+    if (vkCreateRenderPass(deviceContext->device, &rpInfo, nullptr, &offscreenRenderPass) != VK_SUCCESS)
+    {
+        return false;
+    }
+
+    attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachments[0].initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    if (hasDepth)
+    {
+        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    }
+
+    if (vkCreateRenderPass(deviceContext->device, &rpInfo, nullptr, &offscreenRenderPassLoad) != VK_SUCCESS)
+    {
+        DestroyOffscreenResources();
+        return false;
+    }
+
+    std::array<VkImageView, 2> fbViews{color->imageView, hasDepth ? depthAttachment->imageView : VK_NULL_HANDLE};
+
+    VkFramebufferCreateInfo fbInfo{};
+    fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    fbInfo.renderPass = offscreenRenderPass;
+    fbInfo.attachmentCount = hasDepth ? 2u : 1u;
+    fbInfo.pAttachments = fbViews.data();
+    fbInfo.width = color->desc.extent.width;
+    fbInfo.height = color->desc.extent.height;
+    fbInfo.layers = 1;
+
+    if (vkCreateFramebuffer(deviceContext->device, &fbInfo, nullptr, &offscreenFramebuffer) != VK_SUCCESS)
+    {
+        DestroyOffscreenResources();
+        return false;
+    }
+
+    return true;
+}
+
+void VulkanRenderTargetResource::DestroyOffscreenResources() noexcept
+{
+    if (deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE)
+    {
+        offscreenRenderPass = VK_NULL_HANDLE;
+        offscreenRenderPassLoad = VK_NULL_HANDLE;
+        offscreenFramebuffer = VK_NULL_HANDLE;
+        return;
+    }
+    if (offscreenFramebuffer != VK_NULL_HANDLE)
+    {
+        vkDestroyFramebuffer(deviceContext->device, offscreenFramebuffer, nullptr);
+        offscreenFramebuffer = VK_NULL_HANDLE;
+    }
+    if (offscreenRenderPassLoad != VK_NULL_HANDLE)
+    {
+        vkDestroyRenderPass(deviceContext->device, offscreenRenderPassLoad, nullptr);
+        offscreenRenderPassLoad = VK_NULL_HANDLE;
+    }
+    if (offscreenRenderPass != VK_NULL_HANDLE)
+    {
+        vkDestroyRenderPass(deviceContext->device, offscreenRenderPass, nullptr);
+        offscreenRenderPass = VK_NULL_HANDLE;
+    }
 }
 
 void VulkanRenderTargetResource::RegisterSelf() noexcept { g_vulkanRenderTargets[handle] = this; }

@@ -183,7 +183,7 @@ void RenderTarget::Bind() const
     {
         return;
     }
-    backendRenderTarget->Bind();
+    GraphicsRenderState::BindFramebuffer(ID);
     GraphicsRenderState::SetViewport(0, 0, width, height);
 }
 
@@ -191,7 +191,7 @@ void RenderTarget::Unbind() const
 {
     if (backendRenderTarget != nullptr)
     {
-        backendRenderTarget->Unbind();
+        GraphicsRenderState::BindDefaultFramebuffer();
     }
 }
 

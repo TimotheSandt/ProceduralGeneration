@@ -17,6 +17,7 @@ struct FramebufferState
 };
 
 void BindFramebuffer(unsigned int framebuffer) noexcept;
+void SetFramebuffer(unsigned int framebuffer) noexcept;
 void SetViewport(int x, int y, int width, int height) noexcept;
 void ClearColor(const glm::vec4 &color) noexcept;
 void ClearColorBuffer() noexcept;
@@ -39,6 +40,12 @@ void PrepareScreenPass(int width, int height) noexcept;
 void SetCurrentCommandBuffer(VkCommandBuffer cmd, VkExtent2D extent) noexcept;
 VkCommandBuffer GetCurrentCommandBuffer() noexcept;
 VkExtent2D GetCurrentExtent() noexcept;
+
+// Active render pass — set by VulkanWindowContext at BeginFrame and by VulkanRenderTargetResource
+// when switching to/from off-screen render passes. Used by EnsurePipelineFor so pipelines are
+// created against the render pass they will actually be used in.
+void SetCurrentRenderPass(VkRenderPass rp) noexcept;
+VkRenderPass GetCurrentRenderPass() noexcept;
 
 // Buffer binding tracking — each buffer that calls BindToBindingPoint registers itself here
 // so the geometry/draw can later look up which VkBuffer corresponds to which binding point.
