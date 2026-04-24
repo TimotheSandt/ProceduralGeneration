@@ -2,9 +2,9 @@
 
 #include <string>
 
-namespace OpenGLDiagnostics
+namespace VulkanDiagnostics
 {
 
 void LogErrors(std::string context) noexcept;
 
-} // namespace OpenGLDiagnostics
+} // namespace VulkanDiagnostics

@@ -20,7 +20,11 @@ Renderer::~Renderer()
     }
 }
 
-bool Renderer::IsRuntimeCompatible() const noexcept { return IsGraphicsAPIActive(requiredApi); }
+bool Renderer::IsRuntimeCompatible() const noexcept
+{
+    return TryGetActiveGraphicsBackend() != nullptr && TryGetActiveGraphicsDevice() != nullptr &&
+           (IsGraphicsAPIActive(requiredApi) || IsGraphicsAPIActive(GraphicsAPI::Vulkan));
+}
 
 void Renderer::SetOutputResolution(int width, int height) noexcept
 {
@@ -271,7 +275,7 @@ void Renderer::RegisterUpscaleMode(std::unique_ptr<IUpscaleMode> mode)
     upscaleModes.push_back(std::move(mode));
 }
 
-bool Renderer::SetActiveUpscaleMode(std::string_view name)
+bool Renderer::SetActiveUpscaleMode(std::string name)
 {
     if (name == "disabled")
     {
@@ -291,14 +295,14 @@ bool Renderer::SetActiveUpscaleMode(std::string_view name)
     return false;
 }
 
-std::string_view Renderer::GetActiveUpscaleMode() const noexcept
+std::string Renderer::GetActiveUpscaleMode() const noexcept
 {
-    return activeUpscaleMode == nullptr ? std::string_view("disabled") : activeUpscaleMode->GetName();
+    return activeUpscaleMode == nullptr ? std::string("disabled") : activeUpscaleMode->GetName();
 }
 
-std::vector<std::string_view> Renderer::GetRegisteredUpscaleModes() const
+std::vector<std::string> Renderer::GetRegisteredUpscaleModes() const
 {
-    std::vector<std::string_view> result;
+    std::vector<std::string> result;
     result.reserve(upscaleModes.size());
 
     for (const auto &mode : upscaleModes)
@@ -325,7 +329,7 @@ void Renderer::AddPostProcessPass(std::unique_ptr<IPostProcessPass> pass)
     }
 }
 
-void Renderer::RemovePostProcessPass(std::string_view name)
+void Renderer::RemovePostProcessPass(std::string name)
 {
     std::erase_if(postProcessPasses, [name](const std::unique_ptr<IPostProcessPass> &pass)
                   { return pass && pass->GetName() == name; });

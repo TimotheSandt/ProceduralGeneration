@@ -2,6 +2,7 @@
 -include config.mk
 
 # This Makefile assumes GNU make recipes run in a POSIX shell.
+SHELL := /bin/sh
 UNAME_S := $(shell uname -s 2>/dev/null || echo Unknown)
 
 # Toolchain
@@ -12,7 +13,6 @@ VCPKG ?= vcpkg
 CLANG_FORMAT ?= clang-format
 CLANG_TIDY ?= clang-tidy
 PLATFORM_DEFINES :=
-POWERSHELL ?= powershell -NoProfile -Command
 
 # Directories
 INCLUDES_BASE := Libraries/includes
@@ -25,16 +25,6 @@ BUILD_DIR := build
 RES_DIR := res
 TEST_DIR := tests
 TMP_DEB_DIR := /tmp/proceduralgeneration_deb
-
-# Helpers
-MKDIR_P := mkdir -p
-RM_F := rm -f
-RM_RF := rm -rf
-CP_F := cp -f
-CP_R := cp -R
-MV_F := mv -f
-TOUCH := touch
-FIND := find
 
 # Platform detection
 ifeq ($(OS),Windows_NT)
@@ -54,7 +44,7 @@ ifeq ($(DETECTED_OS),Windows)
 	VCPKG_TRIPLET ?= x64-mingw-dynamic
 	GLFW_LINK_NAME := glfw3dll
 	PLATFORM_DEFINES += -DNOMINMAX -DWIN32_LEAN_AND_MEAN
-	LDFLAGS = -L$(VCPKG_INSTALLED_DIR)/lib -l$(GLFW_LINK_NAME) -lglad -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lpsapi -lwinmm -lgdi32 -lstdc++exp
+	LDFLAGS = -L$(VCPKG_INSTALLED_DIR)/lib -l$(GLFW_LINK_NAME) -lglad -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lvulkan-1 -lshaderc -lshaderc_util -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lSPIRV-Tools-opt -lSPIRV-Tools -lpsapi -lwinmm -lgdi32 -lstdc++exp
 	COPY_LIBS_TARGETS := copy_libs
 	CREATE_INSTALLER := create_windows_installer
 	ARCHITECTURE := $(ARCHITECTURE_WINDOWS)
@@ -68,18 +58,32 @@ ifeq ($(DETECTED_OS),Windows)
 	endif
 else ifeq ($(DETECTED_OS),Linux)
 	EXE_EXT :=
-	VCPKG_TRIPLET ?= x64-linux
+	# Auto-detect architecture (x86_64 → x64-linux, aarch64 → arm64-linux)
+	_ARCH := $(shell uname -m)
+	ifeq ($(_ARCH),aarch64)
+		VCPKG_TRIPLET ?= arm64-linux
+	else
+		VCPKG_TRIPLET ?= x64-linux
+	endif
 	GLFW_LINK_NAME := glfw
-	LDFLAGS = -lglfw -lGL -lpthread -lX11 -ldl -lm
+	LDFLAGS = -L$(VCPKG_LIB_DIR) -lglfw -lglad -lGL -lvulkan -lfreetype -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon -lshaderc -lshaderc_util -lglslang -lSPIRV-Tools-opt -lSPIRV-Tools -lSPIRV -lpthread -lX11 -ldl -lm
 	COPY_LIBS_TARGETS :=
 	CREATE_INSTALLER := create_linux_installer
 	ARCHITECTURE := $(ARCHITECTURE_LINUX)
 	INSTALLER_FILE := $(PACKAGE)_$(VERSION)_$(ARCHITECTURE).deb
 else ifeq ($(DETECTED_OS),Darwin)
 	EXE_EXT :=
-	VCPKG_TRIPLET ?= x64-osx
+	# Auto-detect architecture (x86_64 → x64-osx, arm64 → arm64-osx)
+	_ARCH := $(shell uname -m)
+	ifeq ($(_ARCH),arm64)
+		VCPKG_TRIPLET ?= arm64-osx
+	else
+		VCPKG_TRIPLET ?= x64-osx
+	endif
 	GLFW_LINK_NAME := glfw
-	LDFLAGS = -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
+	LDFLAGS = -L$(VCPKG_LIB_DIR) -lglfw -lglad -lfreetype -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon \
+	          -lshaderc -lshaderc_util -lglslang -lSPIRV-Tools-opt -lSPIRV-Tools -lSPIRV \
+	          -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
 	COPY_LIBS_TARGETS :=
 	CREATE_INSTALLER :=
 	INSTALLER_FILE :=
@@ -99,10 +103,10 @@ VCPKG_INSTALLED_DIR := $(VCPKG_INSTALLED_ROOT)/$(VCPKG_TRIPLET)
 # Libraries
 VCPKG_LIB_DIR := $(VCPKG_INSTALLED_DIR)/lib
 VCPKG_BIN_DIR := $(VCPKG_INSTALLED_DIR)/bin
-LOCAL_LIB_DIRS := $(sort $(dir $(shell $(FIND) $(LIBRARIES_LIB_DIR) -type f \( -name "*.a" -o -name "*.lib" -o -name "*.dll" \) 2>/dev/null)))
-LOCAL_A_LIBS := $(shell $(FIND) $(LIBRARIES_LIB_DIR) -type f -name "*.a" 2>/dev/null)
-LOCAL_IMPORT_LIBS := $(shell $(FIND) $(LIBRARIES_LIB_DIR) -type f -name "*.lib" 2>/dev/null)
-LOCAL_DLLS := $(shell $(FIND) $(LIBRARIES_LIB_DIR) -type f -name "*.dll" 2>/dev/null)
+LOCAL_LIB_DIRS := $(sort $(dir $(shell find $(LIBRARIES_LIB_DIR) -type f \( -name "*.a" -o -name "*.lib" -o -name "*.dll" \) 2>/dev/null)))
+LOCAL_A_LIBS := $(shell find $(LIBRARIES_LIB_DIR) -type f -name "*.a" 2>/dev/null)
+LOCAL_IMPORT_LIBS := $(shell find $(LIBRARIES_LIB_DIR) -type f -name "*.lib" 2>/dev/null)
+LOCAL_DLLS := $(shell find $(LIBRARIES_LIB_DIR) -type f -name "*.dll" 2>/dev/null)
 LOCAL_LINK_DIR_FLAGS := $(foreach dir,$(LOCAL_LIB_DIRS),-L$(dir))
 LOCAL_A_LINK_INPUTS := $(LOCAL_A_LIBS)
 LOCAL_IMPORT_LINK_INPUTS := $(LOCAL_IMPORT_LIBS)
@@ -114,7 +118,19 @@ TEST_INCLUDES := $(INCLUDES) -I$(TEST_DIR)
 ICON_RC := $(RES_DIR)/icon.rc
 
 # Flags
-CFLAGS := -m64 -O2 -DNDEBUG
+# -m64 is x86-only; omit it on ARM to avoid "unrecognized command-line option" errors.
+ifeq ($(DETECTED_OS),Windows)
+	ARCH_FLAG := -m64
+else
+	_HOST_ARCH := $(shell uname -m 2>/dev/null)
+	ifeq ($(_HOST_ARCH),x86_64)
+		ARCH_FLAG := -m64
+	else
+		ARCH_FLAG :=
+	endif
+endif
+
+CFLAGS := $(ARCH_FLAG) -O2 -DNDEBUG
 CXXFLAGS := -std=c++23
 DEPFLAGS := -MMD -MP
 
@@ -123,15 +139,17 @@ BUILD_TYPE := normal
 TARGET_NAME := $(PROJECT_NAME)
 
 ifneq ($(findstring debug,$(MAKECMDGOALS)),)
-	CFLAGS := -Wall -Wextra -m64 -O1 -g -DDEBUG
+	CFLAGS := -Wall -Wextra $(ARCH_FLAG) -O1 -g -DDEBUG
 	BUILD_TYPE := debug
 	TARGET_NAME := main
 else ifneq ($(findstring dev,$(MAKECMDGOALS)),)
-	CFLAGS := -m64 -g3 -O0 -DDEBUG
+	CFLAGS := $(ARCH_FLAG) -g3 -O0 -DDEBUG
 	BUILD_TYPE := dev
 	TARGET_NAME := main
 else ifneq ($(or $(findstring release,$(MAKECMDGOALS)),$(findstring installer,$(MAKECMDGOALS))),)
-	CFLAGS := -Wall -Wextra -Werror -m64 -O3 -flto -DNDEBUG -DRELEASE
+	BUILD_TYPE := release
+	# Use -flto=jobserver only (subsumes plain -flto) to avoid duplicate flag.
+	CFLAGS := -Wall -Wextra -Werror $(ARCH_FLAG) -O3 -DNDEBUG -DRELEASE
 	CXXFLAGS += -flto=jobserver
 endif
 
@@ -144,14 +162,14 @@ TARGET := $(BIN_DIR_TYPE)/$(TARGET_NAME)$(EXE_EXT)
 TEST_BIN_DIR := $(BIN_DIR)/tests
 TEST_OBJ_DIR := $(OBJ_DIR)/tests
 TEST_TARGET := $(TEST_BIN_DIR)/tests$(EXE_EXT)
-TEST_CPP_SOURCES = $(shell $(FIND) $(TEST_DIR) -type f -name "*.cpp" 2>/dev/null)
-STYLE_SOURCES = $(shell $(FIND) Libraries src tests -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.c" -o -name "*.cpp" \) 2>/dev/null)
+TEST_CPP_SOURCES = $(shell find $(TEST_DIR) -type f -name "*.cpp" 2>/dev/null)
+STYLE_SOURCES = $(shell find Libraries src tests -type f \( -name "*.h" -o -name "*.hpp" -o -name "*.c" -o -name "*.cpp" \) 2>/dev/null)
 
 # Source files
-LIBRARIES_CPP_SOURCES := $(shell $(FIND) $(LIBRARIES_SRC_DIR) -type f -name "*.cpp" 2>/dev/null)
-LIBRARIES_C_SOURCES := $(shell $(FIND) $(LIBRARIES_SRC_DIR) -type f -name "*.c" 2>/dev/null)
-MAIN_CPP_SOURCES := $(shell $(FIND) $(MAIN_SRC_DIR) -type f -name "*.cpp" 2>/dev/null)
-MAIN_C_SOURCES := $(shell $(FIND) $(MAIN_SRC_DIR) -type f -name "*.c" 2>/dev/null)
+LIBRARIES_CPP_SOURCES := $(shell find $(LIBRARIES_SRC_DIR) -type f -name "*.cpp" 2>/dev/null)
+LIBRARIES_C_SOURCES := $(shell find $(LIBRARIES_SRC_DIR) -type f -name "*.c" 2>/dev/null)
+MAIN_CPP_SOURCES := $(shell find $(MAIN_SRC_DIR) -type f -name "*.cpp" 2>/dev/null)
+MAIN_C_SOURCES := $(shell find $(MAIN_SRC_DIR) -type f -name "*.c" 2>/dev/null)
 
 LIB_SOURCES := $(LOCAL_DLLS) $(LOCAL_IMPORT_LIBS) $(LOCAL_A_LIBS)
 ALL_CPP_SOURCES := $(LIBRARIES_CPP_SOURCES) $(MAIN_CPP_SOURCES)
@@ -187,6 +205,7 @@ test: $(TEST_TARGET) copy_test_libs
 installer: $(CREATE_INSTALLER)
 
 release: $(TARGET) installer
+	@rm -rf "$(BUILD_DIR)/$(BUILD_TYPE)"
 	@echo "Release build complete"
 
 # Execution rules
@@ -211,15 +230,15 @@ create_windows_installer: | $(BUILD_DIR)
 		-DPROJECT_DESCRIPTION="$(PROJECT_DESCRIPTION)" \
 		installers/windows/installer.nsi
 	@test -f "installers/windows/$(INSTALLER_FILE)" || { echo "Installer file was not generated!"; exit 1; }
-	@$(MV_F) "installers/windows/$(INSTALLER_FILE)" "$(BUILD_DIR)/"
+	@mv -f "installers/windows/$(INSTALLER_FILE)" "$(BUILD_DIR)/"
 	@echo "Windows installer created: $(BUILD_DIR)/$(INSTALLER_FILE)"
 
 # Linux installer
 create_linux_installer: | $(BUILD_DIR)
-	@$(RM_RF) "$(TMP_DEB_DIR)"
+	@rm -rf "$(TMP_DEB_DIR)"
 	@echo "Creating Linux .deb package..."
-	@$(MKDIR_P) "$(TMP_DEB_DIR)/usr/bin" "$(TMP_DEB_DIR)/usr/share/proceduralgeneration" "$(TMP_DEB_DIR)/DEBIAN"
-	@$(TOUCH) "$(TMP_DEB_DIR)/DEBIAN/control"
+	@mkdir -p "$(TMP_DEB_DIR)/usr/bin" "$(TMP_DEB_DIR)/usr/share/proceduralgeneration" "$(TMP_DEB_DIR)/DEBIAN"
+	@touch "$(TMP_DEB_DIR)/DEBIAN/control"
 	@echo 'Package: $(PACKAGE)' >> "$(TMP_DEB_DIR)/DEBIAN/control"
 	@echo 'Version: $(VERSION)' >> "$(TMP_DEB_DIR)/DEBIAN/control"
 	@echo 'Maintainer: $(MAINTAINER)' >> "$(TMP_DEB_DIR)/DEBIAN/control"
@@ -228,65 +247,71 @@ create_linux_installer: | $(BUILD_DIR)
 	@echo 'Architecture: $(ARCHITECTURE)' >> "$(TMP_DEB_DIR)/DEBIAN/control"
 	@echo 'Depends: $(DEPENDS)' >> "$(TMP_DEB_DIR)/DEBIAN/control"
 	@echo 'Description: $(PROJECT_DESCRIPTION)' >> "$(TMP_DEB_DIR)/DEBIAN/control"
-	@$(CP_F) installers/linux/DEBIAN/postinst "$(TMP_DEB_DIR)/DEBIAN/"
-	@$(CP_F) installers/linux/DEBIAN/postrm "$(TMP_DEB_DIR)/DEBIAN/"
+	@cp -f installers/linux/DEBIAN/postinst "$(TMP_DEB_DIR)/DEBIAN/"
+	@cp -f installers/linux/DEBIAN/postrm "$(TMP_DEB_DIR)/DEBIAN/"
 	@chmod 755 "$(TMP_DEB_DIR)/DEBIAN" "$(TMP_DEB_DIR)/DEBIAN/postinst" "$(TMP_DEB_DIR)/DEBIAN/postrm"
 	@chmod 644 "$(TMP_DEB_DIR)/DEBIAN/control"
-	@$(CP_F) "bin/$(BUILD_TYPE)/$(PROJECT_NAME)" "$(TMP_DEB_DIR)/usr/bin/proceduralgeneration"
-	@$(CP_R) "bin/$(BUILD_TYPE)/res" "$(TMP_DEB_DIR)/usr/share/proceduralgeneration/"
-	@set -- "bin/$(BUILD_TYPE)"/*.so*; if [ -e "$$1" ]; then $(CP_F) "$$@" "$(TMP_DEB_DIR)/usr/share/proceduralgeneration/"; fi
-	@set -- "bin/$(BUILD_TYPE)"/*.dylib; if [ -e "$$1" ]; then $(CP_F) "$$@" "$(TMP_DEB_DIR)/usr/share/proceduralgeneration/"; fi
+	@cp -f "bin/$(BUILD_TYPE)/$(PROJECT_NAME)" "$(TMP_DEB_DIR)/usr/bin/proceduralgeneration"
+	@cp -R "$(RES_DIR)/." "$(TMP_DEB_DIR)/usr/share/proceduralgeneration/"
+	@set -- "bin/$(BUILD_TYPE)"/*.so*; if [ -e "$$1" ]; then cp -f "$$@" "$(TMP_DEB_DIR)/usr/share/proceduralgeneration/"; fi
+	@set -- "bin/$(BUILD_TYPE)"/*.dylib; if [ -e "$$1" ]; then cp -f "$$@" "$(TMP_DEB_DIR)/usr/share/proceduralgeneration/"; fi
 	@dpkg-deb --build "$(TMP_DEB_DIR)" "$(BUILD_DIR)/$(INSTALLER_FILE)"
-	@$(RM_RF) "$(TMP_DEB_DIR)"
+	@rm -rf "$(TMP_DEB_DIR)"
 	@echo "Linux .deb created: $(BUILD_DIR)/$(INSTALLER_FILE)"
 
 # Dependencies via vcpkg
-install_deps:
+install install_deps i:
 	@echo "Checking and installing dependencies with vcpkg..."
-	$(VCPKG) install --triplet=$(VCPKG_TRIPLET) --x-install-root=$(VCPKG_INSTALLED_ROOT)
+	$(VCPKG) install --triplet=$(VCPKG_TRIPLET) --x-manifest-root=. --x-install-root=$(VCPKG_INSTALLED_ROOT)
 
 remove_deps:
 	@echo "Removing dependencies with vcpkg..."
-	@$(RM_RF) ./vcpkg_installed
+	@rm -rf ./vcpkg_installed
 
 reset_deps:
 	@echo "Resetting dependencies with vcpkg..."
-	@$(RM_RF) $(VCPKG_INSTALLED_ROOT)
-	$(VCPKG) install --triplet=$(VCPKG_TRIPLET) --x-install-root=$(VCPKG_INSTALLED_ROOT)
+	@rm -rf $(VCPKG_INSTALLED_ROOT)
+	$(VCPKG) install --triplet=$(VCPKG_TRIPLET) --x-manifest-root=. --x-install-root=$(VCPKG_INSTALLED_ROOT)
 
 # Icon resource
 $(OBJ_DIR_TYPE)/src/icon.o: $(BIN_DIR_TYPE)/$(ICON_RC)
-	@$(MKDIR_P) "$(dir $@)"
+	@mkdir -p "$(dir $@)"
 	$(RC) -i $< -o $@
 
 $(BIN_DIR_TYPE)/$(ICON_RC): $(ICON_NAME) | $(BIN_DIR_TYPE)
-	@$(MKDIR_P) "$(dir $@)"
+	@mkdir -p "$(dir $@)"
 	@printf '1 ICON "%s"\n' "$(ICON_NAME)" > "$@"
 
 # Asset copy
 copy_libs: | $(BIN_DIR_TYPE)
 	@echo "Copying libraries to $(BIN_DIR_TYPE)"
-	@set -- "$(VCPKG_BIN_DIR)"/*.dll; if [ -e "$$1" ]; then $(CP_F) "$$@" "$(BIN_DIR_TYPE)/" 2>/dev/null || :; fi
-	@set -- $(LOCAL_DLLS); if [ -n "$(strip $(LOCAL_DLLS))" ] && [ -e "$$1" ]; then $(CP_F) "$$@" "$(BIN_DIR_TYPE)/" 2>/dev/null || :; fi
-	@set -- $(LOCAL_IMPORT_LIBS); if [ -n "$(strip $(LOCAL_IMPORT_LIBS))" ] && [ -e "$$1" ]; then $(CP_F) "$$@" "$(BIN_DIR_TYPE)/" 2>/dev/null || :; fi
-	@set -- $(LOCAL_A_LIBS); if [ -n "$(strip $(LOCAL_A_LIBS))" ] && [ -e "$$1" ]; then $(CP_F) "$$@" "$(BIN_DIR_TYPE)/" 2>/dev/null || :; fi
+	@set -- "$(VCPKG_BIN_DIR)"/*.dll; if [ -e "$$1" ]; then cp -f "$$@" "$(BIN_DIR_TYPE)/" 2>/dev/null || :; fi
+	@set -- $(LOCAL_DLLS); if [ -n "$(strip $(LOCAL_DLLS))" ] && [ -e "$$1" ]; then cp -f "$$@" "$(BIN_DIR_TYPE)/" 2>/dev/null || :; fi
+	@set -- $(LOCAL_IMPORT_LIBS); if [ -n "$(strip $(LOCAL_IMPORT_LIBS))" ] && [ -e "$$1" ]; then cp -f "$$@" "$(BIN_DIR_TYPE)/" 2>/dev/null || :; fi
+	@set -- $(LOCAL_A_LIBS); if [ -n "$(strip $(LOCAL_A_LIBS))" ] && [ -e "$$1" ]; then cp -f "$$@" "$(BIN_DIR_TYPE)/" 2>/dev/null || :; fi
 
 copy_res: | $(BIN_DIR_TYPE)
 	@echo "Copying resources to $(BIN_DIR_TYPE)"
-	@if [ -d "$(RES_DIR)" ]; then \
-		$(MKDIR_P) "$(BIN_DIR_TYPE)/$(RES_DIR)" && \
-		cp -Rf "$(RES_DIR)/." "$(BIN_DIR_TYPE)/$(RES_DIR)/" 2>/dev/null || :; \
+	@if [ "$(BUILD_TYPE)" = "release" ] ; then \
+		rm -rf "$(BIN_DIR_TYPE)/$(RES_DIR)"; \
+		cp -R "$(RES_DIR)/." "$(BIN_DIR_TYPE)/"; \
+	else \
+		cp -R "$(RES_DIR)" "$(BIN_DIR_TYPE)/"; \
 	fi
 
 copy_test_libs: | $(TEST_BIN_DIR)
 	@echo "Copying test libraries to $(TEST_BIN_DIR)"
-	@set -- "$(VCPKG_BIN_DIR)"/*.dll; if [ -e "$$1" ]; then $(CP_F) "$$@" "$(TEST_BIN_DIR)/" 2>/dev/null || :; fi
-	@set -- $(LOCAL_DLLS); if [ -n "$(strip $(LOCAL_DLLS))" ] && [ -e "$$1" ]; then $(CP_F) "$$@" "$(TEST_BIN_DIR)/" 2>/dev/null || :; fi
+	@set -- "$(VCPKG_BIN_DIR)"/*.dll; if [ -e "$$1" ]; then cp -f "$$@" "$(TEST_BIN_DIR)/" 2>/dev/null || :; fi
+	@set -- $(LOCAL_DLLS); if [ -n "$(strip $(LOCAL_DLLS))" ] && [ -e "$$1" ]; then cp -f "$$@" "$(TEST_BIN_DIR)/" 2>/dev/null || :; fi
 
 all_copy: $(COPY_TARGETS)
 
+clean_bin:
+	@echo "Cleaning $(BUILD_TYPE) binaries..."
+	@rm -rf "$(BIN_DIR_TYPE)"
+
 # Build target
-$(TARGET): all_copy $(ALL_OBJECTS) | $(BIN_DIR_TYPE)
+$(TARGET): clean_bin all_copy $(ALL_OBJECTS) | $(BIN_DIR_TYPE)
 	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS) $(LOCAL_LINK_DIR_FLAGS) $(LOCAL_A_LINK_INPUTS) $(LOCAL_IMPORT_LINK_INPUTS) $(LDFLAGS) -o $@
 	@echo "Compilation successful for: $(TARGET)"
 
@@ -296,54 +321,54 @@ $(TEST_TARGET): $(TEST_OBJECTS) | $(TEST_BIN_DIR)
 
 # Compilation rules
 $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.cpp
-	@$(MKDIR_P) "$(dir $@)"
+	@mkdir -p "$(dir $@)"
 	$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
 	@echo "Compiled (C++ Libraries) $(BUILD_TYPE): $<"
 
 $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.c
-	@$(MKDIR_P) "$(dir $@)"
+	@mkdir -p "$(dir $@)"
 	$(CC) $(CFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
 	@echo "Compiled (C Libraries) $(BUILD_TYPE): $<"
 
 $(OBJ_DIR_TYPE)/src/%.o: $(MAIN_SRC_DIR)/%.cpp
-	@$(MKDIR_P) "$(dir $@)"
+	@mkdir -p "$(dir $@)"
 	$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
 	@echo "Compiled (C++ Main) $(BUILD_TYPE): $<"
 
 $(OBJ_DIR_TYPE)/src/%.o: $(MAIN_SRC_DIR)/%.c
-	@$(MKDIR_P) "$(dir $@)"
+	@mkdir -p "$(dir $@)"
 	$(CC) $(CFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
 	@echo "Compiled (C Main) $(BUILD_TYPE): $<"
 
 $(TEST_OBJ_DIR)/tests/%.o: $(TEST_DIR)/%.cpp
-	@$(MKDIR_P) "$(dir $@)"
+	@mkdir -p "$(dir $@)"
 	$(CXX) $(filter-out -flto=jobserver,$(CXXFLAGS)) $(DEPFLAGS) $(TEST_INCLUDES) -c $< -o $@
 	@echo "Compiled (C++ Tests): $<"
 
 # Directories
 $(BIN_DIR_TYPE):
 	@echo "Creating $@ directory"
-	@$(MKDIR_P) "$@"
+	@mkdir -p "$@"
 
 $(BUILD_DIR):
-	@$(MKDIR_P) "$@"
+	@mkdir -p "$@"
 
 $(TEST_BIN_DIR):
-	@$(MKDIR_P) "$@"
+	@mkdir -p "$@"
 
 # Clean rules
 clean:
-	@$(RM_RF) $(OBJ_DIR)
-	@$(RM_F) installers/windows/*.exe
-	@$(RM_F) installers/linux/*.deb
+	@rm -rf $(OBJ_DIR)
+	@rm -f installers/windows/*.exe
+	@rm -f installers/linux/*.deb
 	@echo "Objects deleted"
 
 fclean: clean
-	@$(RM_RF) $(BIN_DIR)
+	@rm -rf $(BIN_DIR)
 	@echo "Executables deleted"
 
 fclean-build: fclean
-	@$(RM_RF) $(BUILD_DIR)
+	@rm -rf $(BUILD_DIR)
 
 re: fclean all
 re-debug: fclean debug
@@ -368,7 +393,7 @@ format:
 	@echo "Formatting code..."
 	@command -v $(CLANG_FORMAT) >/dev/null 2>&1 || { echo "$(CLANG_FORMAT) not found"; exit 1; }
 ifeq ($(DETECTED_OS),Windows)
-	@$(POWERSHELL) "& '.\\tools\\format_sources.ps1' '$(CLANG_FORMAT)'"
+	@powershell -NoProfile -Command "& '.\\tools\\format_sources.ps1' '$(CLANG_FORMAT)'"
 else
 	@if [ -n "$(strip $(STYLE_SOURCES))" ]; then $(CLANG_FORMAT) -i $(STYLE_SOURCES); fi
 endif
@@ -399,9 +424,9 @@ info:
 	@echo "Includes Directories: $(INCLUDES_DIRS)"
 	@echo "Target: $(TARGET)"
 ifeq ($(DETECTED_OS),Linux)
-	@echo "Dependencies: sudo apt install libglfw3-dev libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libstb-dev"
+	@echo "Dependencies: run 'make install_deps' to install via vcpkg"
 else ifeq ($(DETECTED_OS),Darwin)
-	@echo "Dependencies: brew install glfw glm"
+	@echo "Dependencies: run 'make install_deps' to install via vcpkg"
 else ifeq ($(DETECTED_OS),Windows)
 	@echo "Dependencies: use MinGW/clang with a POSIX shell and install libraries via vcpkg"
 	@echo "LIBS: $(notdir $(LIB_SOURCES))"
@@ -413,11 +438,11 @@ endif
 .PHONY: all release dev debug
 .PHONY: test
 .PHONY: run run-release run-dev run-debug
-.PHONY: clean fclean fclean-build re re-debug re-dev re-release
+.PHONY: clean clean_bin fclean fclean-build re re-debug re-dev re-release
 .PHONY: info info-debug info-dev info-release debug-info dev-info release-info
 .PHONY: check check-syntax check-format format lint copy_libs copy_res copy_test_libs all_copy
 .PHONY: create_windows_installer create_linux_installer installer
-.PHONY: install_deps remove_deps reset_deps
+.PHONY: install install_deps i remove_deps reset_deps
 
 # Dependencies
 -include $(wildcard $(ALL_OBJECTS:.o=.d))

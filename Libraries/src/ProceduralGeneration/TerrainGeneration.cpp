@@ -19,7 +19,7 @@ void TerrainGenerator::GenerateFlatTerrain()
     grid.TransformPoints(
         [this](Vertex &vertex, unsigned int index)
         {
-            UNREFERENCED_PARAMETER(index);
+            UNUSED(index);
             vertex.Position.y = 0.0f;
         });
     grid.GenerateMesh();
@@ -30,7 +30,7 @@ void TerrainGenerator::GenerateRandomTerrain(float height)
     grid.TransformPoints(
         [this, height](Vertex &vertex, unsigned int index)
         {
-            UNREFERENCED_PARAMETER(index);
+            UNUSED(index);
             float r = noise.WhiteNoise(vertex.Position.x, vertex.Position.z);
             vertex.Position.y = r * height;
             vertex.Color = glm::vec3(r, 0.0f, 0.0f);
@@ -40,7 +40,7 @@ void TerrainGenerator::GenerateRandomTerrain(float height)
 
 // void TerrainGenerator::GeneratePerlinTerrain(float scale, float height, int octaves, float persistence, float lacunarity) {
 //     grid.TransformPoints([this, scale, height, octaves, persistence, lacunarity](Vertex& vertex, unsigned int index) {
-//         UNREFERENCED_PARAMETER(index);
+//         UNUSED(index);
 //         vertex.Position.y = noise.PerlinNoise(vertex.Position.x, vertex.Position.z, scale, octaves, persistence, lacunarity) * height;
 //     });
 //     grid.GenerateMesh();
@@ -51,7 +51,7 @@ void TerrainGenerator::GenerateFractalTerrain(float scale, float height, int oct
     grid.TransformPoints(
         [this, scale, height, octaves, persistence, lacunarity](Vertex &vertex, unsigned int index)
         {
-            UNREFERENCED_PARAMETER(index);
+            UNUSED(index);
             float r = noise.FractalNoise(vertex.Position.x, vertex.Position.z, scale, octaves, persistence, lacunarity);
             vertex.Position.y = r * height;
             vertex.Color = glm::vec3(r, 0.0f, -r);

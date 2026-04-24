@@ -8,8 +8,10 @@
 #include <glm/vec4.hpp>
 #include <memory>
 #include <string>
-#include <string_view>
+#include <string>
 #include <vector>
+
+#include "utilities.h"
 
 struct ShaderStageSource
 {
@@ -87,7 +89,7 @@ class IGraphicsResource
     virtual ~IGraphicsResource() = default;
 
     virtual GraphicsAPI GetAPI() const noexcept = 0;
-    virtual std::string_view GetDebugName() const noexcept = 0;
+    virtual std::string GetDebugName() const noexcept = 0;
 };
 
 class IShaderProgramResource : public IGraphicsResource
@@ -98,14 +100,14 @@ class IShaderProgramResource : public IGraphicsResource
     virtual const ShaderProgramDesc &GetDescription() const noexcept = 0;
     virtual void Bind() const = 0;
     virtual void Unbind() const = 0;
-    virtual int GetUniformLocation(std::string_view name) const = 0;
+    virtual int GetUniformLocation(std::string name) const = 0;
     virtual void SetFloatUniform(int location, const float *data, std::size_t componentCount) const = 0;
     virtual void SetIntUniform(int location, const int *data, std::size_t componentCount) const = 0;
     virtual void SetMatrix4Uniform(int location, const float *data) const = 0;
 
     // Binary cache — returns false if the backend does not support program binaries.
-    virtual bool GetBinary(std::vector<std::byte> &dataOut, std::uint32_t &formatOut) const { return false; }
-    virtual bool LoadBinary(const std::vector<std::byte> &data, std::uint32_t format) { return false; }
+    virtual bool GetBinary(std::vector<std::byte> &dataOut, std::uint32_t &formatOut) const { UNUSED(dataOut); UNUSED(formatOut);return false; }
+    virtual bool LoadBinary(const std::vector<std::byte> &data, std::uint32_t format) { UNUSED(data); UNUSED(format); return false; }
 };
 
 class IBufferResource : public IGraphicsResource
@@ -176,8 +178,8 @@ class IRenderTargetResource : public IGraphicsResource
     // Read one unsigned-integer pixel from a color attachment (e.g. R32UI object IDs).
     // x/y are in screen-space (top-left origin); the backend handles the Y-flip internally.
     // Returns 0 if the backend does not support pixel readback.
-    virtual std::uint32_t ReadPixelUInt(std::uint32_t attachmentIndex, int x, int y, int framebufferHeight) const { return 0; }
-    virtual glm::uvec4 ReadPixelRGBA8(std::uint32_t attachmentIndex, int x, int y, int framebufferHeight) const { return glm::uvec4(0); }
+    virtual std::uint32_t ReadPixelUInt(std::uint32_t attachmentIndex, int x, int y, int framebufferHeight) const { UNUSED(attachmentIndex); UNUSED(x); UNUSED(y); UNUSED(framebufferHeight); return 0; }
+    virtual glm::uvec4 ReadPixelRGBA8(std::uint32_t attachmentIndex, int x, int y, int framebufferHeight) const { UNUSED(attachmentIndex); UNUSED(x); UNUSED(y); UNUSED(framebufferHeight); return glm::uvec4(0); }
 };
 
 class IAccelerationStructureResource : public IGraphicsResource
@@ -198,3 +200,4 @@ class IGPUTimestampQueryResource : public IGraphicsResource
     virtual bool IsReady() const = 0;
     virtual std::chrono::nanoseconds GetElapsedTime() const = 0;
 };
+

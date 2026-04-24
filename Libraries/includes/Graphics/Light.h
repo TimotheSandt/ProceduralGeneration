@@ -3,6 +3,7 @@
 #include "glm/glm.hpp"
 
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 #include "Buffer.h"
@@ -103,32 +104,48 @@ struct alignas(16) AmbientLightBlock
     }
 };
 
+// NOTE: layout matches the GLSL `LightStruct` declared in default.frag with std430 buffer rules.
+// Under std430, vec3 fields occupy 12 bytes but force 16-byte alignment on the *following* member.
+// We store them as glm::vec3 so subsequent floats sit at the offsets the shader actually reads from.
+// (Earlier this was glm::vec4, which made the shader read `strength` from the unused .w slot of
+// `color` — producing wildly wrong lighting values, including all-black meshes.)
 struct alignas(16) LightBlock
 {
     LightType type;
-    float _pad1[3];
+    float _pad0;     // pad type to 16-byte boundary required by following vec3
+    float _pad0b[2];
 
-    glm::vec4 position;
-    glm::vec4 direction;
-    glm::vec4 color;
+    glm::vec3 position;
+    float _padPositionTail;  // Pad position (vec3, 12B) to 16B before next vec3.
 
+    glm::vec3 direction;
+    float _padDirectionTail;
+
+    glm::vec3 color;
+    // No padding here: std430 packs `float strength` at offset 60 (immediately after vec3 color
+    // at offset 48). The struct's natural ordering already places strength right after color in
+    // memory (offset 60), matching the shader.
     float strength;
+
     float outerCone;
     float innerCone;
-
     float a;
+
     float b;
-    float _pad2[3];
+    float _pad2[3];  // Pad struct size to 16-byte boundary (largest member alignment).
 
     LightBlock() = default;
     LightBlock(const Light &light) { *this = light; }
 
     LightBlock operator=(const Light &light)
     {
+        // Zero all bytes (including padding slots) so the shader doesn't read indeterminate
+        // values out of the C++ struct's compiler-inserted padding.
+        std::memset(this, 0, sizeof(*this));
         type = light.type;
-        position = glm::vec4(light.position, 1.0f);
-        direction = glm::vec4(light.direction, 0.0f);
-        color = glm::vec4(light.color, 1.0f);
+        position = light.position;
+        direction = light.direction;
+        color = light.color;
         strength = light.strength;
         outerCone = light.outerCone;
         innerCone = light.innerCone;

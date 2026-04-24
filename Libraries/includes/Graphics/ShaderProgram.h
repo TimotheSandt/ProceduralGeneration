@@ -44,7 +44,7 @@ class ShaderProgram
     void SetUniformMatrix4(int location, const float *data) const;
 
     std::uint32_t GetID() const { return this->ID; }
-    bool IsCompiled() const { return this->ID != 0; }
+    bool IsCompiled() const { return this->backendResource != nullptr; }
 
   private:
     std::uint32_t ID = 0;

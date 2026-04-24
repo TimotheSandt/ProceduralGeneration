@@ -2,6 +2,10 @@
 
 #include "Graphics/Core/GraphicsBackend.h"
 
+#include <memory>
+
+struct VulkanBackendContext;
+
 class VulkanGraphicsBackend final : public IGraphicsBackend
 {
   public:
@@ -14,6 +18,9 @@ class VulkanGraphicsBackend final : public IGraphicsBackend
     std::unique_ptr<IGraphicsDevice> CreateDevice(const GraphicsDeviceCreateInfo &createInfo) const override;
 
   private:
+    bool CreateInstance();
+    bool SelectPhysicalDevice();
+
     GraphicsCapabilities capabilities = {.api = GraphicsAPI::Vulkan,
                                          .supportsRuntimeShaderCompilation = false,
                                          .supportsComputeShaders = true,
@@ -22,8 +29,13 @@ class VulkanGraphicsBackend final : public IGraphicsBackend
                                          .supportsFramebufferBlit = true,
                                          .supportsWireframeRendering = true,
                                          .supportsWindowPresentation = true,
-                                         .supportsRayTracingPipelines = false,
-                                         .supportsAccelerationStructures = false,
-                                         .supportsRayQueries = false,
-                                         .maxColorAttachments = 8};
+                                         .supportsRayTracingPipelines = true,
+                                         .supportsAccelerationStructures = true,
+                                         .supportsRayQueries = true,
+                                         .supportsTemporalUpscaling = true,
+                                         .supportsFrameGeneration = true,
+                                         .maxColorAttachments = 8,
+                                         .maxAccelerationStructureInstances = 1024};
+    std::shared_ptr<VulkanBackendContext> context;
+    bool initialized = false;
 };

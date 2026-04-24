@@ -136,8 +136,10 @@ void Logger::FlushToFile() noexcept
             return;
         }
 
+#ifdef DEBUG
         bool flushFailed = false;
         bool wroteLogs = false;
+#endif
         std::lock_guard<std::mutex> lock(logMutex);
 
         if (!logFile || !logFile->is_open())
@@ -184,13 +186,15 @@ void Logger::FlushToFile() noexcept
             }
 
             *logFile << std::endl;
+#ifdef DEBUG
             wroteLogs = true;
+#endif
         }
         lastFlushedIndex = logs.size();
 
         logFile->flush();
-        flushFailed = logFile->fail();
 #ifdef DEBUG
+        flushFailed = logFile->fail();
         if (flushFailed)
         {
             std::cerr << "ERROR: Failed to write to log file!" << std::endl;

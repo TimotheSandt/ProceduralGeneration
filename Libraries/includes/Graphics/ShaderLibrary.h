@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <string>
-#include <string_view>
+#include <string>
 #include <unordered_map>
 #include <utility>
 
@@ -28,7 +28,7 @@ class ShaderLibrary
 
     // Binary cache control. Disabled by default.
     void SetBinaryCacheEnabled(bool enabled);
-    void SetBinaryCacheDirectory(std::string_view directory);
+    void SetBinaryCacheDirectory(std::string directory);
 
     // Remove all in-memory entries (GPU programs are freed when no ShaderProgram holds a reference).
     void Clear();

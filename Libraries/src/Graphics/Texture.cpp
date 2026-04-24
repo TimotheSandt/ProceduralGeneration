@@ -1,6 +1,5 @@
 #include "Texture.h"
 
-#include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 
 #include <cstring>
@@ -113,7 +112,7 @@ void Texture::SetTextureData(void *data, int width, int height, TextureFormat fo
     this->format = format;
     this->pixelType = pixelType;
 
-    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr)
     {
         TextureCreateInfo createInfo;
         createInfo.desc.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
@@ -133,15 +132,11 @@ void Texture::SetTextureData(void *data, int width, int height, TextureFormat fo
         }
 
         std::unique_ptr<ITextureResource> resource = device->CreateTexture(createInfo);
-        if (auto *openGLResource = dynamic_cast<OpenGLTextureResource *>(resource.get()); openGLResource != nullptr)
+        if (resource != nullptr)
         {
-            this->ID = openGLResource->GetTextureID();
             this->backendResource = std::move(resource);
-            if (this->ID != 0)
-            {
-                return;
-            }
-            this->backendResource.reset();
+            this->ID = 1;
+            return;
         }
     }
 }
@@ -225,7 +220,7 @@ void Texture::SetFramebufferTexture(const char *uniformName, std::uint32_t slot,
     this->format = format;
     this->pixelType = IsDepthFormat(format) ? TexturePixelType::Float : TexturePixelType::UnsignedByte;
 
-    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr)
     {
         TextureCreateInfo createInfo;
         createInfo.desc.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
@@ -236,11 +231,11 @@ void Texture::SetFramebufferTexture(const char *uniformName, std::uint32_t slot,
         createInfo.generateMipmaps = false;
 
         std::unique_ptr<ITextureResource> resource = device->CreateTexture(createInfo);
-        if (auto *openGLResource = dynamic_cast<OpenGLTextureResource *>(resource.get()); openGLResource != nullptr)
+        if (resource != nullptr)
         {
-            this->ID = openGLResource->GetTextureID();
             this->backendResource = std::move(resource);
-            if (this->ID != 0)
+            this->ID = 1;
+            if (renderTargetHandle != 0)
             {
                 if (IsDepthFormat(format))
                 {
@@ -250,9 +245,8 @@ void Texture::SetFramebufferTexture(const char *uniformName, std::uint32_t slot,
                 {
                     this->backendResource->AttachToFramebuffer(renderTargetHandle, colorIndex);
                 }
-                return;
             }
-            this->backendResource.reset();
+            return;
         }
     }
 }

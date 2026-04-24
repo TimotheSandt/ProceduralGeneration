@@ -12,11 +12,11 @@ class OpenGLShaderProgramResource final : public IShaderProgramResource
     ~OpenGLShaderProgramResource() override;
 
     GraphicsAPI GetAPI() const noexcept override;
-    std::string_view GetDebugName() const noexcept override;
+    std::string GetDebugName() const noexcept override;
     const ShaderProgramDesc &GetDescription() const noexcept override;
     void Bind() const override;
     void Unbind() const override;
-    int GetUniformLocation(std::string_view name) const override;
+    int GetUniformLocation(std::string name) const override;
     void SetFloatUniform(int location, const float *data, std::size_t componentCount) const override;
     void SetIntUniform(int location, const int *data, std::size_t componentCount) const override;
     void SetMatrix4Uniform(int location, const float *data) const override;
@@ -37,7 +37,7 @@ class OpenGLBufferResource final : public IBufferResource
     ~OpenGLBufferResource() override;
 
     GraphicsAPI GetAPI() const noexcept override;
-    std::string_view GetDebugName() const noexcept override;
+    std::string GetDebugName() const noexcept override;
     const BufferDesc &GetDescription() const noexcept override;
     void Bind() const override;
     void BindToBindingPoint(std::uint32_t bindingPoint) const override;
@@ -64,7 +64,7 @@ class OpenGLGeometryResource final : public IGeometryResource
     ~OpenGLGeometryResource() override;
 
     GraphicsAPI GetAPI() const noexcept override;
-    std::string_view GetDebugName() const noexcept override;
+    std::string GetDebugName() const noexcept override;
     const GeometryLayout &GetLayout() const noexcept override;
     std::size_t GetIndexCount() const noexcept override;
     std::size_t GetInstanceCount() const noexcept override;
@@ -98,7 +98,7 @@ class OpenGLTextureResource final : public ITextureResource
     ~OpenGLTextureResource() override;
 
     GraphicsAPI GetAPI() const noexcept override;
-    std::string_view GetDebugName() const noexcept override;
+    std::string GetDebugName() const noexcept override;
     const TextureDesc &GetDescription() const noexcept override;
     void Bind(std::uint32_t slot) const override;
     void Unbind() const override;
@@ -121,7 +121,7 @@ class OpenGLRenderTargetResource final : public IRenderTargetResource
     ~OpenGLRenderTargetResource() override;
 
     GraphicsAPI GetAPI() const noexcept override;
-    std::string_view GetDebugName() const noexcept override;
+    std::string GetDebugName() const noexcept override;
     const RenderTargetDesc &GetDescription() const noexcept override;
     void Bind() const override;
     void Unbind() const override;
@@ -151,7 +151,7 @@ class OpenGLTimestampQueryResource final : public IGPUTimestampQueryResource
     ~OpenGLTimestampQueryResource() override;
 
     GraphicsAPI GetAPI() const noexcept override;
-    std::string_view GetDebugName() const noexcept override;
+    std::string GetDebugName() const noexcept override;
     void Begin() override;
     void End() override;
     bool IsReady() const override;
