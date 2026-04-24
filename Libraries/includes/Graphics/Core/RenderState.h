@@ -11,6 +11,7 @@ struct FramebufferState
 {
     std::uint32_t framebuffer = 0;
     int viewport[4] = {0, 0, 0, 0};
+    int scissorBox[4] = {0, 0, 0, 0};
     bool depthTest = false;
     bool blend = false;
     bool scissorTest = false;

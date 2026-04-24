@@ -114,7 +114,7 @@ void ComponentBase::DoSetAllowDeform(bool allow)
 void ComponentBase::MarkAppearanceDirty()
 {
     dirtyAppearance = true;
-    NotifyParentChildLayoutDirty();
+    NotifyParentChildAppearanceDirty();
 }
 
 void ComponentBase::MarkChildLayoutDirty()
@@ -138,7 +138,15 @@ void ComponentBase::NotifyParentChildLayoutDirty()
 {
     if (auto p = parent.lock())
     {
-        p->MarkChildLayoutDirty();
+        p->OnChildLayoutDirty();
+    }
+}
+
+void ComponentBase::NotifyParentChildAppearanceDirty()
+{
+    if (auto p = parent.lock())
+    {
+        p->OnChildAppearanceDirty();
     }
 }
 

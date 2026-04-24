@@ -144,6 +144,37 @@ TestSuite CreateUIFoundationSuite()
                 Assert(text->IsAppearanceDirty(), "Text should mark itself dirty when the composed string changes");
             });
 
+    AddTest(suite, "text can be built directly from content arguments",
+            []
+            {
+                struct Sample
+                {
+                    int value = 34;
+                    int calls = 0;
+
+                    bool operator==(const Sample &) const = default;
+
+                    int GetValue()
+                    {
+                        ++calls;
+                        return value;
+                    }
+                };
+
+                int score = 12;
+                Sample sample;
+                Text text(Bounds(), "Score: ", &score, " / ", Bind(&sample, &Sample::GetValue));
+
+                AssertEqual(text.GetText(), "Score: 12 / 34", "Text should build directly from constructor arguments");
+                AssertEqual(sample.calls, 1, "Direct constructor should evaluate callable content once");
+
+                score = 13;
+                sample.value = 35;
+                text.Update();
+                AssertEqual(text.GetText(), "Score: 13 / 35", "Direct constructor should refresh when bound sources change");
+                AssertEqual(sample.calls, 2, "Direct constructor should re-evaluate callable content after changes");
+            });
+
     AddTest(suite, "text content refreshes bound methods when the object changes",
             []
             {

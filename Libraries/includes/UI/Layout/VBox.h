@@ -50,9 +50,10 @@ class VBox : public ChainableVBox<VBoxBase, VBox>
 };
 
 // Factory for VBox
-inline std::shared_ptr<VBox> CreateVBox(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<ComponentBase>> &children = {})
+inline std::shared_ptr<VBox> CreateVBox(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<ComponentBase>> &children = {},
+                                        bool renderToTexture = false)
 {
-    auto vbox = std::make_shared<VBox>(bounds);
+    auto vbox = std::make_shared<VBox>(bounds, renderToTexture);
     for (auto &child : children)
     {
         vbox->AddChild(child);

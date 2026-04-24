@@ -2,14 +2,46 @@
 
 #include "Core/Component.h"
 #include "Rendering/TextRenderer.h"
-#include "TextContent.h"
+#include "Utils/TextContent.h"
 
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 namespace UI
 {
+
+namespace textdetail
+{
+
+template <typename... Args>
+struct LastType;
+
+template <typename T>
+struct LastType<T>
+{
+    using Type = T;
+};
+
+template <typename T, typename... Rest>
+struct LastType<T, Rest...> : LastType<Rest...>
+{
+};
+
+template <typename... Args>
+using LastTypeT = std::remove_cv_t<std::remove_reference_t<typename LastType<Args...>::Type>>;
+
+template <typename T>
+constexpr bool IsTextConfigLike_v =
+    std::is_arithmetic_v<std::remove_cv_t<std::remove_reference_t<T>>> ||
+    std::is_same_v<std::remove_cv_t<std::remove_reference_t<T>>, IdentifierKind>;
+
+template <typename... Args>
+concept TextContentArgs = sizeof...(Args) > 0 &&
+    !(sizeof...(Args) > 1 && IsTextConfigLike_v<LastTypeT<Args...>>);
+
+} // namespace textdetail
 
 class TextWidgetBase : public ComponentBase
 {
@@ -73,37 +105,92 @@ class ChainableTextWidget : public ChainableComponent<Base, Derived>
 
 class Text : public ChainableTextWidget<TextWidgetBase, Text>
 {
+  private:
     TextContent textContent;
-
     void SyncDisplayText();
 
   public:
     Text(Bounds bounds, std::string text = {}, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT);
     Text(Bounds bounds, TextContent content, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT);
+    Text(Bounds bounds, const std::string *targetValue, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT);
+
+    template <typename... Args>
+        requires textdetail::TextContentArgs<Args...>
+    explicit Text(Bounds bounds, Args &&...args)
+        : Text(bounds, TextContent(std::forward<Args>(args)...))
+    {
+    }
 
     void Update() override;
     void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0}) override;
 
-    // ── Content ──────────────────────────────────────────────────
-
+    std::shared_ptr<Text> ClearContent();
+    std::shared_ptr<Text> ClearParts() { return ClearContent(); }
     std::shared_ptr<Text> SetContent(TextContent content);
-    std::shared_ptr<Text> SetText(std::string text);
 
-    TextContent       &GetContent()       { return textContent; }
+    TextContent &GetContent() { return textContent; }
     const TextContent &GetContent() const { return textContent; }
-    const std::string &GetLabel()   const { return this->GetText(); }
+
+    std::shared_ptr<Text> SetText(std::string text);
+    std::shared_ptr<Text> AppendText(std::string text);
+
+    std::shared_ptr<Text> SetLabel(std::string text) { return SetText(std::move(text)); }
+    std::shared_ptr<Text> AppendLabel(std::string text) { return AppendText(std::move(text)); }
+    const std::string &GetLabel() const { return this->GetText(); }
+
+    template <typename T>
+    std::shared_ptr<Text> SetValue(const T *value)
+    {
+        textContent.Clear().AppendValue(value);
+        SyncDisplayText();
+        return std::static_pointer_cast<Text>(this->shared_from_this());
+    }
+
+    template <typename T>
+    std::shared_ptr<Text> AppendValue(const T *value)
+    {
+        textContent.AppendValue(value);
+        SyncDisplayText();
+        return std::static_pointer_cast<Text>(this->shared_from_this());
+    }
+
+    template <typename TObject, typename Method>
+    std::shared_ptr<Text> SetMethod(TObject *object, Method method)
+    {
+        textContent.Clear().AppendMethod(object, method);
+        SyncDisplayText();
+        return std::static_pointer_cast<Text>(this->shared_from_this());
+    }
+
+    template <typename TObject, typename Method>
+    std::shared_ptr<Text> AppendMethod(TObject *object, Method method)
+    {
+        textContent.AppendMethod(object, method);
+        SyncDisplayText();
+        return std::static_pointer_cast<Text>(this->shared_from_this());
+    }
 };
 
-// ── Factory ──────────────────────────────────────────────────────
-
-inline std::shared_ptr<Text> CreateText(Bounds bounds = {}, std::string text = {}, float scale = 1.0f)
+inline std::shared_ptr<Text> CreateText(Bounds bounds = Bounds(), std::string text = {}, float scale = 1.0f)
 {
     return std::make_shared<Text>(bounds, std::move(text), scale);
 }
 
-inline std::shared_ptr<Text> CreateText(Bounds bounds, TextContent content, float scale = 1.0f, IdentifierKind kind = IdentifierKind::TEXT)
+inline std::shared_ptr<Text> CreateText(Bounds bounds, TextContent content, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT)
 {
-    return std::make_shared<Text>(bounds, std::move(content), scale, kind);
+    return std::make_shared<Text>(bounds, std::move(content), scale, defaultKind);
+}
+
+inline std::shared_ptr<Text> CreateText(Bounds bounds, const std::string *targetValue, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT)
+{
+    return std::make_shared<Text>(bounds, targetValue, scale, defaultKind);
+}
+
+template <typename... Args>
+    requires textdetail::TextContentArgs<Args...>
+inline std::shared_ptr<Text> CreateText(Bounds bounds, Args &&...args)
+{
+    return std::make_shared<Text>(bounds, TextContent(std::forward<Args>(args)...));
 }
 
 } // namespace UI

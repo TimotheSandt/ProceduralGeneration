@@ -125,6 +125,7 @@ class ComponentBase : public std::enable_shared_from_this<ComponentBase>
     void SetCachedBoundsInParent(glm::vec4 bounds) { cachedBoundsInParent = bounds; }
 
   protected:
+    void NotifyParentChildAppearanceDirty();
     void NotifyParentChildLayoutDirty();
     void NotifyParentFullDirty();
 

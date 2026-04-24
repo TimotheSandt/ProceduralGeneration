@@ -23,8 +23,10 @@ void main() {
         discard;
     }
 
-    // Sample the FBO texture
-    vec4 texColor = texture(textureSampler, scrolledUV);
+    // UI layout uses a top-left origin while the render target texture is sampled
+    // with OpenGL's bottom-left UV convention, so flip Y when reading back.
+    vec2 sampleUV = vec2(scrolledUV.x, 1.0 - scrolledUV.y);
+    vec4 texColor = texture(textureSampler, sampleUV);
 
     // Determine final color
     vec4 finalColor;

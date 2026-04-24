@@ -104,6 +104,7 @@ FramebufferState CaptureFramebufferState() noexcept
     FramebufferState state;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &state.framebuffer);
     glGetIntegerv(GL_VIEWPORT, state.viewport);
+    glGetIntegerv(GL_SCISSOR_BOX, state.scissorBox);
     state.depthTest = glIsEnabled(GL_DEPTH_TEST);
     state.blend = glIsEnabled(GL_BLEND);
     state.scissorTest = glIsEnabled(GL_SCISSOR_TEST);
@@ -118,6 +119,7 @@ void RestoreFramebufferState(const FramebufferState &state) noexcept
     SetDepthTest(state.depthTest == GL_TRUE);
     SetBlend(state.blend == GL_TRUE);
     SetScissorTest(state.scissorTest == GL_TRUE);
+    SetScissor(state.scissorBox[0], state.scissorBox[1], state.scissorBox[2], state.scissorBox[3]);
 }
 
 void PrepareScreenPass(int width, int height) noexcept { SetViewport(0, 0, width, height); }

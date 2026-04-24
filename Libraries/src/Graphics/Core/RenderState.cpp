@@ -151,6 +151,7 @@ FramebufferState CaptureFramebufferState() noexcept
     FramebufferState result{};
     result.framebuffer = static_cast<std::uint32_t>(state.framebuffer);
     std::copy(std::begin(state.viewport), std::end(state.viewport), std::begin(result.viewport));
+    std::copy(std::begin(state.scissorBox), std::end(state.scissorBox), std::begin(result.scissorBox));
     result.depthTest = state.depthTest == GL_TRUE;
     result.blend = state.blend == GL_TRUE;
     result.scissorTest = state.scissorTest == GL_TRUE;
@@ -167,6 +168,7 @@ void RestoreFramebufferState(const FramebufferState &state) noexcept
     OpenGLRenderState::FramebufferState openGLState{};
     openGLState.framebuffer = static_cast<GLint>(state.framebuffer);
     std::copy(std::begin(state.viewport), std::end(state.viewport), std::begin(openGLState.viewport));
+    std::copy(std::begin(state.scissorBox), std::end(state.scissorBox), std::begin(openGLState.scissorBox));
     openGLState.depthTest = state.depthTest ? GL_TRUE : GL_FALSE;
     openGLState.blend = state.blend ? GL_TRUE : GL_FALSE;
     openGLState.scissorTest = state.scissorTest ? GL_TRUE : GL_FALSE;

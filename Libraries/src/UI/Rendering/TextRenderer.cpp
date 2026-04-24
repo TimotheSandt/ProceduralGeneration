@@ -5,6 +5,7 @@
 
 #include <array>
 #include <algorithm>
+#include <cmath>
 #include <glm/gtc/matrix_transform.hpp>
 #include <utility>
 
@@ -34,15 +35,23 @@ out vec4 color;
 
 uniform sampler2D text;
 uniform vec3 textColor;
+uniform float coverageGamma;
 
 void main() {
-    vec4 sampled = vec4(1.0, 1.0, 1.0, texture(text, TexCoords).r);
+    float alpha = texture(text, TexCoords).r;
+    alpha = pow(alpha, coverageGamma);
+    vec4 sampled = vec4(1.0, 1.0, 1.0, alpha);
     color = vec4(textColor, 1.0) * sampled;
 }
 )";
 
 constexpr std::size_t GlyphQuadVertexCount = 6;
 constexpr std::size_t GlyphQuadFloatCount = GlyphQuadVertexCount * 4;
+constexpr unsigned int MinimumDynamicFontSize = 8;
+constexpr unsigned int MaximumDynamicFontSize = 256;
+constexpr float LargeTextOversampleFactor = 1.25f;
+constexpr float SmallTextPixelSnapThreshold = 18.0f;
+constexpr float MinimumCoverageGamma = 0.88f;
 
 } // namespace
 
@@ -78,7 +87,8 @@ bool TextRenderer::init(unsigned int width, unsigned int height)
     }
 
     shaderProgram.SetShaderCode(VERTEX_SHADER, FRAGMENT_SHADER);
-    projection = glm::ortho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height));
+    // Match the rest of the UI: origin is top-left, Y grows downward.
+    projection = glm::ortho(0.0f, static_cast<float>(width), static_cast<float>(height), 0.0f);
     setupRenderData();
 
     return shaderProgram.IsCompiled() && glyphGeometry != nullptr;
@@ -107,10 +117,39 @@ bool TextRenderer::loadFont(const std::string &fontPath, const std::string &font
         return false;
     }
 
-    FT_Face face = nullptr;
-    if (FT_New_Face(ft, fontPath.c_str(), 0, &face) != 0)
+    fontRegistrations[fontName] = FontRegistration{fontPath, fontSize};
+    if (activeFontName.empty())
     {
-        LOG_ERROR(1, "ERROR::FREETYPE: Failed to load font: ", fontPath);
+        activeFontName = fontName;
+    }
+
+    return ensureFontLoaded(fontName, fontSize);
+}
+
+bool TextRenderer::ensureFontLoaded(const std::string &fontName, unsigned int fontSize)
+{
+    if (ft == nullptr)
+    {
+        return false;
+    }
+
+    const auto registrationIt = fontRegistrations.find(fontName);
+    if (registrationIt == fontRegistrations.end())
+    {
+        return false;
+    }
+
+    fontSize = std::clamp(fontSize, MinimumDynamicFontSize, MaximumDynamicFontSize);
+    const std::string cacheKey = makeFontCacheKey(fontName, fontSize);
+    if (fonts.find(cacheKey) != fonts.end())
+    {
+        return true;
+    }
+
+    FT_Face face = nullptr;
+    if (FT_New_Face(ft, registrationIt->second.path.c_str(), 0, &face) != 0)
+    {
+        LOG_ERROR(1, "ERROR::FREETYPE: Failed to load font: ", registrationIt->second.path);
         return false;
     }
 
@@ -125,18 +164,13 @@ bool TextRenderer::loadFont(const std::string &fontPath, const std::string &font
         fontData.characters.emplace(static_cast<char>(c), loadCharacter(face, static_cast<char>(c)));
     }
 
-    fonts[fontName] = std::move(fontData);
-    if (activeFontName.empty())
-    {
-        activeFontName = fontName;
-    }
-
+    fonts[cacheKey] = std::move(fontData);
     return true;
 }
 
 Character TextRenderer::loadCharacter(FT_Face face, char c)
 {
-    if (FT_Load_Char(face, c, FT_LOAD_RENDER) != 0)
+    if (FT_Load_Char(face, c, FT_LOAD_RENDER | FT_LOAD_TARGET_LIGHT) != 0)
     {
         LOG_ERROR(1, "ERROR::FREETYPE: Failed to load glyph '", c, "'");
         return {};
@@ -154,17 +188,75 @@ Character TextRenderer::loadCharacter(FT_Face face, char c)
 
 void TextRenderer::setActiveFont(const std::string &fontName)
 {
-    if (fonts.find(fontName) != fonts.end())
+    if (fontRegistrations.find(fontName) != fontRegistrations.end())
     {
         activeFontName = fontName;
     }
+}
+
+std::string TextRenderer::makeFontCacheKey(const std::string &fontName, unsigned int fontSize) const
+{
+    return fontName + "#" + std::to_string(fontSize);
+}
+
+TextRenderer::ResolvedFont TextRenderer::resolveFont(float scale)
+{
+    ResolvedFont resolved{};
+    if (activeFontName.empty())
+    {
+        return resolved;
+    }
+
+    const auto registrationIt = fontRegistrations.find(activeFontName);
+    if (registrationIt == fontRegistrations.end())
+    {
+        return resolved;
+    }
+
+    const float normalizedScale = std::max(scale, 0.01f);
+    const float basePixelSize = static_cast<float>(registrationIt->second.baseSize);
+    const float desiredPixelSize = static_cast<float>(registrationIt->second.baseSize) * normalizedScale;
+    float rasterPixelSize = desiredPixelSize;
+    if (desiredPixelSize <= basePixelSize)
+    {
+        // Keep the registered font size as the minimum raster size so small UI text
+        // stays oversampled instead of being rasterized at its final tiny size.
+        rasterPixelSize = basePixelSize;
+    }
+    else
+    {
+        rasterPixelSize *= LargeTextOversampleFactor;
+    }
+
+    unsigned int requestedFontSize = static_cast<unsigned int>(std::round(rasterPixelSize));
+    requestedFontSize = std::clamp(requestedFontSize, MinimumDynamicFontSize, MaximumDynamicFontSize);
+
+    if (!ensureFontLoaded(activeFontName, requestedFontSize))
+    {
+        requestedFontSize = std::clamp(registrationIt->second.baseSize, MinimumDynamicFontSize, MaximumDynamicFontSize);
+        if (!ensureFontLoaded(activeFontName, requestedFontSize))
+        {
+            return resolved;
+        }
+    }
+
+    const auto fontIt = fonts.find(makeFontCacheKey(activeFontName, requestedFontSize));
+    if (fontIt == fonts.end())
+    {
+        return resolved;
+    }
+
+    resolved.data = &fontIt->second;
+    resolved.scale = desiredPixelSize / static_cast<float>(fontIt->second.fontSize);
+    return resolved;
 }
 
 void TextRenderer::updateScreenSize(unsigned int width, unsigned int height)
 {
     screenWidth = width;
     screenHeight = height;
-    projection = glm::ortho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height));
+    // Match the rest of the UI: origin is top-left, Y grows downward.
+    projection = glm::ortho(0.0f, static_cast<float>(width), static_cast<float>(height), 0.0f);
 }
 
 glm::vec2 TextRenderer::calculateAnchorOffset(const std::string &text, float scale, TextAnchor anchor)
@@ -209,14 +301,29 @@ glm::vec2 TextRenderer::calculateAnchorOffset(const std::string &text, float sca
 
 void TextRenderer::renderText(const std::string &text, float x, float y, float scale, const glm::vec3 &color, TextAnchor anchor)
 {
-    if (fonts.empty() || activeFontName.empty() || glyphGeometry == nullptr || !shaderProgram.IsCompiled())
+    if (fontRegistrations.empty() || activeFontName.empty() || glyphGeometry == nullptr || !shaderProgram.IsCompiled())
     {
         return;
     }
 
-    auto &fontData = fonts[activeFontName];
-    const float lineHeight = static_cast<float>(fontData.fontSize) * scale;
+    ResolvedFont resolvedFont = resolveFont(scale);
+    if (resolvedFont.data == nullptr)
+    {
+        return;
+    }
+
+    auto &fontData = *resolvedFont.data;
+    const float renderScale = resolvedFont.scale;
+    const float lineHeight = static_cast<float>(fontData.fontSize) * renderScale;
     const glm::vec2 anchorOffset = calculateAnchorOffset(text, scale, anchor);
+    const auto registrationIt = fontRegistrations.find(activeFontName);
+    const float desiredPixelSize =
+        registrationIt != fontRegistrations.end() ? static_cast<float>(registrationIt->second.baseSize) * std::max(scale, 0.01f) : lineHeight;
+    const bool snapToPixels = renderScale >= 0.75f && desiredPixelSize >= SmallTextPixelSnapThreshold;
+    const float coverageLerp =
+        std::clamp((desiredPixelSize - 10.0f) / (SmallTextPixelSnapThreshold - 10.0f), 0.0f, 1.0f);
+    const float coverageGamma = MinimumCoverageGamma + (1.0f - MinimumCoverageGamma) * coverageLerp;
+    const auto maybeRound = [snapToPixels](float value) { return snapToPixels ? std::round(value) : value; };
 
     const float startX = x + anchorOffset.x;
     const float startY = y + anchorOffset.y;
@@ -224,19 +331,20 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
     shaderProgram.Bind();
     shaderProgram.SetUniformMatrix4(shaderProgram.GetUniformLocation("projection"), &projection[0][0]);
     shaderProgram.SetUniformFloats(shaderProgram.GetUniformLocation("textColor"), &color[0], 3);
+    shaderProgram.SetUniformFloats(shaderProgram.GetUniformLocation("coverageGamma"), &coverageGamma, 1);
     const int textureSlot = 0;
     shaderProgram.SetUniformInts(shaderProgram.GetUniformLocation("text"), &textureSlot, 1);
 
     glyphGeometry->Bind();
-    float cursorX = startX;
-    float cursorY = startY;
+    float cursorX = maybeRound(startX);
+    float cursorY = maybeRound(startY);
 
     for (char c : text)
     {
         if (c == '\n')
         {
-            cursorY += lineHeight * 1.2f;
-            cursorX = startX;
+            cursorY = maybeRound(cursorY + lineHeight * 1.2f);
+            cursorX = maybeRound(startX);
             continue;
         }
 
@@ -248,24 +356,26 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
 
         Character &ch = characterIt->second;
 
-        const float xpos = cursorX + static_cast<float>(ch.bearing.x) * scale;
-        const float baselineY = cursorY + static_cast<float>(fontData.fontSize) * scale;
-        const float glyphTop = baselineY - static_cast<float>(ch.bearing.y) * scale;
-        const float glyphBottom = glyphTop + static_cast<float>(ch.size.y) * scale;
-        const float ypos = static_cast<float>(screenHeight) - glyphBottom;
-        const float w = static_cast<float>(ch.size.x) * scale;
-        const float h = static_cast<float>(ch.size.y) * scale;
+        const float xpos = maybeRound(cursorX + static_cast<float>(ch.bearing.x) * renderScale);
+        const float baselineY = maybeRound(cursorY + static_cast<float>(fontData.fontSize) * renderScale);
+        const float glyphTop = maybeRound(baselineY - static_cast<float>(ch.bearing.y) * renderScale);
+        const float w =
+            std::max(1.0f, snapToPixels ? std::round(static_cast<float>(ch.size.x) * renderScale) : static_cast<float>(ch.size.x) * renderScale);
+        const float h =
+            std::max(1.0f, snapToPixels ? std::round(static_cast<float>(ch.size.y) * renderScale) : static_cast<float>(ch.size.y) * renderScale);
+        const float top = glyphTop;
+        const float bottom = top + h;
 
         const std::array<float, GlyphQuadFloatCount> vertices = {
-            xpos, ypos + h, 0.0f, 0.0f, xpos,     ypos, 0.0f, 1.0f, xpos + w, ypos,     1.0f, 1.0f,
-            xpos, ypos + h, 0.0f, 0.0f, xpos + w, ypos, 1.0f, 1.0f, xpos + w, ypos + h, 1.0f, 0.0f,
+            xpos, top, 0.0f, 0.0f, xpos, bottom, 0.0f, 1.0f, xpos + w, bottom, 1.0f, 1.0f,
+            xpos, top, 0.0f, 0.0f, xpos + w, bottom, 1.0f, 1.0f, xpos + w, top, 1.0f, 0.0f,
         };
 
         glyphGeometry->UpdateVertexData(vertices.data(), vertices.size(), 0);
         ch.texture.Bind();
         glyphGeometry->DrawIndexed();
 
-        cursorX += static_cast<float>(ch.advance >> 6U) * scale;
+        cursorX = maybeRound(cursorX + static_cast<float>(ch.advance >> 6U) * renderScale);
     }
 
     glyphGeometry->Unbind();
@@ -274,12 +384,19 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
 
 float TextRenderer::measureTextWidth(const std::string &text, float scale)
 {
-    if (fonts.empty() || activeFontName.empty())
+    if (fontRegistrations.empty() || activeFontName.empty())
     {
         return 0.0f;
     }
 
-    auto &fontData = fonts[activeFontName];
+    ResolvedFont resolvedFont = resolveFont(scale);
+    if (resolvedFont.data == nullptr)
+    {
+        return 0.0f;
+    }
+
+    auto &fontData = *resolvedFont.data;
+    const float renderScale = resolvedFont.scale;
     float width = 0.0f;
 
     for (char c : text)
@@ -295,20 +412,27 @@ float TextRenderer::measureTextWidth(const std::string &text, float scale)
             continue;
         }
 
-        width += static_cast<float>(characterIt->second.advance >> 6U) * scale;
+        width += static_cast<float>(characterIt->second.advance >> 6U) * renderScale;
     }
 
-    return width;
+    return std::round(width);
 }
 
 glm::vec2 TextRenderer::measureText(const std::string &text, float scale)
 {
-    if (fonts.empty() || activeFontName.empty())
+    if (fontRegistrations.empty() || activeFontName.empty())
     {
         return {0, 0};
     }
 
-    auto &fontData = fonts[activeFontName];
+    ResolvedFont resolvedFont = resolveFont(scale);
+    if (resolvedFont.data == nullptr)
+    {
+        return {0, 0};
+    }
+
+    auto &fontData = *resolvedFont.data;
+    const float renderScale = resolvedFont.scale;
     float maxWidth = 0.0f;
     float currentWidth = 0.0f;
     int lineCount = 1;
@@ -326,13 +450,13 @@ glm::vec2 TextRenderer::measureText(const std::string &text, float scale)
         const auto characterIt = fontData.characters.find(c);
         if (characterIt != fontData.characters.end())
         {
-            currentWidth += static_cast<float>(characterIt->second.advance >> 6U) * scale;
+            currentWidth += static_cast<float>(characterIt->second.advance >> 6U) * renderScale;
         }
     }
 
     maxWidth = std::max(maxWidth, currentWidth);
-    const float height = static_cast<float>(fontData.fontSize) * scale * static_cast<float>(lineCount) * 1.2f;
-    return {maxWidth, height};
+    const float height = static_cast<float>(fontData.fontSize) * renderScale * static_cast<float>(lineCount) * 1.2f;
+    return {std::round(maxWidth), std::round(height)};
 }
 
 std::vector<std::string> TextRenderer::wrapText(const std::string &text, float scale, float maxWidth)
@@ -343,7 +467,14 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
         return lines;
     }
 
-    auto &fontData = fonts[activeFontName];
+    ResolvedFont resolvedFont = resolveFont(scale);
+    if (resolvedFont.data == nullptr)
+    {
+        return lines;
+    }
+
+    auto &fontData = *resolvedFont.data;
+    const float renderScale = resolvedFont.scale;
     std::size_t start = 0;
     std::size_t newlinePos = 0;
 
@@ -368,7 +499,7 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
                 const auto characterIt = fontData.characters.find(c);
                 if (characterIt != fontData.characters.end())
                 {
-                    const float charWidth = static_cast<float>(characterIt->second.advance >> 6U) * scale;
+                    const float charWidth = static_cast<float>(characterIt->second.advance >> 6U) * renderScale;
                     if (width + charWidth > maxWidth && i > 0)
                     {
                         break;
@@ -417,7 +548,7 @@ std::vector<std::string> TextRenderer::wrapText(const std::string &text, float s
             const auto characterIt = fontData.characters.find(c);
             if (characterIt != fontData.characters.end())
             {
-                const float charWidth = static_cast<float>(characterIt->second.advance >> 6U) * scale;
+                const float charWidth = static_cast<float>(characterIt->second.advance >> 6U) * renderScale;
                 if (width + charWidth > maxWidth && i > 0)
                 {
                     break;
@@ -539,13 +670,19 @@ void TextRenderer::handleOverflow(TextLayout &layout, const TextLayoutParams &pa
 TextLayout TextRenderer::calculateLayout(const std::string &text, float scale, const TextLayoutParams &params)
 {
     TextLayout layout;
-    if (fonts.empty() || activeFontName.empty() || text.empty())
+    if (fontRegistrations.empty() || activeFontName.empty() || text.empty())
     {
         return layout;
     }
 
-    auto &fontData = fonts[activeFontName];
-    const float lineHeight = static_cast<float>(fontData.fontSize) * scale * params.lineSpacing;
+    ResolvedFont resolvedFont = resolveFont(scale);
+    if (resolvedFont.data == nullptr)
+    {
+        return layout;
+    }
+
+    auto &fontData = *resolvedFont.data;
+    const float lineHeight = static_cast<float>(fontData.fontSize) * resolvedFont.scale * params.lineSpacing;
 
     std::vector<std::string> textLines;
     if (params.wordWrap && params.maxWidth > 0.0f)
@@ -622,7 +759,13 @@ glm::vec2 TextRenderer::calculateMinSize(const std::string &text, float scale, b
             }
         }
 
-        return {maxWordWidth, static_cast<float>(fonts[activeFontName].fontSize) * scale};
+        ResolvedFont resolvedFont = resolveFont(scale);
+        if (resolvedFont.data == nullptr)
+        {
+            return {maxWordWidth, 0.0f};
+        }
+
+        return {maxWordWidth, static_cast<float>(resolvedFont.data->fontSize) * resolvedFont.scale};
     }
 
     return measureText(text, scale);

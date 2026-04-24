@@ -1,6 +1,9 @@
 #include "Game.h"
 
+#include <algorithm>
 #include <stdexcept>
+
+#include <utility>
 
 #include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
 #include "Graphics/Core/GraphicsRuntime.h"
@@ -34,7 +37,7 @@ void Game::init()
     this->world->Init();
 
     // Initialize UI system
-    UI::Manager::Instance().Init(*window.GetWidthptr(), *window.GetHeightptr(), &window);
+    UI::Manager::Instance().Init(*w, *h, &window);
 }
 
 void Game::stop()
@@ -145,18 +148,15 @@ void Game::update()
 
 void Game::render()
 {
-    const int windowWidth = *window.GetWidthptr();
-    const int windowHeight = *window.GetHeightptr();
-
-    renderer3D.SetOutputResolution(windowWidth, windowHeight);
+    renderer3D.SetOutputResolution(*window.GetWidthptr(), *window.GetHeightptr());
     renderer3D.BeginPass();
     Profiler::ProfileGPU("Clear", &Renderer3D::Clear, &renderer3D, window.GetClearColor(), true);
     renderer3D.SetCamera(this->camera);
     Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), std::ref(renderer3D), std::ref(this->camera));
     Profiler::ProfileGPU("Upscale", &Renderer3D::EndPass, &renderer3D);
 
-    rendererUI.SetOutputResolution(windowWidth, windowHeight);
+    rendererUI.SetOutputResolution(*window.GetWidthptr(), *window.GetHeightptr());
     rendererUI.BeginPass();
-    UI::Manager::Instance().Render(rendererUI, windowWidth, windowHeight);
+    UI::Manager::Instance().Render(rendererUI, *window.GetWidthptr(), *window.GetHeightptr());
     Profiler::ProfileGPU("UIUpscale", &Renderer2D::EndPass, &rendererUI);
 }

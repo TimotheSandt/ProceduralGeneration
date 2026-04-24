@@ -42,6 +42,7 @@ class ContainerBase : public ComponentBase
 
     RenderTarget renderTarget;
     bool fboInitialized = false;
+    DeferredValue<bool> renderToTexture = false;
 
     glm::vec2 scrollOffset = {0, 0};
     glm::vec2 contentSize = {0, 0};
@@ -49,7 +50,7 @@ class ContainerBase : public ComponentBase
 
   public:
     // Basic constructor
-    ContainerBase(Bounds bounds);
+    explicit ContainerBase(Bounds bounds, bool useRenderTarget = false);
 
     void Initialize() override;
     void Update() override;
@@ -63,6 +64,7 @@ class ContainerBase : public ComponentBase
     void SetScrollOffset(glm::vec2 offset) { scrollOffset = offset; }
     void IncrementScrollOffset(glm::vec2 offset) { scrollOffset += offset; }
     glm::vec2 GetScrollOffset() const { return scrollOffset; }
+    bool UsesOwnRenderTarget() const { return renderToTexture.Get(); }
 
     // Content size
     glm::vec2 GetContentSize() const { return contentSize; }
@@ -91,7 +93,10 @@ class ContainerBase : public ComponentBase
     void DoSetPadding(float p);
     void DoSetSpacing(float s);
     void DoSetOverflowMode(OverflowMode mode);
+    void DoSetRenderToTexture(bool enabled);
     void DoSetChildrenAllowDeform(bool deform);
+    void OnChildAppearanceDirty();
+    void OnChildLayoutDirty();
 
     // Children
     void AddChild(const std::shared_ptr<ComponentBase> &child);
@@ -101,6 +106,7 @@ class ContainerBase : public ComponentBase
     DeferredValue<float> spacing = 0.0f;
 
   protected:
+    void RefreshSpriteShader();
     void InitializeRenderTarget();
     virtual void RecalculateChildBounds();
 
@@ -136,6 +142,12 @@ template <typename Base, typename Derived> class ChainableContainer : public Cha
         return std::static_pointer_cast<Derived>(this->shared_from_this());
     }
 
+    std::shared_ptr<Derived> SetRenderToTexture(bool enabled = true)
+    {
+        this->DoSetRenderToTexture(enabled);
+        return std::static_pointer_cast<Derived>(this->shared_from_this());
+    }
+
     std::shared_ptr<Derived> SetChildrenDeform(bool deform)
     {
         this->DoSetChildrenAllowDeform(deform);
@@ -153,9 +165,10 @@ class Container : public ChainableContainer<ContainerBase, Container>
 // ============ SwiftUI-style Factory Functions ============
 
 // Factory for Container
-inline std::shared_ptr<Container> CreateContainer(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<ComponentBase>> &children = {})
+inline std::shared_ptr<Container> CreateContainer(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<ComponentBase>> &children = {},
+                                                  bool renderToTexture = false)
 {
-    auto container = std::make_shared<Container>(bounds);
+    auto container = std::make_shared<Container>(bounds, renderToTexture);
     container->SetColor(glm::vec4{0.0f, 0.0f, 0.0f, 0.0f}); // Transparent by default
     for (auto &child : children)
     {

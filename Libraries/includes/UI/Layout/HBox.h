@@ -50,9 +50,10 @@ class HBox : public ChainableHBox<HBoxBase, HBox>
 };
 
 // Factory for HBox
-inline std::shared_ptr<HBox> CreateHBox(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<ComponentBase>> &children = {})
+inline std::shared_ptr<HBox> CreateHBox(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<ComponentBase>> &children = {},
+                                        bool renderToTexture = false)
 {
-    auto hbox = std::make_shared<HBox>(bounds);
+    auto hbox = std::make_shared<HBox>(bounds, renderToTexture);
     for (auto &child : children)
     {
         hbox->AddChild(child);

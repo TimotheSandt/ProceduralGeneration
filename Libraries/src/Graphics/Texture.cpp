@@ -121,7 +121,7 @@ void Texture::SetTextureData(void *data, int width, int height, TextureFormat fo
         createInfo.desc.mipLevels = 1;
         createInfo.desc.renderTarget = false;
         createInfo.debugName = this->UniformName;
-        createInfo.generateMipmaps = format != TextureFormat::R8;
+        createInfo.generateMipmaps = format != TextureFormat::R32UI;
 
         const size_t dataSize = data != nullptr ? static_cast<size_t>(width) * static_cast<size_t>(height) * GetComponentCount(format) *
                                                       GetPixelTypeSize(pixelType)

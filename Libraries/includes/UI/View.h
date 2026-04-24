@@ -9,18 +9,18 @@ class View : public ContainerBase
 {
   protected:
     explicit View(Bounds bounds)
-        : ContainerBase(bounds)
+        : ContainerBase(bounds, true)
     {
     }
 
-    virtual std::shared_ptr<UI::ContainerBase> Build() = 0;
+    virtual void Build() = 0;
 
   public:
     void Initialize() override
     {
         if (!built)
         {
-            AddChild(Build());
+            Build();
             built = true;
         }
         ContainerBase::Initialize();

@@ -149,7 +149,20 @@ class TextRenderer
         unsigned int fontSize;
     };
 
+    struct FontRegistration
+    {
+        std::string path;
+        unsigned int baseSize = 48;
+    };
+
+    struct ResolvedFont
+    {
+        FontData *data = nullptr;
+        float scale = 1.0f;
+    };
+
     std::unordered_map<std::string, FontData> fonts;
+    std::unordered_map<std::string, FontRegistration> fontRegistrations;
     std::string activeFontName;
 
     ShaderProgram shaderProgram;
@@ -161,6 +174,9 @@ class TextRenderer
     void setupRenderData();
     Character loadCharacter(FT_Face face, char c);
     glm::vec2 calculateAnchorOffset(const std::string &text, float scale, TextAnchor anchor);
+    bool ensureFontLoaded(const std::string &fontName, unsigned int fontSize);
+    ResolvedFont resolveFont(float scale);
+    std::string makeFontCacheKey(const std::string &fontName, unsigned int fontSize) const;
 
     // Layout helpers
     std::vector<std::string> wrapText(const std::string &text, float scale, float maxWidth);
