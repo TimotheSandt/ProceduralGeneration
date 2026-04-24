@@ -2,6 +2,7 @@
 #include "Renderer2D.h"
 #include "Layout/HBox.h"
 #include "Layout/VBox.h"
+#include "Views/PerformanceView.h"
 #include "Widgets.h"
 #include "Window.h"
 
@@ -19,6 +20,7 @@ Manager &Manager::Instance()
 void Manager::Init(int w, int h, const Window *windowArg)
 {
     window = windowArg;
+
     textRenderer = std::make_shared<TextRenderer>();
     textRenderer->init(static_cast<unsigned int>(w), static_cast<unsigned int>(h));
     textRenderer->loadFont(GET_RESOURCE_PATH("fonts/Roboto-Regular.ttf"), "default", 48);
@@ -32,23 +34,7 @@ void Manager::CreateUI(int w, int h, const Window *windowArg)
 {
     window = windowArg;
 
-    const auto makeMetricLine = [](TextContent content, float scale)
-    {
-        return CreateText(Bounds(), std::move(content), scale);
-    };
-
-    performanceOverlay = CreateVBox(Bounds(260_px, 160_px, Anchor::TOP_LEFT),
-                                    {
-                                        makeMetricLine(std::move(fpsContent), 0.45f),
-                                        makeMetricLine(TextContent("Render: ", Bind(window->profiler, &Window::averageTimeMs), " ms"), 0.30f),
-                                        makeMetricLine(TextContent("Render World: ").AppendValue(&renderWorldTimeMs).AppendText(" ms"), 0.30f),
-                                        makeMetricLine(TextContent("Upscale: ").AppendValue(&upscaleTimeMs).AppendText(" ms"), 0.30f),
-                                        makeMetricLine(TextContent("UI Upscale: ").AppendValue(&uiUpscaleTimeMs).AppendText(" ms"), 0.30f),
-                                        makeMetricLine(TextContent("Swap Buffers: ").AppendValue(&swapBuffersTimeMs).AppendText(" ms"), 0.30f),
-                                    })
-                              ->SetPadding(12.0f)
-                              ->SetSpacing(4.0f)
-                              ->SetColor(glm::vec4{0.05f, 0.05f, 0.08f, 0.65f});
+    const auto performanceView = CreatePerformanceView(Bounds(260_px, 160_px, Anchor::TOP_LEFT), windowArg);
 
     // Create root with actual window size (not percentage)
     rootContainer = CreateContainer(
@@ -73,32 +59,15 @@ void Manager::CreateUI(int w, int h, const Window *windowArg)
              ->SetColor(glm::vec4{0.3f, 0.6f, 1.0f, 0.5f})
              ->SetJustifyContent(UI::JustifyContent::CENTER)
              ->SetChildAlignment(UI::HAlign::CENTER),
-            performanceOverlay});
-
-    // Set root's size
+            performanceView});
 
     rootContainer->SetIdentifierKind(UI::IdentifierKind::TRANSPARENT);
     rootContainer->Initialize();
 }
 
-void Manager::SetPerformanceStats(double renderMs, double renderWorldMs, double upscaleMs, double uiUpscaleMs, double swapBuffersMs)
-{
-    renderTimeMs = renderMs;
-    renderWorldTimeMs = renderWorldMs;
-    upscaleTimeMs = upscaleMs;
-    uiUpscaleTimeMs = uiUpscaleMs;
-    swapBuffersTimeMs = swapBuffersMs;
-
-    if (performanceOverlay)
-    {
-        performanceOverlay->Update();
-    }
-}
-
 void Manager::Shutdown()
 {
     rootContainer.reset();
-    performanceOverlay.reset();
     textRenderer.reset();
     window = nullptr;
 }

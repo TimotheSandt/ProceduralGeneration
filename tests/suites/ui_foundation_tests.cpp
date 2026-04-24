@@ -123,6 +123,8 @@ TestSuite CreateUIFoundationSuite()
                 {
                     int value = 34;
 
+                    bool operator==(const Sample &) const = default;
+
                     int GetValue() const { return value; }
                 };
 
@@ -140,6 +142,61 @@ TestSuite CreateUIFoundationSuite()
                 text->Update();
                 AssertEqual(text->GetText(), "Score: 13 / 35", "Text should refresh when bound sources change");
                 Assert(text->IsAppearanceDirty(), "Text should mark itself dirty when the composed string changes");
+            });
+
+    AddTest(suite, "text content refreshes bound methods when the object changes",
+            []
+            {
+                struct Sample
+                {
+                    int value = 34;
+                    int calls = 0;
+
+                    bool operator==(const Sample &) const = default;
+
+                    int GetValue()
+                    {
+                        ++calls;
+                        return value;
+                    }
+                };
+
+                Sample sample;
+                TextContent content("Value: ");
+                content.AppendMethod(&sample, &Sample::GetValue);
+
+                AssertEqual(content.BuildText(), "Value: 34", "Method parts should be evaluated when building text");
+                AssertEqual(sample.calls, 1, "Method parts should run once for the initial build");
+                AssertEqual(content.BuildText(), "Value: 34", "Cached method parts should reuse the previous text");
+                AssertEqual(sample.calls, 1, "Cached method parts should not run again");
+
+                sample.value = 35;
+                Assert(content.IsDirty(), "Changing the bound object should mark the text content dirty");
+                AssertEqual(content.BuildText(), "Value: 35", "Method parts should refresh when the object changes");
+                AssertEqual(sample.calls, 2, "Method parts should run again after the object changes");
+                Assert(!content.IsDirty(), "Text content should be clean again after rebuilding");
+            });
+
+    AddTest(suite, "text content refreshes callable parts",
+            []
+            {
+                int score = 12;
+                int calls = 0;
+
+                TextContent content("Score: ");
+                content.AppendValue(&score).AppendText(" / ").AppendFunction([&]() {
+                    ++calls;
+                    return score * 2;
+                });
+
+                AssertEqual(content.BuildText(), "Score: 12 / 24", "Callable parts should be evaluated when building text");
+                AssertEqual(calls, 1, "Callable parts should run once for the initial build");
+
+                score = 13;
+                Assert(content.IsDirty(), "Changing a dynamic value should mark the text content dirty");
+                AssertEqual(content.BuildText(), "Score: 13 / 26", "Callable parts should refresh when sources change");
+                AssertEqual(calls, 2, "Callable parts should run again after the source changes");
+                Assert(content.IsDirty(), "Callable parts without tracked inputs remain dynamic");
             });
 
     return suite;

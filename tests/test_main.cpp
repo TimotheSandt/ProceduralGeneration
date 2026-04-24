@@ -12,9 +12,10 @@ int main()
         Logger::SetMinimumLevel(L_FATAL);
 
         const std::vector<tests::TestSuite> suites = {
-            tests::CreateUtilitiesSuite(),  tests::CreateGraphicsAPISuite(), tests::CreateGraphicsCoreSuite(),
-            tests::CreateRenderersSuite(),  tests::CreateShaderSuite(),      tests::CreateNoiseSuite(),
-            tests::CreateProceduralSuite(), tests::CreateProfilerSuite(),    tests::CreateUIFoundationSuite()};
+            tests::CreateUtilitiesSuite(), tests::CreateGraphicsAPISuite(), tests::CreateGraphicsCoreSuite(),
+            tests::CreateRenderersSuite(), tests::CreateShaderSuite(),      tests::CreateNoiseSuite(),
+            tests::CreateProceduralSuite(), tests::CreateProfilerSuite(),    tests::CreateBindingSuite(),
+            tests::CreateUIFoundationSuite()};
 
         return tests::RunSuites(suites);
     }

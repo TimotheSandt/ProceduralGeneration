@@ -46,7 +46,8 @@ class TextWidgetBase : public ComponentBase
     static bool SizeDiffers(const glm::vec2 &lhs, const glm::vec2 &rhs);
 };
 
-template <typename Base, typename Derived> class ChainableTextWidget : public ChainableComponent<Base, Derived>
+template <typename Base, typename Derived>
+class ChainableTextWidget : public ChainableComponent<Base, Derived>
 {
   public:
     using ChainableComponent<Base, Derived>::ChainableComponent;
@@ -72,72 +73,37 @@ template <typename Base, typename Derived> class ChainableTextWidget : public Ch
 
 class Text : public ChainableTextWidget<TextWidgetBase, Text>
 {
-  private:
     TextContent textContent;
+
     void SyncDisplayText();
 
   public:
     Text(Bounds bounds, std::string text = {}, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT);
     Text(Bounds bounds, TextContent content, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT);
-    Text(Bounds bounds, const std::string *targetValue, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT);
 
     void Update() override;
     void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0}) override;
 
-    std::shared_ptr<Text> ClearContent();
-    std::shared_ptr<Text> ClearParts() { return ClearContent(); }
+    // ── Content ──────────────────────────────────────────────────
+
     std::shared_ptr<Text> SetContent(TextContent content);
-    TextContent &GetContent() { return textContent; }
-    const TextContent &GetContent() const { return textContent; }
-
     std::shared_ptr<Text> SetText(std::string text);
-    std::shared_ptr<Text> AppendText(std::string text);
-    std::shared_ptr<Text> SetLabel(std::string text) { return SetText(std::move(text)); }
-    std::shared_ptr<Text> AppendLabel(std::string text) { return AppendText(std::move(text)); }
-    const std::string &GetLabel() const { return this->GetText(); }
 
-    template <typename T> std::shared_ptr<Text> SetValue(const T *value)
-    {
-        textContent.Clear().AppendValue(value);
-        SyncDisplayText();
-        return std::static_pointer_cast<Text>(this->shared_from_this());
-    }
-
-    template <typename T> std::shared_ptr<Text> AppendValue(const T *value)
-    {
-        textContent.AppendValue(value);
-        SyncDisplayText();
-        return std::static_pointer_cast<Text>(this->shared_from_this());
-    }
-
-    template <typename TObject, typename Method> std::shared_ptr<Text> SetMethod(TObject *object, Method method)
-    {
-        textContent.Clear().AppendMethod(object, method);
-        SyncDisplayText();
-        return std::static_pointer_cast<Text>(this->shared_from_this());
-    }
-
-    template <typename TObject, typename Method> std::shared_ptr<Text> AppendMethod(TObject *object, Method method)
-    {
-        textContent.AppendMethod(object, method);
-        SyncDisplayText();
-        return std::static_pointer_cast<Text>(this->shared_from_this());
-    }
+    TextContent       &GetContent()       { return textContent; }
+    const TextContent &GetContent() const { return textContent; }
+    const std::string &GetLabel()   const { return this->GetText(); }
 };
 
-inline std::shared_ptr<Text> CreateText(Bounds bounds = Bounds(), std::string text = {}, float scale = 1.0f)
+// ── Factory ──────────────────────────────────────────────────────
+
+inline std::shared_ptr<Text> CreateText(Bounds bounds = {}, std::string text = {}, float scale = 1.0f)
 {
     return std::make_shared<Text>(bounds, std::move(text), scale);
 }
 
-inline std::shared_ptr<Text> CreateText(Bounds bounds, TextContent content, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT)
+inline std::shared_ptr<Text> CreateText(Bounds bounds, TextContent content, float scale = 1.0f, IdentifierKind kind = IdentifierKind::TEXT)
 {
-    return std::make_shared<Text>(bounds, std::move(content), scale, defaultKind);
-}
-
-inline std::shared_ptr<Text> CreateText(Bounds bounds, const std::string *targetValue, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT)
-{
-    return std::make_shared<Text>(bounds, targetValue, scale, defaultKind);
+    return std::make_shared<Text>(bounds, std::move(content), scale, kind);
 }
 
 } // namespace UI

@@ -145,7 +145,6 @@ void Game::update()
 
 void Game::render()
 {
-    const auto averageTimeMs = [](const char *name) { return static_cast<double>(Profiler::GetAverageTime(name).count()) * 1e-6; };
     const int windowWidth = *window.GetWidthptr();
     const int windowHeight = *window.GetHeightptr();
 
@@ -155,9 +154,6 @@ void Game::render()
     renderer3D.SetCamera(this->camera);
     Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), std::ref(renderer3D), std::ref(this->camera));
     Profiler::ProfileGPU("Upscale", &Renderer3D::EndPass, &renderer3D);
-
-    UI::Manager::Instance().SetPerformanceStats(averageTimeMs("Render"), averageTimeMs("RenderWorld"), averageTimeMs("Upscale"),
-                                                averageTimeMs("UIUpscale"), averageTimeMs("SwapBuffers"));
 
     rendererUI.SetOutputResolution(windowWidth, windowHeight);
     rendererUI.BeginPass();
