@@ -115,19 +115,19 @@ void Game::processInput()
     }
     if (inputManager.IsKeyJustPressed(KeyButton::NUM_5))
     {
-        rendererUI.SetRenderScale(0.25f);
+        UI::Manager::Instance().SetRenderScale(0.25f);
     }
     if (inputManager.IsKeyJustPressed(KeyButton::NUM_6))
     {
-        rendererUI.SetRenderScale(0.5f);
+        UI::Manager::Instance().SetRenderScale(0.5f);
     }
     if (inputManager.IsKeyJustPressed(KeyButton::NUM_7))
     {
-        rendererUI.SetRenderScale(0.75f);
+        UI::Manager::Instance().SetRenderScale(0.75f);
     }
     if (inputManager.IsKeyJustPressed(KeyButton::NUM_8))
     {
-        rendererUI.SetUpscalingEnabled(!rendererUI.IsUpscalingEnabled());
+        UI::Manager::Instance().ToggleUpscaling();
     }
 #endif
 }
@@ -155,8 +155,5 @@ void Game::render()
     Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), std::ref(renderer3D), std::ref(this->camera));
     Profiler::ProfileGPU("Upscale", &Renderer3D::EndPass, &renderer3D);
 
-    rendererUI.SetOutputResolution(*window.GetWidthptr(), *window.GetHeightptr());
-    rendererUI.BeginPass();
-    UI::Manager::Instance().Render(rendererUI, *window.GetWidthptr(), *window.GetHeightptr());
-    Profiler::ProfileGPU("UIUpscale", &Renderer2D::EndPass, &rendererUI);
+    Profiler::ProfileGPU("UIUpscale", &UI::Manager::Render, &UI::Manager::Instance(), *window.GetWidthptr(), *window.GetHeightptr());
 }

@@ -1,5 +1,4 @@
 #include "Manager.h"
-#include "Renderer2D.h"
 #include "Layout/HBox.h"
 #include "Layout/VBox.h"
 #include "Views/PerformanceView.h"
@@ -97,7 +96,7 @@ void Manager::Update(float dt, int w, int h)
     rootContainer->Update();
 }
 
-void Manager::Render(Renderer2D &renderer2D, int w, int h)
+void Manager::Render(int w, int h)
 {
     if (!active)
     {
@@ -110,12 +109,15 @@ void Manager::Render(Renderer2D &renderer2D, int w, int h)
         Init(w, h, window);
     }
 
+    renderer2D.SetOutputResolution(w, h);
+    renderer2D.BeginPass();
     renderer2D.BeginCanvasPass();
 
     // Draw root container with screen as container size
     glm::vec2 screenSize = {static_cast<float>(w), static_cast<float>(h)};
     rootContainer->Draw(screenSize, {0, 0});
     renderer2D.EndCanvasPass();
+    renderer2D.EndPass();
 }
 
 } // namespace UI
