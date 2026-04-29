@@ -23,7 +23,8 @@ enum class TexturePixelType : std::uint8_t
 enum class TextureFilterMode : std::uint8_t
 {
     Linear = 0,
-    Nearest
+    Nearest,
+    LinearNoMipmaps
 };
 
 class Texture

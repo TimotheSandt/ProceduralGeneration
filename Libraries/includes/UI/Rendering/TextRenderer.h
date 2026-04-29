@@ -37,6 +37,7 @@ struct Character
     glm::ivec2 size;
     glm::ivec2 bearing;
     unsigned int advance;
+    unsigned int glyphIndex = 0;
 };
 
 // Options de débordement
@@ -147,6 +148,9 @@ class TextRenderer
         FT_Face face;
         std::unordered_map<char, Character> characters;
         unsigned int fontSize;
+        float visibleAscender = 0.0f;
+        float visibleDescender = 0.0f;
+        float visibleLineHeight = 0.0f;
     };
 
     struct FontRegistration
@@ -173,6 +177,7 @@ class TextRenderer
     // Méthodes privées
     void setupRenderData();
     Character loadCharacter(FT_Face face, char c);
+    void computeFontMetrics(FontData &fontData);
     glm::vec2 calculateAnchorOffset(const std::string &text, float scale, TextAnchor anchor);
     bool ensureFontLoaded(const std::string &fontName, unsigned int fontSize);
     ResolvedFont resolveFont(float scale);

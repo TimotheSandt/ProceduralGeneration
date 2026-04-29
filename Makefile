@@ -51,10 +51,10 @@ endif
 
 ifeq ($(DETECTED_OS),Windows)
 	EXE_EXT := .exe
-	VCPKG_TRIPLET ?= x64-mingw-dynamic
-	GLFW_LINK_NAME := glfw3dll
+	VCPKG_TRIPLET ?= x64-mingw-static
+	GLFW_LINK_NAME := glfw3
 	PLATFORM_DEFINES += -DNOMINMAX -DWIN32_LEAN_AND_MEAN
-	LDFLAGS = -L$(VCPKG_INSTALLED_DIR)/lib -l$(GLFW_LINK_NAME) -lglad -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lpsapi -lwinmm -lgdi32 -lstdc++exp
+	LDFLAGS = -L$(VCPKG_INSTALLED_DIR)/lib -l$(GLFW_LINK_NAME) -lglad -lmsdfgen-core -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lpsapi -lwinmm -lgdi32 -luser32 -lshell32 -lopengl32 -lstdc++exp
 	COPY_LIBS_TARGETS := copy_libs
 	CREATE_INSTALLER := create_windows_installer
 	ARCHITECTURE := $(ARCHITECTURE_WINDOWS)
@@ -252,7 +252,7 @@ remove_deps:
 reset_deps:
 	@echo "Resetting dependencies with vcpkg..."
 	@$(RM_RF) $(VCPKG_INSTALLED_ROOT)
-	$(VCPKG) install --triplet=$(VCPKG_TRIPLET) --x-install-root=$(VCPKG_INSTALLED_ROOT)
+	$(MAKE) install_deps
 
 # Icon resource
 $(OBJ_DIR_TYPE)/src/icon.o: $(BIN_DIR_TYPE)/$(ICON_RC)

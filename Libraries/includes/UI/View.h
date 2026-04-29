@@ -8,8 +8,8 @@ namespace UI
 class View : public ContainerBase
 {
   protected:
-    explicit View(Bounds bounds)
-        : ContainerBase(bounds, true)
+    explicit View(Bounds bounds, bool useRenderTarget = true)
+        : ContainerBase(bounds, useRenderTarget)
     {
     }
 

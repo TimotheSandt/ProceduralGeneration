@@ -13,7 +13,7 @@ namespace UI
 {
 
 PerformanceView::PerformanceView(Bounds bounds, const Window *windowArg)
-    : View(bounds), window(windowArg)
+    : View(bounds, false), window(windowArg)
 {
 }
 

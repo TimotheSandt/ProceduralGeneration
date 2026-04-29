@@ -6,6 +6,11 @@
     "glfw3",
     "glm",
     "stb",
-    "freetype"
+    "freetype",
+    {
+      "name": "msdfgen",
+      "default-features": false,
+      "features": []
+    }
   ]
 }
