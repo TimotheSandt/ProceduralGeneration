@@ -89,6 +89,8 @@ class LetDecl:
     name: str
     type_: Optional[str]
     value: object           # Expr
+    line: int = 0
+    col:  int = 0
 
 
 @dataclass
@@ -104,6 +106,8 @@ class FuncDecl:
     params: list            # list of Param
     return_type: str
     body: object            # Expr
+    line: int = 0
+    col:  int = 0
 
 
 @dataclass
@@ -113,11 +117,15 @@ class WrappedField:
     type_: str
     optional: bool          # True if type ends with "?"
     default: Optional[object]  # Expr | None
+    line: int = 0
+    col:  int = 0
 
 
 @dataclass
 class CppBlock:
     content: str            # verbatim C++ code
+    line: int = 0
+    col:  int = 0
 
 
 # ── Modifier ─────────────────────────────────────────────────────────────────
@@ -127,6 +135,8 @@ class Modifier:
     name: str
     args: list              # positional Expr list
     named_args: dict        # label -> Expr
+    line: int = 0
+    col:  int = 0
 
     def __post_init__(self):
         if self.named_args is None:
@@ -142,6 +152,8 @@ class Element:
     named_args: dict        # label -> Expr
     children: list          # list of Element
     modifiers: list         # list of Modifier
+    line: int = 0
+    col:  int = 0
 
     def __post_init__(self):
         if self.named_args is None:
@@ -155,6 +167,8 @@ class ViewDecl:
     name: str
     fields: list            # list of WrappedField | LetDecl | FuncDecl | CppBlock
     root: Element           # single root element
+    line: int = 0
+    col:  int = 0
 
 
 @dataclass

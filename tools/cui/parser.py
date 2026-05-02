@@ -75,7 +75,8 @@ class Parser:
 
     def _parse_view(self) -> ViewDecl:
         self._expect(TT.KW_VIEW)
-        name = self._expect(TT.IDENT).value
+        name_tok = self._expect(TT.IDENT)
+        name = name_tok.value
         self._expect(TT.LBRACE)
         fields = []
         root = None
@@ -90,7 +91,7 @@ class Parser:
         self._expect(TT.RBRACE)
         if root is None:
             raise ParseError("View has no root element", self._peek())
-        return ViewDecl(name, fields, root)
+        return ViewDecl(name, fields, root, line=name_tok.line, col=name_tok.col)
 
     def _parse_view_stmt(self):
         tok = self._peek()
@@ -117,7 +118,8 @@ class Parser:
         default = None
         if self._match(TT.EQ):
             default = self._parse_expr()
-        return WrappedField(wrapper, name, type_, optional, default)
+        return WrappedField(wrapper, name, type_, optional, default,
+                            line=wrapper_tok.line, col=wrapper_tok.col)
 
     def _parse_type(self) -> tuple[str, bool]:
         """Returns (type_name, is_optional). Handles 'Foo?', 'Foo<Bar>', etc."""
@@ -132,19 +134,19 @@ class Parser:
     # ── let ───────────────────────────────────────────────────────────────────
 
     def _parse_let(self) -> LetDecl:
-        self._expect(TT.KW_LET)
+        let_tok = self._expect(TT.KW_LET)
         name = self._expect(TT.IDENT).value
         type_ = None
         if self._match(TT.COLON):
             type_, _ = self._parse_type()
         self._expect(TT.EQ)
         value = self._parse_expr()
-        return LetDecl(name, type_, value)
+        return LetDecl(name, type_, value, line=let_tok.line, col=let_tok.col)
 
     # ── func ──────────────────────────────────────────────────────────────────
 
     def _parse_func(self) -> FuncDecl:
-        self._expect(TT.KW_FUNC)
+        func_tok = self._expect(TT.KW_FUNC)
         name = self._expect(TT.IDENT).value
         self._expect(TT.LPAREN)
         params = self._parse_param_list()
@@ -163,7 +165,7 @@ class Parser:
             self._match(TT.SEMICOLON)   # trailing semicolon is optional in DSL
             self._expect(TT.RBRACE)
 
-        return FuncDecl(name, params, ret_type, body)
+        return FuncDecl(name, params, ret_type, body, line=func_tok.line, col=func_tok.col)
 
     def _parse_param_list(self) -> list[Param]:
         params = []
@@ -186,7 +188,7 @@ class Parser:
     # ── @cui-cpp block ────────────────────────────────────────────────────────
 
     def _parse_cpp_block(self) -> CppBlock:
-        self._expect(TT.AT_CUI_CPP)
+        cpp_tok = self._expect(TT.AT_CUI_CPP)
         self._expect(TT.LBRACE)
         # Everything until the matching } is verbatim C++
         # The lexer has already tokenized it, but we need the raw text.
@@ -206,7 +208,7 @@ class Parser:
                 parts.append("}")
             else:
                 parts.append(str(tok.value))
-        return CppBlock(" ".join(parts))
+        return CppBlock(" ".join(parts), line=cpp_tok.line, col=cpp_tok.col)
 
     # ── element ───────────────────────────────────────────────────────────────
 
@@ -229,15 +231,16 @@ class Parser:
         while self._at(TT.DOT):
             modifiers.append(self._parse_modifier())
 
-        return Element(name, args, named_args, children, modifiers)
+        return Element(name, args, named_args, children, modifiers,
+                       line=name_tok.line, col=name_tok.col)
 
     def _parse_modifier(self) -> Modifier:
-        self._expect(TT.DOT)
+        dot_tok = self._expect(TT.DOT)
         name = self._expect(TT.IDENT).value
         args, named_args = [], {}
         if self._at(TT.LPAREN):
             args, named_args = self._parse_call_args()
-        return Modifier(name, args, named_args)
+        return Modifier(name, args, named_args, line=dot_tok.line, col=dot_tok.col)
 
     # ── call arguments ────────────────────────────────────────────────────────
 

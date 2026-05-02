@@ -2,7 +2,7 @@
 
 #include "Core/Component.h"
 #include "Rendering/TextRenderer.h"
-#include "TextContent.h"
+#include "Utils/TextContent.h"
 
 #include <memory>
 #include <string>
@@ -88,6 +88,7 @@ class Text : public ChainableTextWidget<TextWidgetBase, Text>
   public:
     Text(Bounds bounds, std::string text = {}, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT);
     Text(Bounds bounds, TextContent content, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT);
+    Text(Bounds bounds, const std::string *value, float scale = 1.0f, IdentifierKind defaultKind = IdentifierKind::TEXT);
 
     void Update() override;
     void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0}) override;
@@ -96,6 +97,8 @@ class Text : public ChainableTextWidget<TextWidgetBase, Text>
 
     std::shared_ptr<Text> SetContent(TextContent content);
     std::shared_ptr<Text> SetText(std::string text);
+    std::shared_ptr<Text> ClearContent();
+    std::shared_ptr<Text> AppendText(std::string text);
 
     TextContent       &GetContent()       { return textContent; }
     const TextContent &GetContent() const { return textContent; }
@@ -112,6 +115,11 @@ inline std::shared_ptr<Text> CreateText(Bounds bounds = {}, std::string text = {
 inline std::shared_ptr<Text> CreateText(Bounds bounds, TextContent content, float scale = 1.0f, IdentifierKind kind = IdentifierKind::TEXT)
 {
     return std::make_shared<Text>(bounds, std::move(content), scale, kind);
+}
+
+inline std::shared_ptr<Text> CreateText(Bounds bounds, const std::string *value, float scale = 1.0f)
+{
+    return std::make_shared<Text>(bounds, value, scale);
 }
 
 } // namespace UI

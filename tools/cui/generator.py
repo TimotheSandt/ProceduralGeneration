@@ -547,10 +547,13 @@ class _GenContext:
         width  = mod.named_args.get("width")
         height = mod.named_args.get("height")
         anchor = mod.named_args.get("anchor")
-        w_str  = (self.gen_expr(width)  + "_px") if width  else "0"
-        h_str  = (self.gen_expr(height) + "_px") if height else "0"
+        w_str  = self._gen_pixel_value(width) if width else "UI::Value{0.0, UI::ValueType::PIXEL}"
+        h_str  = self._gen_pixel_value(height) if height else "UI::Value{0.0, UI::ValueType::PIXEL}"
         a_str  = self.gen_expr(anchor) if anchor else "UI::Anchor::TOP_LEFT"
         return f"UI::Bounds({w_str}, {h_str}, {a_str})"
+
+    def _gen_pixel_value(self, node) -> str:
+        return f"UI::Value{{static_cast<double>({self.gen_expr(node)}), UI::ValueType::PIXEL}}"
 
     def _gen_mod_args(self, mod: Modifier) -> str:
         # Special modifiers have their own arg-wrapping rules

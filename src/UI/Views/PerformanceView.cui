@@ -1,3 +1,5 @@
+import "Profiler/Profiler.h"
+
 view PerformanceView {
     @Observed var window: Window?
 
