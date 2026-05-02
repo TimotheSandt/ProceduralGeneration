@@ -27,8 +27,11 @@ class TextWidgetBase : public ComponentBase
     void Update() override;
     void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0}) override;
 
+    /** @cui-modifier scale,textScale */
     void DoSetTextScale(float scale);
+    /** @cui-modifier textAnchor */
     void DoSetTextAnchor(TextAnchor anchor);
+    /** @cui-modifier autoSize */
     void DoSetAutoSize(bool enabled);
 
     const std::string &GetText() const { return displayedText; }
@@ -71,6 +74,11 @@ class ChainableTextWidget : public ChainableComponent<Base, Derived>
     }
 };
 
+/**
+ * @cui-component
+ * @cui-accepts-children false
+ * @cui-content-model text_content
+ */
 class Text : public ChainableTextWidget<TextWidgetBase, Text>
 {
     TextContent textContent;

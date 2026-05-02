@@ -9,3 +9,6 @@ obj/
 logs/
 *.log
 imgui.ini
+Generated/
+tools/cui/__pycache__/
+tools/cui/*.pyc

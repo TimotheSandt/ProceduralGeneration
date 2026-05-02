@@ -36,6 +36,8 @@ void ContainerBase::Initialize()
 void ContainerBase::Update()
 {
     ComponentBase::Update();
+    if (WasThrottled())
+        return;
 
     // Apply deferred layout properties
     bool layoutChanged = false;

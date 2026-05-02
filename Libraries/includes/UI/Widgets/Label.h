@@ -5,6 +5,10 @@
 namespace UI
 {
 
+/**
+ * @cui-alias Text
+ * @cui-factory UI::CreateLabel
+ */
 using Label = Text;
 
 inline std::shared_ptr<Label> CreateLabel(Bounds bounds = Bounds(), std::string text = {}, float scale = 1.0f)

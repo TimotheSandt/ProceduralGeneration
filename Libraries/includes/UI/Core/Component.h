@@ -5,6 +5,7 @@
 #include <array>
 #include <string>
 #include <utility>
+#include <chrono>
 
 #include "InputManager.h"
 #include "Sprite.h"
@@ -43,6 +44,11 @@ class ComponentBase : public std::enable_shared_from_this<ComponentBase>
     DeferredValue<glm::vec4> color;
     bool isDeformed = false;
     DeferredValue<bool> allowDeform = false;
+
+    // Throttle
+    std::chrono::duration<double> throttlePeriod{0};
+    std::chrono::high_resolution_clock::time_point lastThrottleUpdate{};
+    bool throttledThisFrame = false;
 
     // Animation state
     glm::vec2 offset = {0, 0};
@@ -89,10 +95,14 @@ class ComponentBase : public std::enable_shared_from_this<ComponentBase>
     glm::vec4 GetColor() const { return color.Get(); }
 
     // DoSet... methods (impl in .cpp)
+    /** @cui-modifier color */
     void DoSetColor(glm::vec4 c);
+    void DoSetColor(float r, float g, float b, float a) { DoSetColor({r, g, b, a}); }
     void DoSetTheme(std::weak_ptr<Theme> t);
     void DoSetIdentifierKind(IdentifierKind k);
     void DoSetAllowDeform(bool allow);
+    void DoSetThrottlePeriod(std::chrono::duration<double> period);
+    bool WasThrottled() const { return throttledThisFrame; }
 
     bool DoesAllowDeform() const { return allowDeform.Get(); }
     void DoSetDeform(bool deform)
@@ -140,6 +150,18 @@ template <typename Base, typename Derived> class ChainableComponent : public Bas
     std::shared_ptr<Derived> SetColor(glm::vec4 c)
     {
         this->DoSetColor(c);
+        return std::static_pointer_cast<Derived>(this->shared_from_this());
+    }
+
+    std::shared_ptr<Derived> SetColor(float r, float g, float b, float a)
+    {
+        this->DoSetColor(r, g, b, a);
+        return std::static_pointer_cast<Derived>(this->shared_from_this());
+    }
+
+    std::shared_ptr<Derived> SetThrottlePeriod(std::chrono::duration<double> period)
+    {
+        this->DoSetThrottlePeriod(period);
         return std::static_pointer_cast<Derived>(this->shared_from_this());
     }
 

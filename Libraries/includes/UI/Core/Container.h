@@ -88,8 +88,11 @@ class ContainerBase : public ComponentBase
     float GetSpacing() const { return spacing.Get(); }
     size_t GetChildCount() const { return children.size(); }
 
+    /** @cui-modifier padding */
     void DoSetPadding(float p);
+    /** @cui-modifier spacing */
     void DoSetSpacing(float s);
+    /** @cui-modifier overflowMode */
     void DoSetOverflowMode(OverflowMode mode);
     void DoSetChildrenAllowDeform(bool deform);
 
@@ -143,7 +146,10 @@ template <typename Base, typename Derived> class ChainableContainer : public Cha
     }
 };
 
-// Concrete UIContainer
+/**
+ * @cui-component
+ * @cui-accepts-children true
+ */
 class Container : public ChainableContainer<ContainerBase, Container>
 {
   public:

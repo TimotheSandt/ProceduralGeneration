@@ -102,7 +102,9 @@ wrapper       := "@Observed" | "@Mutable" | "@Snapshot" | "@State" | "@Binding"
 let_decl    := "let" IDENT ("=" expr | ":" type "=" expr)
 var_decl    := "var" IDENT ("=" expr | ":" type "=" expr)
 
-func_decl   := "func" IDENT "(" param_list? ")" "->" type "=" expr
+func_decl   := "func" IDENT "(" param_list? ")" "->" type func_body
+func_body   := "=" expr                          // single-expression (simple calculations)
+             | "{" "return" expr ";"? "}"         // block form (C++ style, for clarity)
 param_list  := param ("," param)*
 param       := IDENT ":" type [ "=" expr ]
 

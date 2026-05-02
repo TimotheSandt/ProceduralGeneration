@@ -16,7 +16,9 @@ class VBoxBase : public ContainerBase
     HAlign GetChildAlignment() const { return childAlignment; }
     JustifyContent GetJustifyContent() const { return justifyContent; }
 
+    /** @cui-modifier childAlignment */
     void DoSetChildAlignment(HAlign align);
+    /** @cui-modifier justifyContent */
     void DoSetJustifyContent(JustifyContent j);
 
     glm::vec2 GetAvailableSize() const override;
@@ -43,6 +45,11 @@ template <typename Base, typename Derived> class ChainableVBox : public Chainabl
     }
 };
 
+/**
+ * @cui-component
+ * @cui-accepts-children true
+ * @cui-extends Container
+ */
 class VBox : public ChainableVBox<VBoxBase, VBox>
 {
   public:
