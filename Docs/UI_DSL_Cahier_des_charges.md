@@ -1,6 +1,30 @@
 # UI DSL - Cahier des charges et plan d'implementation
 
-Version cible: 0.1
+Version cible: 0.2
+
+## 0. Changelog
+
+### 0.2 (en cours)
+
+- Surface du langage refondue dans un style SwiftUI.
+- `body { ... }` n'est plus obligatoire : le corps de la vue est le contenu direct du bloc `view`.
+- Suppression des qualifiants `let / ref / state` dans la liste de parametres. A leur place : property wrappers `@Observed`, `@Snapshot`, `@State` et `@Binding`.
+- Interpolation de chaine `"\(expr)"` ajoutee. Concatenation `+` toujours toleree.
+- Acces propriete pour les getters : `window.averageFPS` resout `Get` + lower-camelCase vers `Window::GetAverageFPS()`.
+- Ordre des modifieurs : enfants d'abord, modifieurs chaines apres.
+- `func name(args) -> T = expression` pour les helpers mono-expression. `@cui-cpp` reste en escape hatch.
+- Appels de namespace en notation pointee : `Profiler.averageTime(...)` (le `::` reste accepte).
+- Litteraux numeriques : pixels par defaut, plus besoin de suffixe `.px`.
+- Cas d'enum a tete pointee : `.topLeft` quand le type est connu du contexte.
+- **Modes de capture explicites pour les expressions reactives** : `once expr` capture la valeur une seule fois au moment du `Build()`, `always expr` force une re-evaluation a chaque `Update()`, defaut = reactif (re-evalue uniquement quand une dependance change).
+- **Tag `@cui-volatile`** pour marquer les fonctions / methodes C++ qui lisent le temps, un RNG ou un etat global (non-pures). Le precompilateur force leur re-evaluation a chaque tick meme si leurs arguments n'ont pas change. Defaut = pure, cachee sur les arguments.
+- **Modifieur `.throttle(period)`** : plafonne le taux de re-evaluation d'un composant et de **tous ses descendants**. Une expression interne ne peut jamais s'updater plus souvent que le `.throttle` de son ancetre le plus restrictif. Periode en secondes (`0.5` ou suffixe explicite `.s`, `.ms`).
+
+Les sections runtime / pipeline (§2, §7, §9, §10, §12, §13, §14, §16-§19, §21, §23, §24, §26) sont conservees telles quelles : seul le langage de surface change.
+
+### 0.1
+
+Premiere version. Surface inspiree de SwiftUI / Kotlin DSL avec qualifiants `let / ref / state` et bloc `body { }`.
 
 ## 1. Objectif
 
@@ -35,98 +59,271 @@ Le DSL ne doit pas contourner cette logique. Il doit l'utiliser.
 6. Les objets bindes dans les methodes font partie des dependances.
 7. Les composants futurs doivent pouvoir etre ajoutes sans changer la grammaire de base.
 8. Le code genere doit rester lisible et debug-able.
+9. La surface du langage doit ressembler a SwiftUI : une vue est une struct dont le corps est l'arbre UI direct, les dependances reactives sont declarees par des property wrappers (`@Observed`, `@Snapshot`, `@State`), les modifieurs s'enchainent apres le bloc d'enfants, le texte se compose par interpolation `"\(expr)"`.
 
 ## 4. Format cible
 
 Le DSL doit pouvoir decrire:
 
-- une `view`
-- des composants enfants
-- des valeurs statiques
-- des valeurs dynamiques
-- des appels de fonctions
-- des appels de methodes sur objet
-- des modificateurs chaines
-- des blocs conditionnels
-- des listes / boucles plus tard
+- une `view` avec ses property wrappers (dependances reactives, snapshots, etat local)
+- des composants enfants imbriques
+- des valeurs statiques (literaux, `let` local, `@Snapshot`)
+- des valeurs dynamiques (`@Observed`, `@Binding`, `@State`)
+- des appels de fonctions, libres ou exposees via namespace
+- des appels de methodes sur objet, en forme propriete (getter sans argument) ou en appel explicite
+- des modificateurs chaines apres le bloc d'enfants
+- de l'interpolation de chaine `"\(expr)"`
+- des helpers mono-expression `func name(args) -> T = expr`
+- des blocs conditionnels et listes / boucles plus tard
 
-Le format cible doit rester proche de SwiftUI / KotlinUI:
+Le format cible suit la convention SwiftUI:
 
-- `body { ... }`
-- composants imbriques
-- chaines de modificateurs
-- donnees de l'exterieur marquees explicitement
+- pas de bloc `body` obligatoire : le corps de la vue est le contenu direct du `view { }`
+- les property wrappers `@Observed`, `@Snapshot`, `@State`, `@Binding` declarent les dependances en tete de vue
+- les composants imbriques contiennent leurs enfants entre `{ }`, puis les modifieurs sont chaines a la suite via `.modifier(...)`
+- les donnees externes ne sont jamais devinees : elles arrivent par un wrapper explicite
 
 ## 5. Grammaire minimale
 
-La grammaire 1.0 doit couvrir au minimum:
+La grammaire 0.2 couvre au minimum:
 
 ```txt
-view_decl   := "view" IDENT "(" param_list? ")" block
+file        := import* view_decl+
+
+import      := "import" string_literal
+
+view_decl   := "view" IDENT view_block
+view_block  := "{" view_stmt* "}"
+view_stmt   := wrapped_field | let_decl | var_decl | func_decl | cpp_block | element
+
+wrapped_field := wrapper "var" IDENT ":" type [ "=" expr ]
+wrapper       := "@Observed" | "@Snapshot" | "@State" | "@Binding"
+
+let_decl    := "let" IDENT ("=" expr | ":" type "=" expr)
+var_decl    := "var" IDENT ("=" expr | ":" type "=" expr)
+
+func_decl   := "func" IDENT "(" param_list? ")" "->" type "=" expr
 param_list  := param ("," param)*
-param       := IDENT ":" type [ "=" expr ] [ qualifier ]
-qualifier   := "let" | "ref" | "state"
-block       := "{" stmt* "}"
-stmt        := component | let_decl | if_stmt | for_stmt
-component   := IDENT "(" arg_list? ")" modifier_chain? block?
-arg_list    := expr ("," expr)*
-modifier_chain := ("." IDENT "(" arg_list? ")")*
-expr        := string | number | identifier | call | member_call | concat | paren
+param       := IDENT ":" type [ "=" expr ]
+
+cpp_block   := "@cui-cpp" "{" /* C++ verbatim */ "}"
+
+element     := IDENT call_args? children_block? modifier_chain?
+call_args   := "(" arg_list? ")"
+arg_list    := arg ("," arg)*
+arg         := [ IDENT ":" ] expr
+children_block := "{" element* "}"
+modifier_chain := ("." IDENT call_args)*
+
+expr        := capture_expr
+            |  interp_string
+            |  number
+            |  duration_literal
+            |  bool_literal
+            |  enum_case
+            |  identifier
+            |  property_access
+            |  call_expr
+            |  binary_expr
+            |  paren_expr
+
+capture_expr := ("once" | "always") expr
+
+interp_string := '"' (text_seg | "\(" expr ")")* '"'
+enum_case     := "." IDENT
+property_access := expr "." IDENT
+call_expr   := (expr | namespace_path) call_args
+namespace_path := IDENT ("." IDENT | "::" IDENT)*
+binary_expr := expr ("+" | "-" | "*" | "/") expr
+
+duration_literal := number ("." ("s" | "ms" | "us" | "ns"))?
 ```
 
 Notes:
 
-- `let` = valeur figee
-- `ref` = valeur externe suivie
-- `state` = etat possede par la vue
-- les composants sont resolves par nom
-- les modificateurs suivent les methodes chainables C++
+- pas de bloc `body` obligatoire ; le contenu de `view_block` est lu en sequence et l'unique element racine y est attendu
+- `@Observed` = pointeur ou reference externe suivie en lecture seule ; declenche un `Bind(...)` au site d'usage
+- `@Snapshot` = valeur externe figee a la construction
+- `@State` = etat appartenant a la vue ; ecriture marque dirty le sous-arbre
+- `@Binding` = pointeur ou reference externe suivie et modifiable ; lecture/ecriture vers une source externe
+- `let` = constante locale a la vue
+- `var` = variable locale mutable, non persistante et non reactive par defaut
+- `const` n'est pas un mot-cle separe en 0.2 ; utiliser `let` pour une constante locale ou `@Snapshot` pour une entree externe figee
+- `func` = helper mono-expression ; le bloc `{ ... }` reste reserve a 0.3
+- `enum_case` a tete pointee : `.topLeft` resout un cas dont le type est connu via le contexte (parametre, modifieur)
+- les modifieurs viennent toujours apres le bloc d'enfants
+- les composants sont resolus par nom dans le registre
+- l'interpolation de chaine produit une suite de fragments transmis au constructeur variadique de `UI::TextContent`
+- `capture_expr` : `once expr` snapshote la valeur lors du `Build()` initial (compile en `BindStatic` ou copie locale) ; `always expr` force la re-evaluation a chaque `Update()` independamment de tout cache d'arguments. Sans prefixe, l'expression est reactive : reevaluee uniquement quand une dependance change.
+- `duration_literal` : un nombre nu represente des secondes ; les suffixes `.s`, `.ms`, `.us`, `.ns` permettent une lecture explicite (`0.5`, `0.5.s`, `500.ms` sont equivalents).
 
 ## 6. Modeles de donnees
 
-### 6.1 Valeur statique
+### 6.1 `@Snapshot` - valeur statique
 
-Une valeur statique est capturee une seule fois.
+Une valeur `@Snapshot` est capturee une seule fois a la construction de la vue.
 
 Exemples:
 
-- texte litteral
-- nombre ecrit dans le DSL
+- texte litteral passe en parametre
+- nombre fixe pour la duree de vie de la vue
 - valeur C++ non reactive
 
 Regle:
 
-- elle ne devient jamais dirty
-- elle est traduite vers une copie locale ou vers `BindStatic(...)`
+- ne devient jamais dirty
+- compilee vers une copie locale ou `UI::BindStatic(...)`
+- le champ `@Snapshot` apparait comme parametre du constructeur C++ genere
+- equivalent local : un simple `let X = expr` dans le corps de la vue
 
-### 6.2 Valeur dynamique
+### 6.2 `@Observed` - valeur dynamique
 
-Une valeur dynamique est comparee a sa derniere valeur utilisee.
+Une valeur `@Observed` est un pointeur ou une reference externe suivie en lecture seule. La vue ne possede pas la source et ne doit pas pouvoir la modifier depuis le DSL.
+
+Difference avec `@Binding`:
+
+- `@Observed` lit la source externe actuelle
+- `@Observed` detecte les changements de la source externe
+- `@Observed` interdit les ecritures directes et les appels de methodes mutables depuis le DSL
+- `@Binding` lit et peut aussi ecrire dans la source externe
 
 Regle:
 
-- si `==` dit que la valeur a change, elle devient dirty
+- si `==` dit que la valeur (ou l'objet pointe) a change, elle devient dirty
 - apres `apply()` ou evaluation, la snapshot est mise a jour
-- si le type ne sait pas se comparer ou se copier, il faut un mode externe / toujours dirty
+- si le type ne sait pas se comparer ou se copier, on tombe sur un mode "toujours dirty"
+- le champ `@Observed` apparait comme parametre du constructeur C++ genere
+- le C++ genere doit privilegier `const T *` ou `const T &` quand c'est possible
+- seules les methodes exposees comme lecture seule peuvent etre appelees sur un `@Observed`
 
 Correspondance C++ actuelle:
 
 - `UI::BindDynamic(...)`
+- `UI::Bind(this->field, &T::Method, ...)` au site d'appel
 - `UI::BindValue::IsDirty()`
 
-### 6.3 Etat local de vue
+### 6.3 `@State` - etat local de vue
 
-Une valeur `state` appartient a la vue.
+Un champ `@State` appartient a la vue. Il est initialise inline, n'apparait pas dans le constructeur, conserve sa valeur entre les updates et participe au dirty tracking.
+
+Il sert aux donnees UI internes, par exemple:
+
+- panneau ouvert/ferme
+- onglet selectionne
+- valeur courante d'un controle local
+- texte en cours de saisie
+- compteur interne
+
+Difference avec `let` et `var`:
+
+- `let` est une constante locale, non modifiable et non reactive par elle-meme
+- `var` est une variable locale mutable, mais temporaire et non reactive par defaut
+- `@State` est mutable, persistant, reactive, et stocke comme membre de la vue generee
 
 Regle:
 
-- seule la vue la modifie
-- la modification marque le noeud concerné dirty
-- elle peut etre compilee vers `DeferredValue<T>` ou un wrapper equivalent
+- seule la vue le modifie
+- l'ecriture marque dirty le sous-arbre concerne
+- compile vers `DeferredValue<T>` ou un wrapper equivalent
+- peut etre passe a une vue enfant sous forme de `@Binding` via une syntaxe du type `$stateName`
 
-### 6.4 Fonction
+Exemple:
 
-Une fonction pure ou impure peut etre utilisee dans une expression.
+```cui
+view Counter {
+    @State var count: int = 0
+
+    VBox {
+        Text("Count: \(count)")
+        Button("Add") {
+            count = count + 1
+        }
+    }
+}
+```
+
+### 6.4 `@Binding` - reference externe modifiable
+
+Une valeur `@Binding` est une reference ou un pointeur externe suivi, comme `@Observed`, mais modifiable depuis la vue.
+
+Elle ne possede pas la source. Elle permet a une vue enfant ou a un composant de lire et modifier une valeur qui appartient ailleurs:
+
+- un `@State` d'une vue parente
+- une variable C++ explicitement passee comme binding
+- une propriete d'un modele expose en lecture/ecriture
+
+Regle:
+
+- dirty si la source externe change
+- dirty si la vue ecrit dans la source
+- doit compiler vers un acces non-const (`T *`, `T &`, ou wrapper equivalent)
+- peut appeler des methodes mutables explicitement exposees
+- ne doit pas etre cree implicitement depuis n'importe quelle expression
+
+Le cas principal est le passage d'un `@State` parent a une vue enfant:
+
+```cui
+view Parent {
+    @State var volume: float = 0.5
+
+    VBox {
+        Slider(value: $volume)
+        Text("Volume: \(volume)")
+    }
+}
+
+view Slider {
+    @Binding var value: float
+}
+```
+
+Etat d'implementation:
+
+- semantique definie en 0.2
+- implementation complete reservee a 0.3 si le runtime n'a pas encore le wrapper bidirectionnel
+
+### 6.5 `let`, `var`, `const` - variables locales non reactives
+
+Ces mots ne declarent pas des dependances externes. Ils servent uniquement a organiser le code de la vue.
+
+`let`:
+
+- constante locale
+- non modifiable
+- peut etre compilee en `constexpr`, `const auto`, ou variable locale simple
+- a utiliser pour les valeurs repetees, comme une taille, une couleur ou un label fixe
+
+`var`:
+
+- variable locale mutable
+- utile pour des calculs temporaires
+- non persistante entre les updates
+- ne marque pas l'UI dirty par elle-meme
+
+`const`:
+
+- non retenu comme mot-cle DSL en 0.2
+- ferait doublon avec `let`
+- si une valeur vient de l'exterieur et doit etre figee, utiliser `@Snapshot`
+
+Exemple:
+
+```cui
+view Metrics {
+    let scale = 0.45
+
+    Text("FPS")
+        .SetTextScale(scale)
+}
+```
+
+### 6.6 Fonction
+
+Une fonction pure ou impure peut etre utilisee dans une expression. Trois sources :
+
+- helper mono-expression `func name(args) -> T = expr` declare dans la vue
+- fonction libre exposee par `@cui-expose`
+- methode statique dans un namespace exposee par `@cui-expose`
 
 Regle:
 
@@ -139,12 +336,17 @@ Correspondance C++ actuelle:
 - `UI::Call(...)`
 - `UI::BindFunc`
 
-### 6.5 Methode sur objet
+### 6.7 Methode sur objet
 
 Une methode d'objet est une dependance a deux niveaux:
 
 - l'objet lui-meme
 - les arguments de la methode
+
+Deux notations dans le DSL :
+
+- forme propriete : `window.averageFPS` resout vers la methode `Window::GetAverageFPS()` exposee
+- forme appel : `window.someMethod(arg)` ou `Profiler.averageTime("Render")`
 
 Regle:
 
@@ -158,6 +360,74 @@ Correspondance C++ actuelle:
 - `UI::Bind(...)`
 - `UI::BindMethod`
 
+### 6.8 Modes de capture (`once`, `always`, defaut)
+
+Toute expression reactive (interpolee dans un `Text(...)`, passee a un modifieur, etc.) peut etre prefixee par un mot-cle de capture qui controle quand elle est evaluee.
+
+| Forme | Quand l'expression est-elle evaluee ? | Compile vers |
+|---|---|---|
+| `once expr`      | une seule fois lors du `Build()` initial | `UI::BindStatic(value)` ou copie locale ; `IsDirty()` retourne toujours `false` |
+| (sans prefixe)   | reactif : reevaluee quand une dependance change (mode 6.1-6.7) | `UI::Bind(...)`, `UI::Call(...)`, `UI::BindMethod(...)` selon la nature |
+| `always expr`    | a chaque `Update()`, independamment de tout cache | wrapper `UI::BindAlways(...)` ou `IsDirty()` qui retourne toujours `true` |
+
+Regles :
+
+- `once` est l'equivalent expression d'un `@Snapshot` : la valeur est figee, le precompilateur peut materialiser le resultat dans une `std::string` ou un `T` simple.
+- `always` doit etre utilise avec parcimonie : il neutralise le cache de `BindFunc`/`BindMethod` et force le recalcul. Utile pour les valeurs intrinsequement non-pures dont les dependances ne sont pas exprimables (timers internes, RNG, frame counter).
+- les deux mots-cles ne se composent pas : `once always expr` est rejete par la passe semantique.
+- les deux mots-cles peuvent envelopper n'importe quelle sous-expression : litteral, propriete, appel, binaire.
+
+Exemples :
+
+```cui
+Text("Construction date: \(once Time.now())")  // snapshot
+Text("FPS: \(window.averageFPS)")               // reactif (defaut)
+Text("Random tick: \(always nextRandom())")     // re-evalue chaque frame
+```
+
+### 6.9 Purete des fonctions exposees (`@cui-volatile`)
+
+Par defaut, toute fonction ou methode exposee via `@cui-expose` est consideree **pure** : son resultat depend uniquement de ses arguments. Le precompilateur cache donc le dernier resultat et ne reevalue que si un argument est dirty.
+
+Le tag `@cui-volatile` (place sur la declaration C++ a cote de `@cui-expose`) marque la fonction comme **non-pure** : son resultat peut changer sans que ses arguments aient change. Causes courantes : lecture du temps systeme, RNG, etat global mute par un autre thread.
+
+Regle :
+
+- une dependance dont la racine est un appel `@cui-volatile` est consideree dirty a chaque `Update()`
+- la propagation suit la regle 7 standard : un `Text(...)` qui contient un fragment volatile devient dirty a chaque tick
+- l'effet peut etre limite par un `.throttle(period)` ancetre (voir 6.10)
+
+Exemple :
+
+```cpp
+namespace Profiler {
+    /**
+     * @cui-expose
+     * @cui-volatile  // resultat depend des mesures glissantes recentes
+     */
+    std::chrono::nanoseconds GetAverageTime(const char* name);
+}
+```
+
+### 6.10 Throttle (limitation du taux de mise a jour)
+
+Le modifieur `.throttle(period)` plafonne la frequence a laquelle les expressions reactives portees par un composant peuvent etre re-evaluees.
+
+Semantique :
+
+- `period` est en secondes (`0.5`, `0.5.s`, `500.ms` sont equivalents)
+- une expression `IsDirty()` reportee comme dirty par sa source n'est ramenee a `apply()` que si **au moins `period` secondes se sont ecoulees** depuis la derniere evaluation effective sur ce composant
+- entre deux evaluations effectives, la valeur cachee precedente est reutilisee meme si la source est dirty
+- le throttle est un **plafond hereditaire** : un descendant ne peut jamais s'updater plus souvent que le throttle de son ancetre le plus restrictif. Si un parent declare `.throttle(0.5)` et un enfant `.throttle(0.1)`, le plafond effectif de l'enfant reste `0.5`.
+- a l'inverse, un descendant qui declare `.throttle(2.0)` sous un parent a `.throttle(0.5)` voit son propre plafond a `2.0` s'appliquer (le plus restrictif gagne, par composition `max(parent_period, self_period)`)
+- aucun throttle = pas de limitation (re-evalue a chaque `Update()` si dirty)
+
+Effet pratique :
+
+- les compteurs de FPS peuvent rafraichir 4 fois par seconde au lieu de 60 sans changer le DSL (`.throttle(0.25)`)
+- une vue de profilage globale peut imposer `.throttle(0.5)` au conteneur racine et tous les `Text` enfants en heritent automatiquement
+- les `@cui-volatile` sont desactives "implicitement" par un throttle ancetre : ils restent volatiles mais ne sont evalues qu'au prochain creneau autorise
+
 ## 7. Regle de dirty tracking
 
 Le DSL doit respecter la logique suivante:
@@ -170,13 +440,24 @@ Le DSL doit respecter la logique suivante:
 
 Cas par cas:
 
-- `static` -> jamais dirty
-- `ref` -> dirty si la valeur actuelle differente de la snapshot
-- `state` -> dirty quand la vue l'a modifie
-- `function` -> dirty si un argument est dirty
-- `method` -> dirty si un argument est dirty ou si l'objet a change
+- `static` ou `once expr` -> jamais dirty
+- `@Observed` -> dirty si la valeur actuelle est differente de la snapshot, lecture seule cote DSL
+- `@Binding` -> dirty si la valeur actuelle est differente de la snapshot ou si la vue ecrit dans la source, lecture/ecriture cote DSL
+- `@State` -> dirty quand la vue l'a modifie
+- `function` (pure, defaut) -> dirty si un argument est dirty
+- `function` annotee `@cui-volatile` -> dirty a chaque tick
+- `method` (pure) -> dirty si un argument est dirty ou si l'objet a change
+- `method` annotee `@cui-volatile` -> dirty a chaque tick
+- `always expr` -> dirty a chaque tick (force la re-evaluation)
 - `text` -> dirty si au moins une piece est dirty
 - `container` -> dirty si un enfant structurel change ou si un modificateur change
+
+Modulation par `.throttle(period)`:
+
+- chaque composant porteur d'un `.throttle` (et tous ses descendants) garde un timestamp `lastApplied`
+- une expression dirty est ignoree (cache reutilise) tant que `now - lastApplied < period`
+- au premier `apply()` apres expiration, l'expression est reevaluee normalement et `lastApplied` est mis a jour
+- la periode effective sur un sous-arbre est `max(period_self, period_parent_chain)` : le plafond le plus restrictif gagne
 
 ## 8. Gestion de l'affichage
 
@@ -244,42 +525,46 @@ return UI::CreateText(bounds, std::move(content), 0.45f);
 
 ## 11. Syntaxe cible proposee
 
-Exemple de vue:
+Exemple de vue minimale (style SwiftUI) :
 
 ```txt
-view PerformanceView(window: ref Window?) {
+view PerformanceView {
+    @Observed var window: Window?
+
     let scale = 0.45
 
-    body {
-        VBox(spacing: 4) {
-            Text("FPS: " + window.GetAverageFPS())
-                .SetTextScale(scale)
+    VBox {
+        Text("FPS: \(window.averageFPS)")
+            .scale(scale)
 
-            Text("Render: " + GetAverageRenderTimeMs())
-                .SetTextScale(scale)
-        }
+        Text("Render: \(averageRenderTimeMs())")
+            .scale(scale)
     }
+    .spacing(4)
 }
 ```
 
-Exemple plus proche d'un ecran simple:
+Exemple plus proche d'un ecran simple :
 
 ```txt
-view ScoreView(score: ref int, title: let string) {
-    body {
-        Text(title + ": " + score)
-            .SetTextScale(0.8)
-    }
+view ScoreView {
+    @Observed var score: int
+    @Snapshot var title: string
+
+    Text("\(title): \(score)")
+        .scale(0.8)
 }
 ```
 
-Regles d'ecriture:
+Regles d'ecriture :
 
-- `view` definit une classe de vue
-- `body` definit l'arbre UI principal
-- `Text(...)` produit un composant texte
-- les appels chaines apres un composant deviennent des modificateurs
-- une reference externe utilisee sans `let` doit etre traitee comme dynamique
+- `view` definit une classe de vue compilee vers `UI::View`
+- pas de bloc `body` : le contenu de `view { }` est lu en sequence ; il doit contenir un et un seul element racine apres les declarations de wrappers, `let` et `func`
+- `@Observed`, `@Snapshot`, `@State` declarent les dependances de la vue
+- `Text(...)` produit un composant texte ; ses parties sont les fragments d'interpolation
+- les modifieurs viennent toujours apres le bloc d'enfants (`.modifier(args)`)
+- les noms de modifieurs sont en camelCase et ne portent pas le prefixe `Set`
+- une reference externe non declaree comme `@Observed` ou `@Snapshot` est rejetee : pas de capture implicite
 
 ## 12. Equivalent C++ genere
 
@@ -404,6 +689,18 @@ Objectif:
 - construire l'AST
 - remonter des erreurs lisibles
 
+Points de vigilance specifiques 0.2 :
+
+- segments `\(...)` dans une chaine litterale doivent etre splits en plusieurs noeuds d'expression
+- declarations `@Observed var`, `@Snapshot var`, `@State var` et `@Binding var` doivent etre reconnues en tete de bloc `view`
+- cas d'enum a tete pointee (`.topLeft`) doivent etre acceptes la ou un type d'enum est attendu, et resolus en passe semantique
+- helper `func name(...) -> T = expression` accepte uniquement la forme mono-expression (pas de bloc `{}`)
+- chemin de namespace : `Profiler.averageTime(...)` et `Profiler::averageTime(...)` doivent etre acceptes
+- ordre des elements : declarations puis exactement un element racine (composant)
+- modifieurs `.foo(...)` toujours apres un bloc `{ ... }` d'enfants ou apres une expression d'element
+- mots-cles de capture `once expr` et `always expr` reconnus comme prefixes d'expression ; rejet de `once always` ou `always once` combines
+- litteraux de duree : `0.5`, `0.5.s`, `500.ms`, `1000.us`, `100.ns` tous parsables et normalisables vers `std::chrono::duration<double>`
+
 Livrable:
 
 - parseur minimal
@@ -416,7 +713,13 @@ Objectif:
 - verifier les types
 - verifier les arguments
 - verifier les composants connus
-- verifier les qualifiants `let`, `ref`, `state`
+- verifier les wrappers `@Observed`, `@Snapshot`, `@State` et `@Binding`
+- verifier qu'un cas d'enum pointe (`.topLeft`) correspond bien a un cas du type attendu
+- verifier qu'un acces propriete (`obj.foo`) correspond a une methode `Get*` exposee a zero argument
+- verifier qu'un appel de namespace cible un symbole `@cui-expose`
+- verifier que `once expr` et `always expr` ne sont pas combines (rejet en passe semantique)
+- propager le flag `volatile` issu de `@cui-volatile` sur les chaines d'appel pour orienter le choix `BindFunc` / `BindAlways`
+- valider que `.throttle(period)` recoit une duree compatible (nombre nu = secondes, ou suffixe `.s`/`.ms`/`.us`/`.ns`)
 
 Livrable:
 
@@ -453,11 +756,16 @@ Objectif:
 
 - confirmer qu'un changement de valeur ne recalcule que ce qui est necessaire
 - confirmer que les methodes suivent aussi l'objet
+- confirmer que `once expr` est evalue exactement une fois (pas de re-eval ulterieure meme si la source change)
+- confirmer que `always expr` est dirty a chaque tick (jamais cache)
+- confirmer qu'une fonction `@cui-volatile` neutralise le cache d'arguments
+- confirmer que `.throttle(period)` plafonne la frequence reelle d'`apply()` et que la composition parent/enfant respecte `max(period_chain)`
 
 Livrable:
 
 - tests unitaires
 - tests d'integration UI
+- support runtime du throttle dans `ContainerBase` (champ `throttlePeriod`, calcul `effectivePeriod` lors du parcours, gating des `apply()`)
 
 ### Etape 8 - Extensions
 
@@ -563,6 +871,7 @@ Tags supportes:
 | `@cui-content-model <kind>` | classe | `none`, `text_content` |
 | `@cui-modifier [dsl_name]` | methode `DoSetX` | expose comme modifieur DSL, genere le chainable `SetX` si absent |
 | `@cui-expose` | fonction / methode | rend appelable depuis le DSL |
+| `@cui-volatile` | fonction / methode | force la re-evaluation a chaque tick (resultat non-pur). Defaut = pure, cache sur les arguments |
 | `@cui-alias <component>` | classe | alias avec factory differente |
 | `@cui-enum` | enum | expose l'enum au DSL |
 | `@cui-dsl-name <name>` | methode / enum value | renomme dans le DSL |
@@ -585,12 +894,105 @@ Le tag `@cui-modifier` se place sur la methode `DoSetX` dans la classe Base, pas
 
 Comportement du precompilateur:
 - detecte `DoSetFoo(T arg)` annote `@cui-modifier`
-- nom DSL infere: retire le prefixe `DoSet`, met en camelCase (`DoSetTextScale` → `textScale`)
-- le nom peut etre overridde: `@cui-modifier myName`
+- nom DSL infere : retire le prefixe `DoSet`, met en lower-camelCase (`DoSetTextScale` → `textScale`, `DoSetPadding` → `padding`)
+- le nom peut etre overridde : `@cui-modifier scale` permet d'ecrire `.scale(...)` au lieu de `.textScale(...)`
+- des alias multiples sont autorises : `@cui-modifier scale,textScale` enregistre les deux
 - si `SetFoo(T arg)` chainable existe deja → enregistre seulement dans le registre
 - si `SetFoo` n'existe pas → genere le wrapper chainable retournant `std::shared_ptr<Derived>`
 
 Deux modes doivent coexister.
+
+### 20.0.3 Acces propriete pour les getters
+
+Toute methode exposee par `@cui-expose` qui :
+
+- a un nom commencant par `Get`
+- prend zero argument
+- est `const` ou retourne par valeur
+
+est automatiquement aliasee en propriete dans le DSL : on retire `Get` et on met le premier caractere en minuscule.
+
+Exemples :
+- `Window::GetAverageFPS()`            → `window.averageFPS`
+- `Window::GetMaxFPS()`                 → `window.maxFPS`
+- `Profiler::GetAverageTime(name)`      → `Profiler.averageTime(name)` (1 argument, pas un getter, donc pas en propriete : `Profiler.getAverageTime(...)` reste valide aussi avec strip de `Get`)
+
+L'appel explicite avec parentheses (`window.averageFPS()`) reste valide. Le tag `@cui-dsl-name` peut toujours forcer un nom different.
+
+### 20.0.4 Cas d'enum a tete pointee
+
+Quand le contexte fournit un type d'enum (par exemple un parametre nomme `anchor: Anchor` ou un modifieur `.anchor(...)`), le DSL accepte la notation courte `.topLeft` au lieu de `Anchor.topLeft`. La forme qualifiee reste valide. Le precompilateur enregistre les noms d'enum exposes par `@cui-enum` en lower-camelCase.
+
+### 20.0.5 Tag `@cui-volatile`
+
+Le tag `@cui-volatile` se place sur une declaration C++ deja annotee `@cui-expose`. Il declare que le resultat de la fonction / methode peut changer sans que ses arguments aient change.
+
+Causes typiques :
+- lecture d'un timer systeme (`std::chrono::steady_clock::now()`)
+- generateur pseudo-aleatoire
+- moyenne glissante calculee a partir d'echantillons internes (`Profiler::GetAverageTime`)
+- etat partage modifie par un autre thread
+
+Effet sur la generation :
+- l'entree du registre porte un flag `volatile = true`
+- a chaque appel dans le DSL, l'expression est consideree dirty meme si tous ses arguments sont stables
+- combine avec un `.throttle(period)` ancetre, l'evaluation reste plafonnee a `period` (voir §20.0.6)
+
+Sans `@cui-volatile`, le precompilateur suppose la fonction pure : il delegue le cache a `UI::BindFunc` / `UI::BindMethod` qui detectent les changements d'arguments via `==`.
+
+Exemple :
+
+```cpp
+namespace Profiler {
+    /**
+     * @cui-expose
+     * @cui-volatile
+     */
+    std::chrono::nanoseconds GetAverageTime(const char* name);
+}
+```
+
+### 20.0.6 Modifieur `.throttle(period)`
+
+`.throttle(period)` est un modifieur natif du DSL (pas un `@cui-modifier` de composant) reconnu sur **tout** composant. Il plafonne le taux de re-evaluation des expressions reactives portees par le sous-arbre.
+
+Comportement :
+
+- la `period` accepte un nombre nu (secondes) ou un litteral avec suffixe `.s`, `.ms`, `.us`, `.ns`
+- le runtime stocke un horodatage `lastApplied` par composant throttle
+- une expression dirty est servie depuis son cache tant que `now - lastApplied < period`
+- la propagation aux enfants suit la regle "plafond le plus restrictif gagne" : si `parent.period = 0.5` et `child.period = 0.1`, le plafond effectif de l'enfant est `0.5`. La regle de composition est `effective = max(parent_chain_period, self_period)`.
+- aucun `.throttle` dans la chaine = pas de limitation (defaut UI/runtime, evaluation a chaque `Update()` si dirty)
+
+Implementation cote runtime (recommandation) :
+
+- `ContainerBase` (et donc tout composant) gagne un champ optionnel `std::optional<std::chrono::duration<double>> throttlePeriod`
+- une methode `DoSetThrottlePeriod(...)` traitee comme un `@cui-modifier` natif inscrit dans le registre par defaut
+- la passe d'`Update()` calcule `effectivePeriod = max(parent_effective, self_period)` au moment de la descente, exactement comme l'opacite ou le clipping se composent dans un graphe scenique
+- chaque `BindValue::IsDirty()` est consulte uniquement si `now - lastApplied >= effectivePeriod`
+
+Exemple DSL :
+
+```cui
+VBox {
+    Text("FPS: \(window.averageFPS)")            // plafonne a 0.5s
+    Text("Render: \(profiler.averageMs)")        // plafonne a 0.5s
+}
+.throttle(0.5)                                    // ou .throttle(500.ms)
+```
+
+Composition imbriquee :
+
+```cui
+VBox {
+    Text("Coarse: \(slowMetric)")
+        .throttle(0.1)        // demande 0.1s mais le parent gagne -> plafond effectif 1.0s
+
+    Text("Fine: \(fastMetric)")
+        .throttle(2.0)        // 2.0s > parent 1.0s -> plafond effectif 2.0s
+}
+.throttle(1.0)
+```
 
 ### 20.1 Mode A - composant deja implemente
 
@@ -691,16 +1093,44 @@ Le precompilateur genere automatiquement:
 
 Aucun code C++ supplementaire a ecrire pour utiliser `ProgressBar(...)` dans un `.cui`.
 
-## 20.3 Blocs `@cui-cpp` dans les fichiers `.cui`
+## 20.3 Helpers et echappement vers C++
 
-Un fichier `.cui` peut contenir des blocs de code C++ brut via `@cui-cpp { ... }`. Ces blocs sont emis verbatim dans la section `private` de la classe generee.
+Trois mecanismes coexistent dans un fichier `.cui`, du plus DSL-natif au plus brut :
 
-Cela evite la sous-classe manuelle quand la vue a besoin de methodes utilitaires.
+1. `let X = expr` — constante locale a la vue. Compilee en `constexpr` ou en variable locale `auto` selon que `expr` est `constexpr` ou non.
+2. `func name(args) -> T = expr` — helper mono-expression. Compile en methode statique privee de la classe generee.
+3. `@cui-cpp { ... }` — escape hatch C++ verbatim. Reste l'option de derniere ressource pour ce que le DSL ne sait pas exprimer.
 
-Syntaxe:
+### 20.3.1 `func` mono-expression
+
+Syntaxe :
 
 ```cui
-view MyView(ref window: Window?) {
+func toMs(d: nanoseconds) -> double = double(d.count) * 1e-6
+```
+
+Compile vers :
+
+```cpp
+private:
+    static double toMs(std::chrono::nanoseconds d) {
+        return static_cast<double>(d.count) * 1e-6;
+    }
+```
+
+Regles :
+- le corps est une seule expression DSL (pas un bloc) ; multi-instructions reservees a 0.3
+- le corps peut appeler tout autre `func` declare dans la meme vue, tout symbole `@cui-expose`, et tout cas d'enum exposes
+- les types de parametres et de retour sont des types DSL ; le precompilateur les resout vers leur equivalent C++ via le registre
+- le nom DSL et le nom C++ generes sont identiques (lower-camelCase preserve)
+
+### 20.3.2 Bloc `@cui-cpp` (escape hatch)
+
+Syntaxe :
+
+```cui
+view MyView {
+    @Observed var window: Window?
 
     @cui-cpp {
         static double ToMs(std::chrono::nanoseconds d) {
@@ -708,35 +1138,38 @@ view MyView(ref window: Window?) {
         }
     }
 
-    body { ... }
+    Text("...")
 }
 ```
 
-Regles:
-
+Regles :
 - le contenu est copie tel quel dans le `.gen.cpp` / `.gen.h`, dans la section `private` de la classe
-- les methodes declarees dans `@cui-cpp` sont appelables depuis le corps de la vue comme n'importe quel symbole expose
-- les includes necessaires doivent etre ajoutes via `@cui-cpp-include "file.h"` en tete de fichier `.cui`
+- les methodes declarees dans `@cui-cpp` sont appelables depuis le corps de la vue comme n'importe quel symbole expose, en lower-camelCase si le nom commence par une majuscule (`ToMs` -> appelable `toMs(...)`)
+- les includes necessaires doivent etre ajoutes via `@cui-cpp-include "file.h"` en tete de fichier `.cui` ; pour les symboles connus du registre (parametres `@Observed`, fonctions `@cui-expose`, types de cas d'enum), les includes sont auto-derives
 - le compilateur CUI ne valide pas la syntaxe C++ du bloc : c'est le compilateur C++ qui detectera les erreurs (les messages C++ pointeront vers la ligne du `.gen.cpp`, pas du `.cui` - limitation connue)
 
-Syntaxe `@cui-cpp-include`:
+Syntaxe `@cui-cpp-include` :
 
 ```cui
 @cui-cpp-include "Profiler.h"
 @cui-cpp-include <chrono>
 
-view PerformanceView(ref window: Window?) { ... }
+view PerformanceView { ... }
 ```
 
-### 20.4 Appels de fonctions avec `::` dans le DSL
+### 20.4 Appels de fonctions de namespace dans le DSL
 
-Le DSL supporte la notation `Namespace::Function(args)` pour appeler des fonctions enregistrees `@cui-expose` dans un namespace C++.
+Le DSL supporte deux notations equivalentes pour les fonctions enregistrees `@cui-expose` dans un namespace C++ :
 
-Regle de resolution:
+- forme pointee (canonique 0.2) : `Profiler.averageTime("Render")`
+- forme `::` (toleree, equivalente) : `Profiler::averageTime("Render")`
 
-- `Profiler::GetAverageTime("Render")` → le precompilateur doit avoir vu `@cui-expose` sur `Profiler::GetAverageTime`
+Regle de resolution :
+
+- le precompilateur doit avoir vu `@cui-expose` sur `Profiler::GetAverageTime`
+- le nom DSL est derive du nom C++ : `Get` initial est retire si present, premier caractere mis en minuscule (`GetAverageTime` → `averageTime`)
+- `@cui-dsl-name` permet de forcer un nom different
 - la resolution utilise le nom qualifie complet comme cle dans le registre
-- version courte via `@cui-dsl-name`: `@cui-dsl-name Profiler.GetAverageTime` permet d'ecrire `Profiler.GetAverageTime(...)` avec un point
 
 Exemple sur `Profiler`:
 
@@ -747,7 +1180,7 @@ namespace Profiler {
 }
 ```
 
-Dans le DSL, accessible via `Profiler::GetAverageTime("Render")` ou si renomme `Profiler.GetAverageTime("Render")`.
+Accessible dans le DSL via `Profiler.averageTime("Render")` (canonique) ou `Profiler::averageTime("Render")` ou `Profiler.getAverageTime("Render")` (sans strip de `Get`, toujours autorise).
 
 ## 21. Ce que le precompilateur doit generer pour les composants existants
 
@@ -778,8 +1211,8 @@ Le precompilateur ne doit donc pas regenerer le runtime du composant `Text`. Il 
 Exemple DSL:
 
 ```txt
-Text("FPS: " + window.GetAverageFPS())
-    .SetTextScale(0.45)
+Text("FPS: \(window.averageFPS)")
+    .scale(0.45)
 ```
 
 Equivalent C++ genere:
@@ -805,13 +1238,12 @@ Le precompilateur doit donc generer la fiche "container avec enfants".
 Exemple DSL:
 
 ```txt
-VBox()
-    .SetPadding(8)
-    .SetSpacing(4)
-{
+VBox {
     Text("FPS")
     Label("Profiler")
 }
+.padding(8)
+.spacing(4)
 ```
 
 Equivalent C++ genere:
@@ -838,12 +1270,11 @@ Le precompilateur doit le traiter comme un composant conteneur generique.
 Exemple DSL:
 
 ```txt
-Container()
-    .SetPadding(12)
-    .SetOverflowMode(OverflowMode::SCROLL)
-{
+Container {
     Text("Logs")
 }
+.padding(12)
+.overflowMode(.scroll)
 ```
 
 Equivalent C++ genere:
@@ -884,12 +1315,12 @@ Regles de generation:
 - si l'appel est utilise dans `Text(...)`, integrer le resultat a `TextContent`
 - si la methode prend un objet dont l'etat peut etre compare, conserver le suivi de l'objet deja present dans `BindMethod`
 
-Exemple DSL:
+Exemple DSL (style 0.2) :
 
 ```txt
-Text("FPS: " + window.GetAverageFPS())
-Text("Render: " + GetAverageRenderTimeMs())
-Text("Usage: " + Math.FormatPercent(used, total))
+Text("FPS: \(window.averageFPS)")
+Text("Render: \(averageRenderTimeMs())")
+Text("Usage: \(Math.formatPercent(used, total))")
 ```
 
 Equivalent C++ genere:
@@ -1042,45 +1473,67 @@ Dans `Profiler.h`:
 
 ```cpp
 namespace Profiler {
-    /** @cui-expose */
+    /**
+     * @cui-expose
+     * @cui-volatile
+     */
     std::chrono::nanoseconds GetAverageTime(const char* name);
 }
 ```
 
+Le tag `@cui-volatile` indique que la fonction depend de mesures glissantes (changeantes meme avec un argument constant) et doit donc etre re-evaluee a chaque tick. Sans throttle ancetre, elle se recalcule a chaque frame ; avec un `.throttle(period)`, elle se recalcule au plus une fois par `period`.
+
 ### 25.2 Fichier CUI
 
 ```cui
-@cui-cpp-include "Profiler.h"
-@cui-cpp-include <chrono>
+view PerformanceView {
+    @Observed var window: Window?
 
-view PerformanceView(ref window: Window?) {
-
-    @cui-cpp {
-        static double ToMs(std::chrono::nanoseconds d) {
-            return static_cast<double>(d.count()) * 1e-6;
-        }
-    }
+    func toMs(d: nanoseconds) -> double = double(d.count) * 1e-6
 
     let fpsScale    = 0.45
     let metricScale = 0.30
 
-    body {
-        VBox()
-            .frame(width: 260.px, height: 160.px, anchor: Anchor.topLeft)
-            .padding(12)
-            .spacing(4)
-        {
-            Text("FPS: " + window.GetAverageFPS())
-                .textScale(fpsScale)
+    VBox {
+        Text("FPS: \(window.averageFPS)")
+            .scale(fpsScale)
 
-            Text("Render: "       + ToMs(Profiler::GetAverageTime("Render"))      + " ms").textScale(metricScale)
-            Text("Render World: " + ToMs(Profiler::GetAverageTime("RenderWorld")) + " ms").textScale(metricScale)
-            Text("Upscale: "      + ToMs(Profiler::GetAverageTime("Upscale"))     + " ms").textScale(metricScale)
-            Text("UI Upscale: "   + ToMs(Profiler::GetAverageTime("UIUpscale"))   + " ms").textScale(metricScale)
-            Text("Swap Buffers: " + ToMs(Profiler::GetAverageTime("SwapBuffers")) + " ms").textScale(metricScale)
-        }
+        Text("Render: \(toMs(Profiler.averageTime("Render"))) ms").scale(metricScale)
+        Text("Render World: \(toMs(Profiler.averageTime("RenderWorld"))) ms").scale(metricScale)
+        Text("Upscale: \(toMs(Profiler.averageTime("Upscale"))) ms").scale(metricScale)
+        Text("UI Upscale: \(toMs(Profiler.averageTime("UIUpscale"))) ms").scale(metricScale)
+        Text("Swap Buffers: \(toMs(Profiler.averageTime("SwapBuffers"))) ms").scale(metricScale)
     }
+    .frame(width: 260, height: 160, anchor: .topLeft)
+    .padding(12)
+    .spacing(4)
+    .throttle(0.25)         // au plus 4 mises a jour par seconde pour TOUS les enfants
 }
+```
+
+Notes :
+
+- aucun `@cui-cpp-include` : `Profiler.h` est auto-derivee de l'usage `Profiler.averageTime`, `<chrono>` est auto-derivee de `nanoseconds`
+- aucun bloc `body { }` : le contenu de `view { }` est lu en sequence (declarations puis l'unique racine `VBox`)
+- aucun qualifiant `ref` : `@Observed var window: Window?` declare la dependance reactive
+- `window.averageFPS` resout `Window::GetAverageFPS()` (regle propriete, §20.0.3)
+- `Profiler.averageTime("X")` resout `Profiler::GetAverageTime("X")` (regle namespace, §20.4)
+- `Profiler::GetAverageTime` est annotee `@cui-volatile` (§20.0.5) : sans le `.throttle` parent, elle se recalculerait a chaque frame ; avec `.throttle(0.25)` elle est plafonnee a 4 Hz et tous les `Text` enfants en heritent
+- `nanoseconds` est un alias DSL pour `std::chrono::nanoseconds` (registre de types)
+- `260` est en pixels par defaut ; `.frame(width: 260.percent, ...)` serait l'equivalent en pourcentage
+- `.topLeft` est resolu vers `UI::Anchor::TOP_LEFT` car le parametre attendu est de type `Anchor`
+
+Variations utiles des modes de capture :
+
+```cui
+// snapshot d'une chaine au moment du Build (jamais re-evaluee)
+Text("Build version: \(once Version.current())")
+
+// expression reactive standard (defaut, recommande pour la majorite des cas)
+Text("FPS: \(window.averageFPS)")
+
+// force la re-evaluation a chaque tick meme si les arguments ne changent pas
+Text("Random: \(always Math.nextRandom())")
 ```
 
 ### 25.3 C++ genere
@@ -1114,9 +1567,10 @@ protected:
 
         auto root = UI::CreateVBox(UI::Bounds(260_px, 160_px, UI::Anchor::TOP_LEFT))
             ->SetPadding(12.0f)
-            ->SetSpacing(4.0f);
+            ->SetSpacing(4.0f)
+            ->SetThrottlePeriod(std::chrono::duration<double>(0.25));   // .throttle(0.25)
 
-        // Text("FPS: " + window.GetAverageFPS())
+        // Text("FPS: \(window.averageFPS)")
         {
             UI::TextContent c = (window != nullptr)
                 ? UI::TextContent("FPS: ", UI::Bind(window, &Window::GetAverageFPS))
@@ -1124,10 +1578,10 @@ protected:
             root->AddChild(UI::CreateText(UI::Bounds{}, std::move(c))->SetTextScale(fpsScale));
         }
 
-        // Text("Render: " + ToMs(...) + " ms")
+        // Text("Render: \(toMs(Profiler.averageTime("Render"))) ms")
         root->AddChild(UI::CreateText(UI::Bounds{},
             UI::TextContent("Render: ",
-                            UI::Call(&ToMs, Profiler::GetAverageTime("Render")),
+                            UI::Call(&toMs, Profiler::GetAverageTime("Render")),
                             " ms"))
             ->SetTextScale(metricScale));
 
@@ -1139,8 +1593,8 @@ protected:
 private:
     const Window *window = nullptr;
 
-    // @cui-cpp block
-    static double ToMs(std::chrono::nanoseconds d) {
+    // func toMs(d: nanoseconds) -> double = double(d.count) * 1e-6
+    static double toMs(std::chrono::nanoseconds d) {
         return static_cast<double>(d.count()) * 1e-6;
     }
 };
@@ -1153,6 +1607,19 @@ std::shared_ptr<PerformanceView> CreatePerformanceView(
 
 } // namespace ui::generated
 ```
+
+Notes de mapping (DSL → C++) :
+
+- `@Observed var window: Window?` → champ membre `const Window *window`, ajoute en parametre du constructeur apres `Bounds`
+- `func toMs(d: nanoseconds) -> double = ...` → methode statique privee `static double toMs(std::chrono::nanoseconds d)`
+- `let fpsScale = 0.45` → `constexpr float fpsScale = 0.45f`
+- `VBox { ... }.frame(width: 260, height: 160, anchor: .topLeft).padding(12).spacing(4)` → `UI::CreateVBox(UI::Bounds(260_px, 160_px, UI::Anchor::TOP_LEFT))->SetPadding(12.0f)->SetSpacing(4.0f)`
+- `"FPS: \(window.averageFPS)"` → `UI::TextContent("FPS: ", UI::Bind(window, &Window::GetAverageFPS))`
+- `Profiler.averageTime("Render")` → `Profiler::GetAverageTime("Render")` (alias `Get` strip + `::`) ; le flag `volatile` issu de `@cui-volatile` empeche `BindFunc` de mettre en cache le dernier resultat
+- `.scale(fpsScale)` → `->SetTextScale(fpsScale)` (alias `scale` declare via `@cui-modifier scale`)
+- `.throttle(0.25)` → `->SetThrottlePeriod(std::chrono::duration<double>(0.25))` ; le runtime applique `effectivePeriod = max(parent_chain, self)` lors de la descente d'`Update()`
+- `\(once expr)` → la valeur est evaluee une fois et stockee dans une `std::string` ou `T` local ; le fragment passe a `UI::TextContent` est un litteral (pas de `Bind`)
+- `\(always expr)` → fragment passe via `UI::BindAlways(...)` (ou un wrapper qui retourne `IsDirty() == true` systematiquement)
 
 ### 25.4 Appel depuis le C++
 
