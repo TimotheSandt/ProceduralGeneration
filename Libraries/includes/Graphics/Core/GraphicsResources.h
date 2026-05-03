@@ -53,6 +53,7 @@ struct TextureCreateInfo
     std::string debugName;
     std::vector<std::byte> initialData;
     bool generateMipmaps = true;
+    bool nearestFiltering = false;
 };
 
 struct RenderTargetCreateInfo

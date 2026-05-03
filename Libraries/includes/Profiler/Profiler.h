@@ -150,6 +150,7 @@ class Profiler
     static std::chrono::nanoseconds GetAverageTime(const std::string &name) { return getTimer(name).GetAverage(); }
     static std::chrono::nanoseconds GetMaxTime(const std::string &name) { return getTimer(name).GetMax(); }
     static std::chrono::nanoseconds GetMinTime(const std::string &name) { return getTimer(name).GetMin(); }
+    static double GetAverageTimeMs(const std::string &name) { return static_cast<double>(GetAverageTime(name).count()) * 1e-6; }
 
   private:
     static void ProcessQueries(const std::string &name)

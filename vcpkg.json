@@ -8,6 +8,11 @@
     "stb",
     "freetype",
     "vulkan",
-    "shaderc"
+    "shaderc",
+    {
+      "name": "msdfgen",
+      "default-features": false,
+      "features": []
+    }
   ]
 }

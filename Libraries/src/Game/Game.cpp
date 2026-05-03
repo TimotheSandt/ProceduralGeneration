@@ -1,7 +1,14 @@
 #include "Game.h"
 
+#include <algorithm>
 #include <stdexcept>
 
+<<<<<<< UI
+#include <utility>
+
+#include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
+=======
+>>>>>>> dev
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Graphics/Core/WindowContext.h"
 
@@ -33,12 +40,8 @@ void Game::init()
     this->world = std::make_unique<World>();
     this->world->Init();
 
-    this->textRenderer = std::make_unique<UI::TextRenderer>();
-    textRenderer->init(*window.GetWidthptr(), *window.GetHeightptr());
-    textRenderer->loadFont(GET_RESOURCE_PATH("fonts/Roboto-Regular.ttf"), "default", 48);
-
     // Initialize UI system
-    UI::Manager::Instance().Init(*window.GetWidthptr(), *window.GetHeightptr());
+    UI::Manager::Instance().Init(*w, *h, &window);
 }
 
 void Game::stop()
@@ -58,7 +61,6 @@ void Game::stop()
         this->world->Destroy();
         this->world.reset();
     }
-    this->textRenderer.reset();
     UI::Manager::Instance().Shutdown();
     this->camera.Destroy();
     this->window.Close();
@@ -117,19 +119,19 @@ void Game::processInput()
     }
     if (inputManager.IsKeyJustPressed(KeyButton::NUM_5))
     {
-        rendererUI.SetRenderScale(0.25f);
+        UI::Manager::Instance().SetRenderScale(0.25f);
     }
     if (inputManager.IsKeyJustPressed(KeyButton::NUM_6))
     {
-        rendererUI.SetRenderScale(0.5f);
+        UI::Manager::Instance().SetRenderScale(0.5f);
     }
     if (inputManager.IsKeyJustPressed(KeyButton::NUM_7))
     {
-        rendererUI.SetRenderScale(0.75f);
+        UI::Manager::Instance().SetRenderScale(0.75f);
     }
     if (inputManager.IsKeyJustPressed(KeyButton::NUM_8))
     {
-        rendererUI.SetUpscalingEnabled(!rendererUI.IsUpscalingEnabled());
+        UI::Manager::Instance().ToggleUpscaling();
     }
 #endif
 }
@@ -150,31 +152,12 @@ void Game::update()
 
 void Game::render()
 {
-    const auto averageTimeMs = [](const char *name) { return static_cast<double>(Profiler::GetAverageTime(name).count()) * 1e-6; };
-    const int windowWidth = *window.GetWidthptr();
-    const int windowHeight = *window.GetHeightptr();
-
-    renderer3D.SetOutputResolution(windowWidth, windowHeight);
+    renderer3D.SetOutputResolution(*window.GetWidthptr(), *window.GetHeightptr());
     renderer3D.BeginPass();
     Profiler::ProfileGPU("Clear", &Renderer3D::Clear, &renderer3D, window.GetClearColor(), true);
     renderer3D.SetCamera(this->camera);
     Profiler::ProfileGPU("RenderWorld", &World::Render, this->world.get(), std::ref(renderer3D), std::ref(this->camera));
     Profiler::ProfileGPU("Upscale", &Renderer3D::EndPass, &renderer3D);
 
-    rendererUI.SetOutputResolution(windowWidth, windowHeight);
-    rendererUI.BeginPass();
-    rendererUI.RenderText(*textRenderer, "fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, glm::vec3(1.0f, 0.8f, 1.0f),
-                          UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("Render: {:.3f}ms", averageTimeMs("Render")), 10, 50, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("Render World: {:.3f}ms", averageTimeMs("RenderWorld")), 10, 70, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("Upscale: {:.3f}ms", averageTimeMs("Upscale")), 10, 90, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("UI Upscale: {:.3f}ms", averageTimeMs("UIUpscale")), 10, 110, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("Swap Buffers: {:.3f}ms", averageTimeMs("SwapBuffers")), 10, 130, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    UI::Manager::Instance().Render(rendererUI, windowWidth, windowHeight);
-    Profiler::ProfileGPU("UIUpscale", &Renderer2D::EndPass, &rendererUI);
+    Profiler::ProfileGPU("UIUpscale", &UI::Manager::Render, &UI::Manager::Instance(), *window.GetWidthptr(), *window.GetHeightptr());
 }

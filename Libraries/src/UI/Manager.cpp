@@ -1,8 +1,11 @@
 #include "Manager.h"
-#include "Renderer2D.h"
 #include "Layout/HBox.h"
 #include "Layout/VBox.h"
-#include <iostream>
+#include "Views/PerformanceView.h"
+#include "Widgets.h"
+#include "Window.h"
+
+#include <utility>
 
 namespace UI
 {
@@ -13,50 +16,60 @@ Manager &Manager::Instance()
     return instance;
 }
 
-void Manager::Init(int w, int h)
+void Manager::Init(int w, int h, const Window *windowArg)
 {
+    window = windowArg;
+
     textRenderer = std::make_shared<TextRenderer>();
     textRenderer->init(static_cast<unsigned int>(w), static_cast<unsigned int>(h));
     textRenderer->loadFont(GET_RESOURCE_PATH("fonts/Roboto-Regular.ttf"), "default", 48);
 
-    CreateUI(w, h);
+    CreateUI(w, h, window);
     lastWidth = w;
     lastHeight = h;
 }
 
-void Manager::CreateUI(int w, int h)
+void Manager::CreateUI(int w, int h, const Window *windowArg)
 {
+    window = windowArg;
+
     // Create root with actual window size (not percentage)
     rootContainer = CreateContainer(
         Bounds({static_cast<float>(w), ValueType::PIXEL}, {static_cast<float>(h), ValueType::PIXEL}),
         {
             CreateVBox(Bounds(200_px, 200_px, Anchor::CENTER), {
                 CreateBox(Bounds(150_px, 50_px), {1.0f, 0.2f, 0.2f, 1.0f}),
+                CreateBox(Bounds(100_px, 50_px), {0.2f, 1.0f, 0.2f, 1.0f}),
                 CreateHBox(Bounds(150_px, 75_px), {
                     CreateBox(Bounds(40_pct, 100_pct), {0.2f, 0.2f, 1.0f, 1.0f}),
                     CreateBox(Bounds(40_pct, 100_pct), {1.0f, 0.2f, 0.2f, 1.0f}),
-                    CreateBox(Bounds(40_pct, 100_pct), {0.2f, 1.0f, 0.2f, 1.0f})})
+                    CreateBox(Bounds(40_pct, 100_pct), {0.2f, 1.0f, 0.2f, 1.0f})
+                })
                         ->SetColor(glm::vec4{0.3f, 0.9f, 0.4f, 1.0f})
                         ->SetPadding(10.0f)
                         ->SetJustifyContent(UI::JustifyContent::CENTER)
                         ->SetOverflowMode(UI::OverflowMode::WRAP)
                         ->SetChildrenDeform(true)
-                        ->SetChildAlignment(UI::VAlign::CENTER),
-                    CreateBox(Bounds(100_px, 50_px), {0.2f, 1.0f, 0.2f, 1.0f})
-                })
+                        ->SetChildAlignment(UI::VAlign::CENTER)
+            })
              ->SetPadding(10.0f)
              ->SetSpacing(5.0f)
              ->SetColor(glm::vec4{0.3f, 0.6f, 1.0f, 0.5f})
              ->SetJustifyContent(UI::JustifyContent::CENTER)
-             ->SetChildAlignment(UI::HAlign::CENTER)});
-
-    // Set root's size
+             ->SetChildAlignment(UI::HAlign::CENTER),
+            CreatePerformanceView(Bounds(260_px, 175_px, Anchor::TOP_LEFT), windowArg)
+        });
 
     rootContainer->SetIdentifierKind(UI::IdentifierKind::TRANSPARENT);
     rootContainer->Initialize();
 }
 
-void Manager::Shutdown() { rootContainer.reset(); }
+void Manager::Shutdown()
+{
+    rootContainer.reset();
+    textRenderer.reset();
+    window = nullptr;
+}
 
 void Manager::Update(float dt, int w, int h)
 {
@@ -66,7 +79,7 @@ void Manager::Update(float dt, int w, int h)
     if (!rootContainer)
     {
         // Fallback if Init wasn't called or failed
-        Init(w, h);
+        Init(w, h, window);
     }
 
     // Only update layout if size changed
@@ -83,7 +96,7 @@ void Manager::Update(float dt, int w, int h)
     rootContainer->Update();
 }
 
-void Manager::Render(Renderer2D &renderer2D, int w, int h)
+void Manager::Render(int w, int h)
 {
     if (!active)
     {
@@ -93,15 +106,18 @@ void Manager::Render(Renderer2D &renderer2D, int w, int h)
     // Ensure UI exists
     if (!rootContainer)
     {
-        Init(w, h);
+        Init(w, h, window);
     }
 
+    renderer2D.SetOutputResolution(w, h);
+    renderer2D.BeginPass();
     renderer2D.BeginCanvasPass();
 
     // Draw root container with screen as container size
     glm::vec2 screenSize = {static_cast<float>(w), static_cast<float>(h)};
     rootContainer->Draw(screenSize, {0, 0});
     renderer2D.EndCanvasPass();
+    renderer2D.EndPass();
 }
 
 } // namespace UI

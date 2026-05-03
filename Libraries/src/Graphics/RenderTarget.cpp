@@ -55,6 +55,9 @@ void RenderTarget::Destroy()
     this->screenQuadShaderProgram.Destroy();
     colorTextures.clear();
     depthTexture.Destroy();
+    width = 0;
+    height = 0;
+    currentDesc = {};
 }
 
 void RenderTarget::Init(int width, int height)

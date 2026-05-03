@@ -4,14 +4,78 @@
 #include "Logger.h"
 #include "utilities.h"
 
+#include <algorithm>
+#include <cmath>
+#include <optional>
+
 namespace UI
 {
 
-ContainerBase::ContainerBase(Bounds bounds) : ComponentBase(bounds)
+namespace
+{
+
+struct ClipRect
+{
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+};
+
+std::optional<ClipRect> ComputeClipRect(const GraphicsRenderState::FramebufferState &state, glm::vec2 containerSize, glm::vec2 offset,
+                                        glm::vec2 scale)
+{
+    const int viewportLeft = state.viewport[0];
+    const int viewportBottom = state.viewport[1];
+    const int viewportRight = viewportLeft + state.viewport[2];
+    const int viewportTop = viewportBottom + state.viewport[3];
+
+    if (containerSize.x <= 0.0f || containerSize.y <= 0.0f || state.viewport[2] <= 0 || state.viewport[3] <= 0)
+    {
+        return std::nullopt;
+    }
+
+    const float scaleX = static_cast<float>(state.viewport[2]) / containerSize.x;
+    const float scaleY = static_cast<float>(state.viewport[3]) / containerSize.y;
+
+    int left = viewportLeft + static_cast<int>(std::floor(offset.x * scaleX));
+    int bottom = viewportBottom + static_cast<int>(std::floor((containerSize.y - (offset.y + scale.y)) * scaleY));
+    int right = viewportLeft + static_cast<int>(std::ceil((offset.x + scale.x) * scaleX));
+    int top = viewportBottom + static_cast<int>(std::ceil((containerSize.y - offset.y) * scaleY));
+
+    left = std::max(left, viewportLeft);
+    bottom = std::max(bottom, viewportBottom);
+    right = std::min(right, viewportRight);
+    top = std::min(top, viewportTop);
+
+    if (state.scissorTest)
+    {
+        const int scissorLeft = state.scissorBox[0];
+        const int scissorBottom = state.scissorBox[1];
+        const int scissorRight = scissorLeft + state.scissorBox[2];
+        const int scissorTop = scissorBottom + state.scissorBox[3];
+
+        left = std::max(left, scissorLeft);
+        bottom = std::max(bottom, scissorBottom);
+        right = std::min(right, scissorRight);
+        top = std::min(top, scissorTop);
+    }
+
+    if (right <= left || top <= bottom)
+    {
+        return std::nullopt;
+    }
+
+    return ClipRect{left, bottom, right - left, top - bottom};
+}
+
+} // namespace
+
+ContainerBase::ContainerBase(Bounds bounds, bool useRenderTarget) : ComponentBase(bounds)
 {
     contentSize = localBounds.scale;
-    // Use container-specific shader with texture and scroll support
-    this->sprite.SetShader(GET_RESOURCE_PATH("shader/UI/container.vert"), GET_RESOURCE_PATH("shader/UI/container.frag"));
+    renderToTexture.ForceSet(useRenderTarget);
+    RefreshSpriteShader();
     UpdateTheme();
 }
 
@@ -29,13 +93,15 @@ void ContainerBase::Initialize()
     {
         child->Initialize();
     }
-    InitializeRenderTarget();
     RecalculateChildBounds();
+    InitializeRenderTarget();
 }
 
 void ContainerBase::Update()
 {
     ComponentBase::Update();
+    if (WasThrottled())
+        return;
 
     // Apply deferred layout properties
     bool layoutChanged = false;
@@ -55,6 +121,21 @@ void ContainerBase::Update()
             layoutChanged = true;
         }
     }
+    bool renderModeChanged = false;
+    if (renderToTexture.Apply())
+    {
+        renderModeChanged = true;
+        RefreshSpriteShader();
+        if (!UsesOwnRenderTarget())
+        {
+            renderTarget.Destroy();
+            fboInitialized = false;
+        }
+        dirtySelfLayout = true;
+        dirtyChildLayout = true;
+        dirtyAppearance = true;
+        NotifyParentChildAppearanceDirty();
+    }
 
     if (layoutChanged)
     {
@@ -65,16 +146,37 @@ void ContainerBase::Update()
     {
         child->Update();
     }
-    if (dirtySelfLayout || dirtyChildLayout)
+    if (dirtySelfLayout || dirtyChildLayout || renderModeChanged)
     {
         RecalculateChildBounds();
         InitializeRenderTarget();
     }
 }
 
-// Render target helper functions
+void ContainerBase::RefreshSpriteShader()
+{
+    if (UsesOwnRenderTarget())
+    {
+        sprite.SetShader(GET_RESOURCE_PATH("shader/UI/container.vert"), GET_RESOURCE_PATH("shader/UI/container.frag"));
+    }
+    else
+    {
+        sprite.SetShader(GET_RESOURCE_PATH("shader/UI/default.vert"), GET_RESOURCE_PATH("shader/UI/default.frag"));
+    }
+}
+
 void ContainerBase::InitializeRenderTarget()
 {
+    if (!UsesOwnRenderTarget())
+    {
+        if (renderTarget.IsInitialized())
+        {
+            renderTarget.Destroy();
+        }
+        fboInitialized = false;
+        return;
+    }
+
     if (contentSize.x <= 0 || contentSize.y <= 0)
     {
         return;
@@ -100,22 +202,6 @@ void ContainerBase::InitializeRenderTarget()
     }
 }
 
-void SaveRenderTargetState(std::uint32_t &oldFramebuffer, int viewport[4])
-{
-    const GraphicsRenderState::FramebufferState state = GraphicsRenderState::CaptureFramebufferState();
-    oldFramebuffer = state.framebuffer;
-    for (int i = 0; i < 4; ++i)
-    {
-        viewport[i] = state.viewport[i];
-    }
-}
-
-void RestoreRenderTargetState(std::uint32_t oldFramebuffer, int viewport[4])
-{
-    GraphicsRenderState::BindFramebuffer(oldFramebuffer);
-    GraphicsRenderState::SetViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-}
-
 void ContainerBase::ClearZone(glm::vec4 bounds)
 {
     GraphicsRenderState::SetScissorTest(true);
@@ -130,9 +216,12 @@ void ContainerBase::ClearZone(glm::vec4 bounds)
 
 void ContainerBase::RenderChildren()
 {
-    std::uint32_t oldFramebuffer = 0;
-    int viewport[4];
-    SaveRenderTargetState(oldFramebuffer, viewport);
+    if (!UsesOwnRenderTarget())
+    {
+        return;
+    }
+
+    const GraphicsRenderState::FramebufferState previousState = GraphicsRenderState::CaptureFramebufferState();
 
     renderTarget.Bind();
     GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Bind");
@@ -183,10 +272,14 @@ void ContainerBase::RenderChildren()
         }
     }
 
+<<<<<<< UI
+    GraphicsRenderState::RestoreFramebufferState(previousState);
+=======
     renderTarget.Unbind();
     GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Unbind");
 
     RestoreRenderTargetState(oldFramebuffer, viewport);
+>>>>>>> dev
     GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Restore");
 }
 
@@ -201,18 +294,58 @@ void ContainerBase::Draw(glm::vec2 containerSize, glm::vec2 offset)
     if (dirtySelfLayout || dirtyChildLayout)
     {
         RecalculateChildBounds();
+        InitializeRenderTarget();
     }
 
-    // offset already includes anchor offset from cachedBoundsInParent
-    RenderChildren();
+    if (UsesOwnRenderTarget())
+    {
+        RenderChildren();
 
-    sprite.Draw({.offset = offset,
-                 .scale = localBounds.scale,
-                 .containerSize = containerSize,
-                 .scrollOffset = scrollOffset,
-                 .contentSize = contentSize,
-                 .color = this->color.Get()},
-                &renderTarget.GetTexture());
+        sprite.Draw({.offset = offset,
+                     .scale = localBounds.scale,
+                     .containerSize = containerSize,
+                     .scrollOffset = scrollOffset,
+                     .contentSize = contentSize,
+                     .color = this->color.Get()},
+                    &renderTarget.GetTexture());
+
+        ClearDirty();
+        return;
+    }
+
+    if (GetColor().a > 0.0f)
+    {
+        sprite.Draw({.offset = offset, .scale = localBounds.scale, .containerSize = containerSize, .color = this->color.Get()});
+    }
+
+    const bool shouldClipChildren = overflowMode.Get() == OverflowMode::HIDDEN || overflowMode.Get() == OverflowMode::SCROLL;
+    std::optional<GraphicsRenderState::FramebufferState> clipState;
+    if (shouldClipChildren)
+    {
+        clipState = GraphicsRenderState::CaptureFramebufferState();
+        const std::optional<ClipRect> clipRect = ComputeClipRect(*clipState, containerSize, offset, localBounds.scale);
+        if (!clipRect.has_value())
+        {
+            GraphicsRenderState::RestoreFramebufferState(*clipState);
+            ClearDirty();
+            return;
+        }
+
+        GraphicsRenderState::SetScissorTest(true);
+        GraphicsRenderState::SetScissor(clipRect->x, clipRect->y, clipRect->width, clipRect->height);
+    }
+
+    const glm::vec2 childBaseOffset = offset - scrollOffset;
+    for (auto &child : children)
+    {
+        const glm::vec4 childBounds = child->GetCachedBoundsInParent();
+        child->Draw(containerSize, {childBaseOffset.x + childBounds.x, childBaseOffset.y + childBounds.y});
+    }
+
+    if (clipState.has_value())
+    {
+        GraphicsRenderState::RestoreFramebufferState(*clipState);
+    }
 
     ClearDirty();
 }
@@ -224,8 +357,6 @@ void ContainerBase::MarkFullDirty()
     {
         child->MarkFullDirty();
     }
-
-    NotifyParentChildLayoutDirty();
 }
 
 void ContainerBase::RecalculateChildBounds()
@@ -263,12 +394,27 @@ void ContainerBase::DoSetSpacing(float s) { spacing.Set(s); }
 
 void ContainerBase::DoSetOverflowMode(OverflowMode mode) { overflowMode.Set(mode); }
 
+void ContainerBase::DoSetRenderToTexture(bool enabled) { renderToTexture.Set(enabled); }
+
 void ContainerBase::DoSetChildrenAllowDeform(bool deform)
 {
     for (auto &child : children)
     {
         child->DoSetAllowDeform(deform);
     }
+}
+
+void ContainerBase::OnChildAppearanceDirty()
+{
+    dirtyAppearance = true;
+    NotifyParentChildAppearanceDirty();
+}
+
+void ContainerBase::OnChildLayoutDirty()
+{
+    dirtyChildLayout = true;
+    dirtyAppearance = true;
+    NotifyParentChildLayoutDirty();
 }
 
 } // namespace UI

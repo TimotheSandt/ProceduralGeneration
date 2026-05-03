@@ -13,6 +13,7 @@ TestSuite CreateShaderSuite();
 TestSuite CreateNoiseSuite();
 TestSuite CreateProceduralSuite();
 TestSuite CreateProfilerSuite();
+TestSuite CreateBindingSuite();
 TestSuite CreateUIFoundationSuite();
 
 } // namespace tests

@@ -16,7 +16,9 @@ class VBoxBase : public ContainerBase
     HAlign GetChildAlignment() const { return childAlignment; }
     JustifyContent GetJustifyContent() const { return justifyContent; }
 
+    /** @cui-modifier childAlignment */
     void DoSetChildAlignment(HAlign align);
+    /** @cui-modifier justifyContent */
     void DoSetJustifyContent(JustifyContent j);
 
     glm::vec2 GetAvailableSize() const override;
@@ -43,6 +45,11 @@ template <typename Base, typename Derived> class ChainableVBox : public Chainabl
     }
 };
 
+/**
+ * @cui-component
+ * @cui-accepts-children true
+ * @cui-extends Container
+ */
 class VBox : public ChainableVBox<VBoxBase, VBox>
 {
   public:
@@ -50,9 +57,10 @@ class VBox : public ChainableVBox<VBoxBase, VBox>
 };
 
 // Factory for VBox
-inline std::shared_ptr<VBox> CreateVBox(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<ComponentBase>> &children = {})
+inline std::shared_ptr<VBox> CreateVBox(Bounds bounds = Bounds(), const std::vector<std::shared_ptr<ComponentBase>> &children = {},
+                                        bool renderToTexture = false)
 {
-    auto vbox = std::make_shared<VBox>(bounds);
+    auto vbox = std::make_shared<VBox>(bounds, renderToTexture);
     for (auto &child : children)
     {
         vbox->AddChild(child);

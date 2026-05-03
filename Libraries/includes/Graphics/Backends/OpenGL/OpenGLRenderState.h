@@ -10,6 +10,7 @@ struct FramebufferState
 {
     GLint framebuffer = 0;
     GLint viewport[4] = {0, 0, 0, 0};
+    GLint scissorBox[4] = {0, 0, 0, 0};
     GLboolean depthTest = GL_FALSE;
     GLboolean blend = GL_FALSE;
     GLboolean scissorTest = GL_FALSE;

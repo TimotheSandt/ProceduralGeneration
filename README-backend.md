@@ -1,5 +1,7 @@
 # Graphics System Guide
 
+**Status:** ✅ Fully Functional (OpenGL) | 🚧 Planned (Vulkan, Metal)
+
 ## Overview
 
 The rendering architecture is split into three layers:

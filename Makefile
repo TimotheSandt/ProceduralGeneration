@@ -41,10 +41,14 @@ endif
 
 ifeq ($(DETECTED_OS),Windows)
 	EXE_EXT := .exe
-	VCPKG_TRIPLET ?= x64-mingw-dynamic
-	GLFW_LINK_NAME := glfw3dll
+	VCPKG_TRIPLET ?= x64-mingw-static
+	GLFW_LINK_NAME := glfw3
 	PLATFORM_DEFINES += -DNOMINMAX -DWIN32_LEAN_AND_MEAN
+<<<<<<< UI
+	LDFLAGS = -L$(VCPKG_INSTALLED_DIR)/lib -l$(GLFW_LINK_NAME) -lglad -lmsdfgen-core -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lpsapi -lwinmm -lgdi32 -luser32 -lshell32 -lopengl32 -lstdc++exp
+=======
 	LDFLAGS = -L$(VCPKG_INSTALLED_DIR)/lib -l$(GLFW_LINK_NAME) -lglad -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lvulkan-1 -lshaderc -lshaderc_util -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lSPIRV-Tools-opt -lSPIRV-Tools -lpsapi -lwinmm -lgdi32 -lstdc++exp
+>>>>>>> dev
 	COPY_LIBS_TARGETS := copy_libs
 	CREATE_INSTALLER := create_windows_installer
 	ARCHITECTURE := $(ARCHITECTURE_WINDOWS)
@@ -172,17 +176,31 @@ MAIN_CPP_SOURCES := $(shell find $(MAIN_SRC_DIR) -type f -name "*.cpp" 2>/dev/nu
 MAIN_C_SOURCES := $(shell find $(MAIN_SRC_DIR) -type f -name "*.c" 2>/dev/null)
 
 LIB_SOURCES := $(LOCAL_DLLS) $(LOCAL_IMPORT_LIBS) $(LOCAL_A_LIBS)
-ALL_CPP_SOURCES := $(LIBRARIES_CPP_SOURCES) $(MAIN_CPP_SOURCES)
+
+# CUI precompiler
+CUI_TOOL        := tools/cui/main.py
+CUI_HEADERS     := $(INCLUDES_BASE)
+GEN_DIR         := Generated
+CUI_SOURCES     := $(shell $(FIND) $(MAIN_SRC_DIR) -type f -name "*.cui" 2>/dev/null)
+GEN_CPP_SOURCES := $(patsubst $(MAIN_SRC_DIR)/%.cui,$(GEN_DIR)/%.gen.cpp,$(CUI_SOURCES))
+SCANNED_HEADERS := $(shell $(FIND) $(CUI_HEADERS) -type f -name "*.h" 2>/dev/null)
+
+ALL_CPP_SOURCES := $(LIBRARIES_CPP_SOURCES) $(MAIN_CPP_SOURCES) $(GEN_CPP_SOURCES)
 ALL_C_SOURCES := $(LIBRARIES_C_SOURCES) $(MAIN_C_SOURCES)
+
+# Include generated headers
+INCLUDES += -I$(GEN_DIR)
+TEST_INCLUDES += -I$(GEN_DIR)
 
 # Objects
 LIBRARIES_CPP_OBJECTS := $(LIBRARIES_CPP_SOURCES:$(LIBRARIES_SRC_DIR)/%.cpp=$(OBJ_DIR_TYPE)/Libraries/%.o)
 LIBRARIES_C_OBJECTS := $(LIBRARIES_C_SOURCES:$(LIBRARIES_SRC_DIR)/%.c=$(OBJ_DIR_TYPE)/Libraries/%.o)
 MAIN_CPP_OBJECTS := $(MAIN_CPP_SOURCES:$(MAIN_SRC_DIR)/%.cpp=$(OBJ_DIR_TYPE)/src/%.o)
 MAIN_C_OBJECTS := $(MAIN_C_SOURCES:$(MAIN_SRC_DIR)/%.c=$(OBJ_DIR_TYPE)/src/%.o)
-ALL_OBJECTS := $(LIBRARIES_CPP_OBJECTS) $(LIBRARIES_C_OBJECTS) $(MAIN_CPP_OBJECTS) $(MAIN_C_OBJECTS)
+GEN_CPP_OBJECTS := $(GEN_CPP_SOURCES:$(GEN_DIR)/%.gen.cpp=$(OBJ_DIR_TYPE)/Generated/%.o)
+ALL_OBJECTS := $(LIBRARIES_CPP_OBJECTS) $(LIBRARIES_C_OBJECTS) $(MAIN_CPP_OBJECTS) $(MAIN_C_OBJECTS) $(GEN_CPP_OBJECTS)
 TEST_CPP_OBJECTS := $(TEST_CPP_SOURCES:$(TEST_DIR)/%.cpp=$(TEST_OBJ_DIR)/tests/%.o)
-TEST_OBJECTS := $(TEST_CPP_OBJECTS) $(LIBRARIES_CPP_OBJECTS) $(LIBRARIES_C_OBJECTS)
+TEST_OBJECTS := $(TEST_CPP_OBJECTS) $(LIBRARIES_CPP_OBJECTS) $(LIBRARIES_C_OBJECTS) $(GEN_CPP_OBJECTS)
 
 ifneq ($(strip $(ICON_NAME)),)
 ifneq ($(wildcard $(ICON_NAME)),)
@@ -270,8 +288,13 @@ remove_deps:
 
 reset_deps:
 	@echo "Resetting dependencies with vcpkg..."
+<<<<<<< UI
+	@$(RM_RF) $(VCPKG_INSTALLED_ROOT)
+	$(MAKE) install_deps
+=======
 	@rm -rf $(VCPKG_INSTALLED_ROOT)
 	$(VCPKG) install --triplet=$(VCPKG_TRIPLET) --x-manifest-root=. --x-install-root=$(VCPKG_INSTALLED_ROOT)
+>>>>>>> dev
 
 # Icon resource
 $(OBJ_DIR_TYPE)/src/icon.o: $(BIN_DIR_TYPE)/$(ICON_RC)
@@ -281,6 +304,25 @@ $(OBJ_DIR_TYPE)/src/icon.o: $(BIN_DIR_TYPE)/$(ICON_RC)
 $(BIN_DIR_TYPE)/$(ICON_RC): $(ICON_NAME) | $(BIN_DIR_TYPE)
 	@mkdir -p "$(dir $@)"
 	@printf '1 ICON "%s"\n' "$(ICON_NAME)" > "$@"
+
+# CUI generation: regenerate .gen.cpp/.gen.h when .cui source or scanned headers change
+$(GEN_DIR)/%.gen.cpp: $(MAIN_SRC_DIR)/%.cui $(SCANNED_HEADERS)
+	@$(MKDIR_P) "$(dir $@)"
+	python $(CUI_TOOL) run --headers $(CUI_HEADERS) --output $(dir $@) $<
+
+# Compilation rule for generated files
+$(OBJ_DIR_TYPE)/Generated/%.o: $(GEN_DIR)/%.gen.cpp
+	@$(MKDIR_P) "$(dir $@)"
+	$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
+	@echo "Compiled (C++ Generated) $(BUILD_TYPE): $<"
+
+.PHONY: cui-gen
+cui-gen: $(GEN_CPP_SOURCES)
+
+# Ensure all generated sources (and their headers) exist before any object is compiled.
+# Order-only (|) so objects are not recompiled just because a .gen.cpp timestamp changed;
+# the normal pattern-rule dependency handles that for generated objects.
+$(ALL_OBJECTS): | $(GEN_CPP_SOURCES)
 
 # Asset copy
 copy_libs: | $(BIN_DIR_TYPE)
@@ -358,9 +400,16 @@ $(TEST_BIN_DIR):
 
 # Clean rules
 clean:
+<<<<<<< UI
+	@$(RM_RF) $(OBJ_DIR)
+	@$(RM_RF) $(GEN_DIR)
+	@$(RM_F) installers/windows/*.exe
+	@$(RM_F) installers/linux/*.deb
+=======
 	@rm -rf $(OBJ_DIR)
 	@rm -f installers/windows/*.exe
 	@rm -f installers/linux/*.deb
+>>>>>>> dev
 	@echo "Objects deleted"
 
 fclean: clean

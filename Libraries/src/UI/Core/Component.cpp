@@ -26,6 +26,19 @@ void ComponentBase::Initialize()
 
 void ComponentBase::Update()
 {
+    // Throttle gate: skip update if period hasn't elapsed
+    if (throttlePeriod.count() > 0)
+    {
+        auto now = std::chrono::high_resolution_clock::now();
+        if (now - lastThrottleUpdate < throttlePeriod)
+        {
+            throttledThisFrame = true;
+            return;
+        }
+        lastThrottleUpdate = now;
+    }
+    throttledThisFrame = false;
+
     // Apply deferred values and mark dirty if they changed
     if (kind.Apply())
     {
@@ -101,6 +114,12 @@ void ComponentBase::DoSetIdentifierKind(IdentifierKind k)
     MarkAppearanceDirty();
 }
 
+void ComponentBase::DoSetThrottlePeriod(std::chrono::duration<double> period)
+{
+    throttlePeriod = period;
+    lastThrottleUpdate = {};
+}
+
 void ComponentBase::DoSetAllowDeform(bool allow)
 {
     allowDeform.Set(allow);
@@ -114,7 +133,7 @@ void ComponentBase::DoSetAllowDeform(bool allow)
 void ComponentBase::MarkAppearanceDirty()
 {
     dirtyAppearance = true;
-    NotifyParentChildLayoutDirty();
+    NotifyParentChildAppearanceDirty();
 }
 
 void ComponentBase::MarkChildLayoutDirty()
@@ -138,7 +157,15 @@ void ComponentBase::NotifyParentChildLayoutDirty()
 {
     if (auto p = parent.lock())
     {
-        p->MarkChildLayoutDirty();
+        p->OnChildLayoutDirty();
+    }
+}
+
+void ComponentBase::NotifyParentChildAppearanceDirty()
+{
+    if (auto p = parent.lock())
+    {
+        p->OnChildAppearanceDirty();
     }
 }
 

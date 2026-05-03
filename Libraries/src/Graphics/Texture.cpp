@@ -105,7 +105,6 @@ Texture::~Texture() { this->Destroy(); }
 
 void Texture::SetTextureData(void *data, int width, int height, TextureFormat format, TexturePixelType pixelType, TextureFilterMode filter)
 {
-    static_cast<void>(filter);
     this->Destroy();
     this->Width = width;
     this->Height = height;
@@ -120,7 +119,9 @@ void Texture::SetTextureData(void *data, int width, int height, TextureFormat fo
         createInfo.desc.mipLevels = 1;
         createInfo.desc.renderTarget = false;
         createInfo.debugName = this->UniformName;
-        createInfo.generateMipmaps = format != TextureFormat::R8;
+        createInfo.generateMipmaps =
+            filter == TextureFilterMode::Linear && format != TextureFormat::R32UI && format != TextureFormat::RGB8;
+        createInfo.nearestFiltering = filter == TextureFilterMode::Nearest;
 
         const size_t dataSize = data != nullptr ? static_cast<size_t>(width) * static_cast<size_t>(height) * GetComponentCount(format) *
                                                       GetPixelTypeSize(pixelType)
@@ -193,6 +194,8 @@ size_t Texture::GetComponentCount(TextureFormat format) const
         case TextureFormat::R32UI:
         case TextureFormat::Depth32Float:
             return 1;
+        case TextureFormat::RGB8:
+            return 3;
         case TextureFormat::Depth24Stencil8:
         case TextureFormat::RGBA8:
         case TextureFormat::BGRA8:

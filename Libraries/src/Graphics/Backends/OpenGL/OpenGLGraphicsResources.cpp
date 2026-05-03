@@ -39,6 +39,8 @@ GLint ToOpenGLInternalFormat(TextureFormat format)
         case TextureFormat::BGRA8:
         case TextureFormat::RGBA8:
             return GL_RGBA8;
+        case TextureFormat::RGB8:
+            return GL_RGB8;
         case TextureFormat::Depth24Stencil8:
             return GL_DEPTH24_STENCIL8;
         case TextureFormat::Depth32Float:
@@ -60,6 +62,8 @@ GLenum ToOpenGLDataFormat(TextureFormat format)
     {
         case TextureFormat::BGRA8:
             return GL_BGRA;
+        case TextureFormat::RGB8:
+            return GL_RGB;
         case TextureFormat::RGBA8:
             return GL_RGBA;
         case TextureFormat::Depth24Stencil8:
@@ -90,6 +94,7 @@ GLenum ToOpenGLDataType(TextureFormat format)
         case TextureFormat::RG16F:
             return GL_HALF_FLOAT;
         case TextureFormat::BGRA8:
+        case TextureFormat::RGB8:
         case TextureFormat::RGBA8:
         case TextureFormat::R8:
         default:
@@ -693,16 +698,21 @@ OpenGLTextureResource::OpenGLTextureResource(TextureCreateInfo createInfo)
     const GLenum dataFormat = ToOpenGLDataFormat(desc.format);
     const GLenum dataType = ToOpenGLDataType(desc.format);
     const void *initialData = createInfo.initialData.empty() ? nullptr : createInfo.initialData.data();
-    const bool isSingleChannelTexture = (desc.format == TextureFormat::R8 || desc.format == TextureFormat::R32UI || desc.format == TextureFormat::RG16F);
+    const bool needsTightPacking =
+        (desc.format == TextureFormat::R8 || desc.format == TextureFormat::R32UI || desc.format == TextureFormat::RG16F ||
+         desc.format == TextureFormat::RGB8);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                    (desc.renderTarget || !createInfo.generateMipmaps) ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (desc.renderTarget || isSingleChannelTexture) ? GL_CLAMP_TO_EDGE : GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (desc.renderTarget || isSingleChannelTexture) ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+    const GLint minFilter = createInfo.nearestFiltering
+                                ? GL_NEAREST
+                                : ((desc.renderTarget || !createInfo.generateMipmaps) ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR);
+    const GLint magFilter = createInfo.nearestFiltering ? GL_NEAREST : GL_LINEAR;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (desc.renderTarget || needsTightPacking) ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (desc.renderTarget || needsTightPacking) ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 
     GLint previousUnpackAlignment = 4;
-    if (isSingleChannelTexture)
+    if (needsTightPacking)
     {
         glGetIntegerv(GL_UNPACK_ALIGNMENT, &previousUnpackAlignment);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -711,7 +721,7 @@ OpenGLTextureResource::OpenGLTextureResource(TextureCreateInfo createInfo)
     glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, static_cast<GLsizei>(desc.extent.width), static_cast<GLsizei>(desc.extent.height), 0,
                  dataFormat, dataType, initialData);
 
-    if (isSingleChannelTexture)
+    if (needsTightPacking)
     {
         glPixelStorei(GL_UNPACK_ALIGNMENT, previousUnpackAlignment);
     }
@@ -766,6 +776,9 @@ void OpenGLTextureResource::Readback(std::vector<std::byte> &output) const
     {
         case TextureFormat::R8:
             bytesPerPixel = 1;
+            break;
+        case TextureFormat::RGB8:
+            bytesPerPixel = 3;
             break;
         case TextureFormat::Depth32Float:
         case TextureFormat::R32UI:
