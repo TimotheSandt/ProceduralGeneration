@@ -1,6 +1,5 @@
 #include "ShaderProgram.h"
 
-#include "Graphics/Backends/OpenGL/OpenGLGraphicsResources.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 
 #include <cstring>
@@ -138,7 +137,7 @@ void ShaderProgram::CompileShader()
 {
     this->Destroy();
 
-    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr && device->GetAPI() == GraphicsAPI::OpenGL)
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device != nullptr)
     {
         ShaderProgramCreateInfo createInfo;
         createInfo.desc.stages = ShaderStageBit(ShaderStage::Vertex) | ShaderStageBit(ShaderStage::Fragment);
@@ -147,15 +146,11 @@ void ShaderProgram::CompileShader()
         createInfo.stageSources.push_back({.stage = ShaderStage::Fragment, .sourceCode = this->fragmentSource});
 
         std::shared_ptr<IShaderProgramResource> resource = device->CreateShaderProgram(createInfo);
-        if (auto *openGLResource = dynamic_cast<OpenGLShaderProgramResource *>(resource.get()); openGLResource != nullptr)
+        if (resource != nullptr)
         {
-            this->ID = openGLResource->GetProgramID();
             this->backendResource = std::move(resource);
-            if (this->ID != 0)
-            {
-                return;
-            }
-            this->backendResource.reset();
+            this->ID = 1;
+            return;
         }
     }
 }
@@ -183,7 +178,7 @@ bool ShaderProgram::SaveBinary(std::ostream &out) const
 
 bool ShaderProgram::LoadBinary(std::istream &in)
 {
-    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device == nullptr || device->GetAPI() != GraphicsAPI::OpenGL)
+    if (const IGraphicsDevice *device = TryGetActiveGraphicsDevice(); device == nullptr)
     {
         return false;
     }
@@ -221,17 +216,8 @@ bool ShaderProgram::LoadBinary(std::istream &in)
         return false;
     }
 
-    if (auto *openGLResource = dynamic_cast<OpenGLShaderProgramResource *>(resource.get()))
-    {
-        this->ID = openGLResource->GetProgramID();
-    }
-
-    if (this->ID == 0)
-    {
-        return false;
-    }
-
     this->backendResource = std::move(resource);
+    this->ID = 1;
     return true;
 }
 

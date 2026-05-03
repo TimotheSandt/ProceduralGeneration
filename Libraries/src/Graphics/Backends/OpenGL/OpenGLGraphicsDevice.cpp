@@ -15,7 +15,7 @@ OpenGLGraphicsDevice::OpenGLGraphicsDevice(GraphicsCapabilities capabilitiesIn) 
 
 GraphicsAPI OpenGLGraphicsDevice::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
 
-std::string_view OpenGLGraphicsDevice::GetDeviceName() const noexcept { return "OpenGL Device"; }
+std::string OpenGLGraphicsDevice::GetDeviceName() const noexcept { return "OpenGL Device"; }
 
 const GraphicsCapabilities &OpenGLGraphicsDevice::GetCapabilities() const noexcept { return capabilities; }
 

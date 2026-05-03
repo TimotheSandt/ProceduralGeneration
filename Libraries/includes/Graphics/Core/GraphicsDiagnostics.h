@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string_view>
+#include <string>
 
-void LogActiveGraphicsBackendErrors(std::string_view context) noexcept;
+void LogActiveGraphicsBackendErrors(std::string context) noexcept;
 
 #ifdef DEBUG
 #define GRAPHICS_CHECK_ERRORS_M(context) LogActiveGraphicsBackendErrors(context)

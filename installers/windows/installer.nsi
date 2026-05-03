@@ -19,7 +19,7 @@ Section "Install"
   File /nonfatal "..\..\bin\release\*.dll"
   File /nonfatal "..\..\bin\release\*.lib"
   File /nonfatal "..\..\bin\release\*.a"
-  File /r "..\..\bin\release\res\*"
+  File /r "..\..\res\*"
 
   WriteUninstaller "$INSTDIR\Uninstall${PRODUCT_NAME}.exe"
 

@@ -3,6 +3,9 @@
 #include "Graphics/Backends/Metal/MetalGraphicsBackend.h"
 #include "Graphics/Backends/OpenGL/OpenGLGraphicsBackend.h"
 #include "Graphics/Backends/Vulkan/VulkanGraphicsBackend.h"
+#include "Graphics/AccelerationStructure.h"
+#include "Graphics/GPUTimestampQuery.h"
+#include "Graphics/Core/RenderState.h"
 #include "Graphics/Core/GraphicsDevice.h"
 #include "Graphics/Core/GraphicsResources.h"
 #include "Graphics/Core/GraphicsRuntime.h"
@@ -24,7 +27,7 @@ class FakeAccelerationStructureResource final : public IAccelerationStructureRes
     }
 
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDebugName() const noexcept override { return debugName; }
+    std::string GetDebugName() const noexcept override { return debugName; }
     const AccelerationStructureDesc &GetDescription() const noexcept override { return desc; }
 
   private:
@@ -41,11 +44,11 @@ class FakeShaderProgramResource final : public IShaderProgramResource
     }
 
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDebugName() const noexcept override { return debugName; }
+    std::string GetDebugName() const noexcept override { return debugName; }
     const ShaderProgramDesc &GetDescription() const noexcept override { return desc; }
     void Bind() const override {}
     void Unbind() const override {}
-    int GetUniformLocation(std::string_view) const override { return 0; }
+    int GetUniformLocation(std::string) const override { return 0; }
     void SetFloatUniform(int, const float *, std::size_t) const override {}
     void SetIntUniform(int, const int *, std::size_t) const override {}
     void SetMatrix4Uniform(int, const float *) const override {}
@@ -61,7 +64,7 @@ class FakeBufferResource final : public IBufferResource
     explicit FakeBufferResource(BufferCreateInfo createInfo) : desc(createInfo.desc), debugName(std::move(createInfo.debugName)) {}
 
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDebugName() const noexcept override { return debugName; }
+    std::string GetDebugName() const noexcept override { return debugName; }
     const BufferDesc &GetDescription() const noexcept override { return desc; }
     void Bind() const override {}
     void BindToBindingPoint(std::uint32_t) const override {}
@@ -87,7 +90,7 @@ class FakeGeometryResource final : public IGeometryResource
     }
 
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDebugName() const noexcept override { return debugName; }
+    std::string GetDebugName() const noexcept override { return debugName; }
     const GeometryLayout &GetLayout() const noexcept override { return layout; }
     std::size_t GetIndexCount() const noexcept override { return indexCount; }
     std::size_t GetInstanceCount() const noexcept override { return instanceCount; }
@@ -112,7 +115,7 @@ class FakeTextureResource final : public ITextureResource
     explicit FakeTextureResource(TextureCreateInfo createInfo) : desc(createInfo.desc), debugName(std::move(createInfo.debugName)) {}
 
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDebugName() const noexcept override { return debugName; }
+    std::string GetDebugName() const noexcept override { return debugName; }
     const TextureDesc &GetDescription() const noexcept override { return desc; }
     void Bind(std::uint32_t) const override {}
     void Unbind() const override {}
@@ -134,7 +137,7 @@ class FakeRenderTargetResource final : public IRenderTargetResource
     }
 
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDebugName() const noexcept override { return debugName; }
+    std::string GetDebugName() const noexcept override { return debugName; }
     const RenderTargetDesc &GetDescription() const noexcept override { return desc; }
     void Bind() const override {}
     void Unbind() const override {}
@@ -154,7 +157,7 @@ class FakeRayTracingDevice final : public IGraphicsDevice
 {
   public:
     GraphicsAPI GetAPI() const noexcept override { return GraphicsAPI::Vulkan; }
-    std::string_view GetDeviceName() const noexcept override { return "Fake Ray Tracing Device"; }
+    std::string GetDeviceName() const noexcept override { return "Fake Ray Tracing Device"; }
     const GraphicsCapabilities &GetCapabilities() const noexcept override { return capabilities; }
 
     bool SupportsShaderStages(ShaderStageMask stages) const noexcept override { return (stages & supportedStages) == stages; }
@@ -371,7 +374,7 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(shaderProgram != nullptr, "OpenGL should create shader program resources for supported shader stages");
                 Assert(texture != nullptr, "OpenGL should create texture resources");
                 AssertEqual(shaderProgram->GetAPI(), GraphicsAPI::OpenGL, "Shader resources should keep the OpenGL API tag");
-                AssertEqual(shaderProgram->GetDebugName(), std::string_view("ui_shader"), "Shader debug names should be preserved");
+                AssertEqual(shaderProgram->GetDebugName(), std::string("ui_shader"), "Shader debug names should be preserved");
                 AssertEqual(texture->GetDescription().extent.width, 256u, "Texture width should be preserved in the resource descriptor");
                 Assert(texture->GetDescription().renderTarget, "Texture descriptors should preserve render-target intent");
             });
@@ -482,7 +485,7 @@ TestSuite CreateGraphicsCoreSuite()
             AssertEqual(accelerationStructure->GetDescription().instanceCount, 64u,
                         "The fake acceleration structure should preserve instance counts");
             Assert(accelerationStructure->GetDescription().allowUpdate, "The fake acceleration structure should preserve update flags");
-            AssertEqual(accelerationStructure->GetDebugName(), std::string_view("scene_tlas"),
+            AssertEqual(accelerationStructure->GetDebugName(), std::string("scene_tlas"),
                         "The fake acceleration structure should preserve debug names");
         });
 
@@ -496,8 +499,12 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(!capabilities.supportsRuntimeShaderCompilation, "Vulkan should not rely on runtime shader compilation");
                 Assert(capabilities.supportsComputeShaders, "Vulkan should expose compute shader support");
                 Assert(capabilities.supportsFramebufferBlit, "Vulkan should support blit-style transfers");
-                Assert(!capabilities.supportsAccelerationStructures,
-                       "Vulkan should keep acceleration structures disabled until the backend is implemented");
+                Assert(capabilities.supportsAccelerationStructures,
+                       "Vulkan foundation should expose acceleration-structure intent through capabilities");
+                Assert(capabilities.supportsRayTracingPipelines,
+                       "Vulkan foundation should expose ray-tracing pipeline intent through capabilities");
+                Assert(capabilities.supportsRayQueries, "Vulkan foundation should expose ray-query intent through capabilities");
+                Assert(capabilities.supportsTemporalUpscaling, "Vulkan foundation should advertise temporal upscaling hooks");
             });
 
     AddTest(suite, "metal backend capabilities keep wireframe optional",
@@ -511,13 +518,61 @@ TestSuite CreateGraphicsCoreSuite()
                 Assert(!capabilities.supportsWireframeRendering, "Metal should keep wireframe support conservative by default");
             });
 
-    AddTest(suite, "stub backends do not create devices yet",
+    AddTest(suite, "vulkan foundation creates a device and hardware acceleration resources",
             []
             {
                 const VulkanGraphicsBackend vulkanBackend;
-                const MetalGraphicsBackend metalBackend;
+                const std::unique_ptr<IGraphicsDevice> device = vulkanBackend.CreateDevice({});
+                const std::unique_ptr<IShaderProgramResource> rayProgram =
+                    device->CreateShaderProgram({.desc = {.stages = ShaderStageBit(ShaderStage::RayGeneration) |
+                                                                   ShaderStageBit(ShaderStage::Miss) |
+                                                                   ShaderStageBit(ShaderStage::ClosestHit)},
+                                                 .debugName = "vk_rt_program"});
+                const std::unique_ptr<IAccelerationStructureResource> accelerationStructure =
+                    device->CreateAccelerationStructure({.desc = {.type = AccelerationStructureType::TopLevel, .instanceCount = 8},
+                                                        .debugName = "vk_tlas"});
+                const std::unique_ptr<IGPUTimestampQueryResource> timestampQuery =
+                    device->CreateTimestampQuery({.debugName = "vk_gpu_time"});
 
-                Assert(vulkanBackend.CreateDevice({}) == nullptr, "Vulkan should not create a device before implementation");
+                Assert(device != nullptr, "Vulkan foundation should create a graphics device");
+                AssertEqual(device->GetAPI(), GraphicsAPI::Vulkan, "Vulkan devices should report the Vulkan API");
+                Assert(device->SupportsShaderStages(ShaderStageBit(ShaderStage::RayGeneration) | ShaderStageBit(ShaderStage::Miss)),
+                       "Vulkan devices should accept ray-tracing shader stages");
+                Assert(rayProgram != nullptr, "Vulkan foundation should create ray-tracing shader descriptors");
+                Assert(accelerationStructure != nullptr, "Vulkan foundation should create acceleration-structure descriptors");
+                Assert(timestampQuery != nullptr, "Vulkan foundation should create timestamp-query descriptors");
+            });
+
+    AddTest(suite, "vulkan facades expose acceleration structures and gpu timing",
+            []
+            {
+                const VulkanGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
+                BindGraphicsRuntime({.api = GraphicsAPI::Vulkan, .backend = &backend, .device = device.get()});
+
+                AccelerationStructure accelerationStructure(
+                    {.desc = {.type = AccelerationStructureType::BottomLevel, .primitiveCount = 12}, .debugName = "facade_blas"});
+                GPUTimestampQuery query({.debugName = "facade_timestamp"});
+
+                query.Begin();
+                query.End();
+
+                Assert(accelerationStructure.IsInitialized(), "AccelerationStructure facade should initialize on Vulkan");
+                AssertEqual(accelerationStructure.GetAPI(), GraphicsAPI::Vulkan, "AccelerationStructure facade should preserve the API tag");
+                AssertEqual(accelerationStructure.GetDescription().primitiveCount, 12u,
+                            "AccelerationStructure facade should preserve primitive counts");
+                Assert(query.IsInitialized(), "GPUTimestampQuery facade should initialize on Vulkan");
+                Assert(query.IsReady(), "GPUTimestampQuery facade should report a completed CPU-backed interval");
+                Assert(query.GetElapsedTime() >= std::chrono::nanoseconds::zero(),
+                       "GPUTimestampQuery facade should return a non-negative elapsed time");
+
+                ClearGraphicsRuntime();
+            });
+
+    AddTest(suite, "metal backend remains a stub",
+            []
+            {
+                const MetalGraphicsBackend metalBackend;
                 Assert(metalBackend.CreateDevice({}) == nullptr, "Metal should not create a device before implementation");
             });
 
@@ -538,6 +593,33 @@ TestSuite CreateGraphicsCoreSuite()
                 ClearGraphicsRuntime();
                 Assert(TryGetActiveGraphicsBackend() == nullptr, "Runtime should clear backend bindings");
                 Assert(TryGetActiveGraphicsDevice() == nullptr, "Runtime should clear device bindings");
+            });
+
+    AddTest(suite, "vulkan render state tracks framebuffer and viewport",
+            []
+            {
+                const VulkanGraphicsBackend backend;
+                const std::unique_ptr<IGraphicsDevice> device = backend.CreateDevice({});
+                BindGraphicsRuntime({.api = GraphicsAPI::Vulkan, .backend = &backend, .device = device.get()});
+
+                GraphicsRenderState::BindFramebuffer(7);
+                GraphicsRenderState::SetViewport(10, 20, 640, 360);
+                GraphicsRenderState::SetDepthTest(true);
+                GraphicsRenderState::SetBlend(true);
+                GraphicsRenderState::SetScissorTest(true);
+
+                const GraphicsRenderState::FramebufferState state = GraphicsRenderState::CaptureFramebufferState();
+
+                AssertEqual(state.framebuffer, 7u, "Vulkan render state should track the bound framebuffer");
+                AssertEqual(state.viewport[0], 10, "Vulkan render state should track viewport x");
+                AssertEqual(state.viewport[1], 20, "Vulkan render state should track viewport y");
+                AssertEqual(state.viewport[2], 640, "Vulkan render state should track viewport width");
+                AssertEqual(state.viewport[3], 360, "Vulkan render state should track viewport height");
+                Assert(state.depthTest, "Vulkan render state should track depth test");
+                Assert(state.blend, "Vulkan render state should track blending");
+                Assert(state.scissorTest, "Vulkan render state should track scissor test");
+
+                ClearGraphicsRuntime();
             });
 
     return suite;

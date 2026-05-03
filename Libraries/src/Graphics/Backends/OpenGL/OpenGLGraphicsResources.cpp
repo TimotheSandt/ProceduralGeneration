@@ -239,7 +239,7 @@ OpenGLShaderProgramResource::~OpenGLShaderProgramResource()
 
 GraphicsAPI OpenGLShaderProgramResource::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
 
-std::string_view OpenGLShaderProgramResource::GetDebugName() const noexcept { return debugName; }
+std::string OpenGLShaderProgramResource::GetDebugName() const noexcept { return debugName; }
 
 const ShaderProgramDesc &OpenGLShaderProgramResource::GetDescription() const noexcept { return desc; }
 
@@ -253,7 +253,7 @@ void OpenGLShaderProgramResource::Bind() const
 
 void OpenGLShaderProgramResource::Unbind() const { glUseProgram(0); }
 
-int OpenGLShaderProgramResource::GetUniformLocation(std::string_view name) const
+int OpenGLShaderProgramResource::GetUniformLocation(std::string name) const
 {
     if (programID == 0)
     {
@@ -387,7 +387,7 @@ OpenGLBufferResource::~OpenGLBufferResource()
 
 GraphicsAPI OpenGLBufferResource::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
 
-std::string_view OpenGLBufferResource::GetDebugName() const noexcept { return debugName; }
+std::string OpenGLBufferResource::GetDebugName() const noexcept { return debugName; }
 
 const BufferDesc &OpenGLBufferResource::GetDescription() const noexcept { return desc; }
 
@@ -614,7 +614,7 @@ OpenGLGeometryResource::~OpenGLGeometryResource()
 
 GraphicsAPI OpenGLGeometryResource::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
 
-std::string_view OpenGLGeometryResource::GetDebugName() const noexcept { return debugName; }
+std::string OpenGLGeometryResource::GetDebugName() const noexcept { return debugName; }
 
 const GeometryLayout &OpenGLGeometryResource::GetLayout() const noexcept { return layout; }
 
@@ -744,7 +744,7 @@ OpenGLTextureResource::~OpenGLTextureResource()
 
 GraphicsAPI OpenGLTextureResource::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
 
-std::string_view OpenGLTextureResource::GetDebugName() const noexcept { return debugName; }
+std::string OpenGLTextureResource::GetDebugName() const noexcept { return debugName; }
 
 const TextureDesc &OpenGLTextureResource::GetDescription() const noexcept { return desc; }
 
@@ -890,7 +890,7 @@ OpenGLRenderTargetResource::~OpenGLRenderTargetResource()
 
 GraphicsAPI OpenGLRenderTargetResource::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
 
-std::string_view OpenGLRenderTargetResource::GetDebugName() const noexcept { return debugName; }
+std::string OpenGLRenderTargetResource::GetDebugName() const noexcept { return debugName; }
 
 const RenderTargetDesc &OpenGLRenderTargetResource::GetDescription() const noexcept { return desc; }
 
@@ -1039,7 +1039,7 @@ OpenGLTimestampQueryResource::~OpenGLTimestampQueryResource()
 
 GraphicsAPI OpenGLTimestampQueryResource::GetAPI() const noexcept { return GraphicsAPI::OpenGL; }
 
-std::string_view OpenGLTimestampQueryResource::GetDebugName() const noexcept { return debugName; }
+std::string OpenGLTimestampQueryResource::GetDebugName() const noexcept { return debugName; }
 
 void OpenGLTimestampQueryResource::Begin()
 {

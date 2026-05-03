@@ -116,6 +116,14 @@ TestSuite CreateGraphicsAPISuite()
                 Assert(IsGraphicsAPIAvailable(GraphicsAPI::OpenGL), "OpenGL should be runnable");
             });
 
+    AddTest(suite, "vulkan backend is reported available",
+            []
+            {
+                AssertEqual(GetGraphicsAPIAvailability(GraphicsAPI::Vulkan), GraphicsAPIAvailability::Available,
+                            "Vulkan backend should be advertised as available");
+                Assert(IsGraphicsAPIAvailable(GraphicsAPI::Vulkan), "Vulkan should now be runnable through the runtime");
+            });
+
     AddTest(suite, "other backend messages are non-empty",
             []
             {

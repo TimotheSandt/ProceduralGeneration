@@ -3,16 +3,20 @@
 #include <algorithm>
 #include <stdexcept>
 
+<<<<<<< UI
 #include <utility>
 
 #include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
+=======
+>>>>>>> dev
 #include "Graphics/Core/GraphicsRuntime.h"
+#include "Graphics/Core/WindowContext.h"
 
 Game::Game()
 {
-    if (!IsGraphicsAPIActive(GraphicsAPI::OpenGL))
+    if (!IsGraphicsAPIActive(GraphicsAPI::OpenGL) && !IsGraphicsAPIActive(GraphicsAPI::Vulkan))
     {
-        throw std::runtime_error("Game currently requires the OpenGL runtime backend");
+        throw std::runtime_error("Game currently requires the OpenGL or Vulkan runtime backend");
     }
 
     LOG_TRACE("Initializing window");
@@ -50,7 +54,7 @@ void Game::stop()
 
     if (this->window.GetWindow() != nullptr)
     {
-        OpenGLWindowContext::EnsureContextCurrent(this->window.GetWindow());
+        GraphicsWindowContext::EnsureContextReady(this->window.GetWindow());
     }
     if (this->world)
     {

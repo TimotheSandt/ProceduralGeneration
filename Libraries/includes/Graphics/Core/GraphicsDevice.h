@@ -4,7 +4,7 @@
 #include "Graphics/Core/GraphicsResources.h"
 
 #include <memory>
-#include <string_view>
+#include <string>
 
 struct GraphicsDeviceCreateInfo
 {
@@ -17,7 +17,7 @@ class IGraphicsDevice
     virtual ~IGraphicsDevice() = default;
 
     virtual GraphicsAPI GetAPI() const noexcept = 0;
-    virtual std::string_view GetDeviceName() const noexcept = 0;
+    virtual std::string GetDeviceName() const noexcept = 0;
     virtual const GraphicsCapabilities &GetCapabilities() const noexcept = 0;
     virtual bool SupportsShaderStages(ShaderStageMask stages) const noexcept = 0;
     virtual std::unique_ptr<IBufferResource> CreateBuffer(const BufferCreateInfo &createInfo) const = 0;

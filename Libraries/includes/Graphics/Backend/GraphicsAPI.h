@@ -4,7 +4,7 @@
 #include <iosfwd>
 #include <optional>
 #include <string>
-#include <string_view>
+#include <string>
 
 enum class GraphicsAPI : std::uint8_t
 {
@@ -29,8 +29,8 @@ struct GraphicsLaunchOptions
     bool apiExplicitlyRequested = false;
 };
 
-std::string_view GraphicsAPIToString(GraphicsAPI api) noexcept;
-std::optional<GraphicsAPI> ParseGraphicsAPI(std::string_view value) noexcept;
+std::string GraphicsAPIToString(GraphicsAPI api) noexcept;
+std::optional<GraphicsAPI> ParseGraphicsAPI(std::string value) noexcept;
 
 GraphicsLaunchOptions ParseGraphicsLaunchOptions(int argc, const char *const *argv);
 void PrintGraphicsAPIUsage(std::ostream &out);
