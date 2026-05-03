@@ -16,6 +16,7 @@ Usage:
 
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -88,9 +89,35 @@ def cmd_run(args):
         _compile_file(cui_path, out_dir, registry)
 
 
+_HASH_TAG = "// @cui-hash:"
+
+
+def _source_hash(source: str) -> str:
+    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+
+def _read_stored_hash(h_path: Path) -> str:
+    """Return the hash embedded in the first line of an existing generated header, or ''."""
+    try:
+        first = h_path.open(encoding="utf-8").readline()
+        if first.startswith(_HASH_TAG):
+            return first[len(_HASH_TAG):].strip()
+    except OSError:
+        pass
+    return ""
+
+
 def _compile_file(cui_path: Path, out_dir: Path, registry):
     source = cui_path.read_text(encoding="utf-8")
     stem   = cui_path.stem  # e.g. "PerformanceView"
+
+    h_path   = out_dir / (stem + ".gen.h")
+    cpp_path = out_dir / (stem + ".gen.cpp")
+
+    current_hash = _source_hash(source)
+    if _read_stored_hash(h_path) == current_hash:
+        print(f"[cui] {cui_path.name} unchanged, skipping")
+        return
 
     try:
         lexer  = Lexer(source, str(cui_path))
@@ -113,10 +140,8 @@ def _compile_file(cui_path: Path, out_dir: Path, registry):
         print(f"[cui] ERROR generating {cui_path}: {e}", file=sys.stderr)
         return
 
-    h_path   = out_dir / (stem + ".gen.h")
-    cpp_path = out_dir / (stem + ".gen.cpp")
-    h_path.write_text(header, encoding="utf-8")
-    cpp_path.write_text(impl,   encoding="utf-8")
+    h_path.write_text(f"{_HASH_TAG} {current_hash}\n{header}", encoding="utf-8")
+    cpp_path.write_text(impl, encoding="utf-8")
     print(f"[cui] {cui_path.name} -> {h_path.name}, {cpp_path.name}")
 
 
