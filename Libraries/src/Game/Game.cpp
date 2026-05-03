@@ -3,12 +3,9 @@
 #include <algorithm>
 #include <stdexcept>
 
-<<<<<<< UI
 #include <utility>
 
 #include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
-=======
->>>>>>> dev
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Graphics/Core/WindowContext.h"
 

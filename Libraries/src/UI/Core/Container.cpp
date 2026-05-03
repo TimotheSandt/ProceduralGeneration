@@ -272,14 +272,7 @@ void ContainerBase::RenderChildren()
         }
     }
 
-<<<<<<< UI
     GraphicsRenderState::RestoreFramebufferState(previousState);
-=======
-    renderTarget.Unbind();
-    GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Unbind");
-
-    RestoreRenderTargetState(oldFramebuffer, viewport);
->>>>>>> dev
     GRAPHICS_CHECK_ERRORS_M("RenderDirtyChildren Restore");
 }
 

@@ -44,11 +44,7 @@ ifeq ($(DETECTED_OS),Windows)
 	VCPKG_TRIPLET ?= x64-mingw-static
 	GLFW_LINK_NAME := glfw3
 	PLATFORM_DEFINES += -DNOMINMAX -DWIN32_LEAN_AND_MEAN
-<<<<<<< UI
-	LDFLAGS = -L$(VCPKG_INSTALLED_DIR)/lib -l$(GLFW_LINK_NAME) -lglad -lmsdfgen-core -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lpsapi -lwinmm -lgdi32 -luser32 -lshell32 -lopengl32 -lstdc++exp
-=======
-	LDFLAGS = -L$(VCPKG_INSTALLED_DIR)/lib -l$(GLFW_LINK_NAME) -lglad -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lvulkan-1 -lshaderc -lshaderc_util -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lSPIRV-Tools-opt -lSPIRV-Tools -lpsapi -lwinmm -lgdi32 -lstdc++exp
->>>>>>> dev
+	LDFLAGS = -L$(VCPKG_INSTALLED_DIR)/lib -l$(GLFW_LINK_NAME) -lglad -lmsdfgen-core -lfreetype -lpng16 -lzlib -lbz2 -lbrotlidec -lbrotlienc -lbrotlicommon -lvulkan-1 -lshaderc -lshaderc_util -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lSPIRV-Tools-opt -lSPIRV-Tools -lpsapi -lwinmm -lgdi32 -luser32 -lshell32 -lopengl32 -lstdc++exp
 	COPY_LIBS_TARGETS := copy_libs
 	CREATE_INSTALLER := create_windows_installer
 	ARCHITECTURE := $(ARCHITECTURE_WINDOWS)
@@ -288,13 +284,8 @@ remove_deps:
 
 reset_deps:
 	@echo "Resetting dependencies with vcpkg..."
-<<<<<<< UI
-	@$(RM_RF) $(VCPKG_INSTALLED_ROOT)
-	$(MAKE) install_deps
-=======
 	@rm -rf $(VCPKG_INSTALLED_ROOT)
 	$(VCPKG) install --triplet=$(VCPKG_TRIPLET) --x-manifest-root=. --x-install-root=$(VCPKG_INSTALLED_ROOT)
->>>>>>> dev
 
 # Icon resource
 $(OBJ_DIR_TYPE)/src/icon.o: $(BIN_DIR_TYPE)/$(ICON_RC)
@@ -400,16 +391,10 @@ $(TEST_BIN_DIR):
 
 # Clean rules
 clean:
-<<<<<<< UI
-	@$(RM_RF) $(OBJ_DIR)
-	@$(RM_RF) $(GEN_DIR)
-	@$(RM_F) installers/windows/*.exe
-	@$(RM_F) installers/linux/*.deb
-=======
 	@rm -rf $(OBJ_DIR)
+	@rm -rf $(GEN_DIR)
 	@rm -f installers/windows/*.exe
 	@rm -f installers/linux/*.deb
->>>>>>> dev
 	@echo "Objects deleted"
 
 fclean: clean
