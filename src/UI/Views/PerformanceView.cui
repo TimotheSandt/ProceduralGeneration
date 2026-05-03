@@ -1,0 +1,31 @@
+import "Profiler/Profiler.h"
+
+view PerformanceView {
+    @Observed var window: Window?
+
+    func toMs(d: nanoseconds) -> double = double(d.count()) * 1e-6
+
+    let fpsScale    = 0.50
+    let metricScale = 0.30
+
+    VBox {
+        Text("FPS: \(window.averageFPS)")
+            .scale(fpsScale)
+
+        Text("Render: \(always toMs(Profiler.averageTime("Render"))) ms")
+            .scale(metricScale)
+        Text("Render World: \(always toMs(Profiler.averageTime("RenderWorld"))) ms")
+            .scale(metricScale)
+        Text("Upscale: \(always toMs(Profiler.averageTime("Upscale"))) ms")
+            .scale(metricScale)
+        Text("UI Upscale: \(always toMs(Profiler.averageTime("UIUpscale"))) ms")
+            .scale(metricScale)
+        Text("Swap Buffers: \(always toMs(Profiler.averageTime("SwapBuffers"))) ms")
+            .scale(metricScale)
+    }
+    .frame(width: 260, height: 160, anchor: .topLeft)
+    .padding(12)
+    .spacing(4)
+    .color(0.05, 0.05, 0.08, 0.65)
+    .throttle(0.25)
+}

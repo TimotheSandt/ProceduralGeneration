@@ -59,8 +59,11 @@ class TextWidgetBase : public ComponentBase
     void Update() override;
     void Draw(glm::vec2 containerSize, glm::vec2 offset = {0, 0}) override;
 
+    /** @cui-modifier scale,textScale */
     void DoSetTextScale(float scale);
+    /** @cui-modifier textAnchor */
     void DoSetTextAnchor(TextAnchor anchor);
+    /** @cui-modifier autoSize */
     void DoSetAutoSize(bool enabled);
 
     const std::string &GetText() const { return displayedText; }
@@ -103,6 +106,11 @@ class ChainableTextWidget : public ChainableComponent<Base, Derived>
     }
 };
 
+/**
+ * @cui-component
+ * @cui-accepts-children false
+ * @cui-content-model text_content
+ */
 class Text : public ChainableTextWidget<TextWidgetBase, Text>
 {
   private:
@@ -127,6 +135,9 @@ class Text : public ChainableTextWidget<TextWidgetBase, Text>
     std::shared_ptr<Text> ClearContent();
     std::shared_ptr<Text> ClearParts() { return ClearContent(); }
     std::shared_ptr<Text> SetContent(TextContent content);
+    std::shared_ptr<Text> SetText(std::string text);
+    std::shared_ptr<Text> ClearContent();
+    std::shared_ptr<Text> AppendText(std::string text);
 
     TextContent &GetContent() { return textContent; }
     const TextContent &GetContent() const { return textContent; }
@@ -191,6 +202,11 @@ template <typename... Args>
 inline std::shared_ptr<Text> CreateText(Bounds bounds, Args &&...args)
 {
     return std::make_shared<Text>(bounds, TextContent(std::forward<Args>(args)...));
+}
+
+inline std::shared_ptr<Text> CreateText(Bounds bounds, const std::string *value, float scale = 1.0f)
+{
+    return std::make_shared<Text>(bounds, value, scale);
 }
 
 } // namespace UI

@@ -16,7 +16,9 @@ class HBoxBase : public ContainerBase
     VAlign GetChildAlignment() const { return childAlignment; }
     JustifyContent GetJustifyContent() const { return justifyContent; }
 
+    /** @cui-modifier childAlignment */
     void DoSetChildAlignment(VAlign align);
+    /** @cui-modifier justifyContent */
     void DoSetJustifyContent(JustifyContent j);
 
     glm::vec2 GetAvailableSize() const override;
@@ -43,6 +45,11 @@ template <typename Base, typename Derived> class ChainableHBox : public Chainabl
     }
 };
 
+/**
+ * @cui-component
+ * @cui-accepts-children true
+ * @cui-extends Container
+ */
 class HBox : public ChainableHBox<HBoxBase, HBox>
 {
   public:

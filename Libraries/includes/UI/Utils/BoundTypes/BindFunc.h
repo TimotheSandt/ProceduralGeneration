@@ -137,4 +137,12 @@ auto Call(Func &&f, Args &&...args)
         std::tuple{detail::MakeBoundValue(std::forward<Args>(args))...}};
 }
 
+// Always re-evaluates every tick regardless of arguments.
+// Use for calls to external functions that read global state (Profiler, timers, RNG).
+template <typename Callable>
+auto BindAlways(Callable &&callable)
+{
+    return Call(std::forward<Callable>(callable));
+}
+
 } // namespace UI
