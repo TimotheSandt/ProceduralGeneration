@@ -23,7 +23,7 @@ view PerformanceView {
         Text("Swap Buffers: \(always toMs(Profiler.averageTime("SwapBuffers"))) ms")
             .scale(metricScale)
     }
-    .frame(width: 260, height: 160, anchor: .topLeft)
+    .frame(width: 260, height: 175, anchor: .topLeft)
     .padding(12)
     .spacing(4)
     .color(0.05, 0.05, 0.08, 0.65)

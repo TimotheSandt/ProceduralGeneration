@@ -99,7 +99,7 @@ class Generator:
         h.append(f"    explicit {view.name}({ctor_params});")
         h.append("")
         h.append("protected:")
-        h.append("    std::shared_ptr<UI::ContainerBase> Build() override;")
+        h.append("    void Build() override;")
         h.append("")
         h.append("private:")
         for f in observed:
@@ -144,11 +144,13 @@ class Generator:
         ctor_params_nodef = self._ctor_params(observed, mutable_, snapshot, with_defaults=False)
         ctor_init = self._ctor_init(observed, mutable_, snapshot)
         cpp.append(f"{view.name}::{view.name}({ctor_params_nodef})")
-        cpp.append(f"    : UI::View(bounds){ctor_init}")
-        cpp.append("{}")
+        cpp.append(f"    : UI::View(bounds, false){ctor_init}")
+        cpp.append("{")
+        cpp.append("    DoSetIdentifierKind(UI::IdentifierKind::TRANSPARENT);")
+        cpp.append("}")
         cpp.append("")
         # Build()
-        cpp.append(f"std::shared_ptr<UI::ContainerBase> {view.name}::Build()")
+        cpp.append(f"void {view.name}::Build()")
         cpp.append("{")
 
         # let constants
@@ -196,10 +198,10 @@ class Generator:
 
     def _gen_element(self, view: ViewDecl, observed: list[WrappedField],
                      mutable_: list[WrappedField], states: list[WrappedField] = None) -> str:
-        """Returns C++ code for the root element, ending with 'return <expr>;'"""
+        """Returns C++ code for the root element, as AddChild call (Build is void)."""
         ctx = _GenContext(view, observed, mutable_, states or [], self._reg)
         code = ctx.gen_element(view.root, is_root=True)
-        return f"return {code};"
+        return f"AddChild({code});"
 
     # ── expression code generation ────────────────────────────────────────────
 

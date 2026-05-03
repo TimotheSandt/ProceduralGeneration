@@ -136,14 +136,10 @@ class Text : public ChainableTextWidget<TextWidgetBase, Text>
     std::shared_ptr<Text> ClearParts() { return ClearContent(); }
     std::shared_ptr<Text> SetContent(TextContent content);
     std::shared_ptr<Text> SetText(std::string text);
-    std::shared_ptr<Text> ClearContent();
     std::shared_ptr<Text> AppendText(std::string text);
 
     TextContent &GetContent() { return textContent; }
     const TextContent &GetContent() const { return textContent; }
-
-    std::shared_ptr<Text> SetText(std::string text);
-    std::shared_ptr<Text> AppendText(std::string text);
 
     std::shared_ptr<Text> SetLabel(std::string text) { return SetText(std::move(text)); }
     std::shared_ptr<Text> AppendLabel(std::string text) { return AppendText(std::move(text)); }

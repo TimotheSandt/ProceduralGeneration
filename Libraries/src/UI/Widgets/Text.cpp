@@ -204,7 +204,6 @@ void Text::Update()
 
 void Text::Draw(glm::vec2 containerSize, glm::vec2 offset)
 {
-    SyncDisplayText();
     TextWidgetBase::Draw(containerSize, offset);
 }
 

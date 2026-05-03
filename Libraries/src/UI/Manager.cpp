@@ -57,7 +57,7 @@ void Manager::CreateUI(int w, int h, const Window *windowArg)
              ->SetColor(glm::vec4{0.3f, 0.6f, 1.0f, 0.5f})
              ->SetJustifyContent(UI::JustifyContent::CENTER)
              ->SetChildAlignment(UI::HAlign::CENTER),
-            CreatePerformanceView(Bounds(260_px, 160_px, Anchor::TOP_LEFT), windowArg)
+            CreatePerformanceView(Bounds(260_px, 175_px, Anchor::TOP_LEFT), windowArg)
         });
 
     rootContainer->SetIdentifierKind(UI::IdentifierKind::TRANSPARENT);
