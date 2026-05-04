@@ -1,7 +1,6 @@
 #include "Manager.h"
 #include "Layout/HBox.h"
 #include "Layout/VBox.h"
-#include "UI/Views/PerformanceView.cui"
 #include "Widgets.h"
 #include "Window.h"
 
@@ -57,7 +56,6 @@ void Manager::CreateUI(int w, int h, const Window *windowArg)
              ->SetColor(glm::vec4{0.3f, 0.6f, 1.0f, 0.5f})
              ->SetJustifyContent(UI::JustifyContent::CENTER)
              ->SetChildAlignment(UI::HAlign::CENTER),
-            CreatePerformanceView(Bounds(260_px, 175_px, Anchor::TOP_LEFT), windowArg)
         });
 
     rootContainer->SetIdentifierKind(UI::IdentifierKind::TRANSPARENT);

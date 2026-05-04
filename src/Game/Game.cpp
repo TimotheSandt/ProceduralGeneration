@@ -8,6 +8,8 @@
 #include "Graphics/Backends/OpenGL/OpenGLWindowContext.h"
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Graphics/Core/WindowContext.h"
+#include "UI/Core/Bounds.h"
+#include "UI/Views/PerformanceView.cui"
 
 Game::Game()
 {
@@ -39,6 +41,12 @@ void Game::init()
 
     // Initialize UI system
     UI::Manager::Instance().Init(*w, *h, &window);
+    {
+        using namespace UI;
+        auto perfView = CreatePerformanceView(Bounds(260_px, 175_px, Anchor::TOP_LEFT), &window);
+        perfView->Initialize();
+        Manager::Instance().GetRootContainer()->AddChild(perfView);
+    }
 }
 
 void Game::stop()

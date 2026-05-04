@@ -110,6 +110,7 @@ class ChainableTextWidget : public ChainableComponent<Base, Derived>
  * @cui-component
  * @cui-accepts-children false
  * @cui-content-model text_content
+ * @cui-factory UI::CreateText
  */
 class Text : public ChainableTextWidget<TextWidgetBase, Text>
 {
