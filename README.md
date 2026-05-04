@@ -1,13 +1,15 @@
-# Procedural Generation Project
+# C++ Game Engine
 
-A C++ 20 3D Procedural Generation engine with a custom UI DSL and a multi-backend graphics system (OpenGL, Vulkan, Metal).
+A C++23 game engine in development, with a multi-backend graphics system (OpenGL, Vulkan, Metal), a component-based UI framework with a custom SwiftUI-inspired DSL, and a static library build system designed for reuse across projects.
+
+> **Work in progress** — architecture and APIs are subject to change.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **Compiler:** C++20 compatible (GCC 11+, Clang 13+, or MSVC 2022).
+- **Compiler:** C++23 compatible (GCC 13+, Clang 16+, or MSVC 2022).
 - **Build System:** GNU Make.
-- **Dependencies:** [vcpkg](https://github.com/microsoft/vcpkg) is used for dependency management.
+- **Dependencies:** [vcpkg](https://github.com/microsoft/vcpkg) for dependency management.
 - **Tools:** Python 3.x (for the CUI DSL precompiler), PowerShell (for formatting on Windows).
 
 ### Setup
@@ -16,7 +18,7 @@ A C++ 20 3D Procedural Generation engine with a custom UI DSL and a multi-backen
    ```bash
    make install_deps
    ```
-3. Build the project:
+3. Build:
    ```bash
    make dev
    ```
@@ -29,47 +31,64 @@ A C++ 20 3D Procedural Generation engine with a custom UI DSL and a multi-backen
 
 ## 🏗️ Architecture
 
-The project is divided into several specialized libraries:
-
-### 🎮 Game Engine
-- **Game/World:** Core gameplay loop and entity management.
-- **ProceduralGeneration:** Terrain generation algorithms, noise functions (`Noise.h`), and grid management.
-
 ### 🖼️ Graphics System
 A layered architecture designed for cross-API compatibility.
 - **Renderers:** High-level pass management (`Renderer3D`, `Renderer2D`).
 - **Resource Facades:** API-agnostic wrappers for `Mesh`, `Texture`, `Shader`.
-- **Backends:** Low-level implementation (currently OpenGL is fully implemented).
-- See [README-backend.md](README-backend.md) for a deep dive into the graphics architecture.
+- **Backends:** Pluggable low-level implementations (OpenGL, Vulkan, Metal).
+- See [README-backend.md](README-backend.md) for a deep dive.
 
 ### 🧊 UI System & DSL
-A declarative UI system using a custom DSL inspired by SwiftUI.
-- **DSL Precompiler:** Compiles `.cui` files into C++ source code.
-- **Runtime:** A dirty-tracking component-based UI engine.
-- See [Docs/UI_DSL_Spec.md](Docs/UI_DSL_Spec.md) for the language specification.
+A declarative UI system inspired by SwiftUI.
+- **DSL Precompiler:** Compiles `.cui` files into C++ source — see [Docs/UI_DSL_Spec.md](Docs/UI_DSL_Spec.md).
+- **Runtime:** Dirty-tracking, component-based UI with reactive bindings and layout engine.
+
+### 📊 Profiler
+Lightweight performance monitoring with per-frame timing and FPS tracking.
 
 ---
 
-## 🛠️ Development Tools
+## 📦 Using as a Library
 
-### CUI DSL Precompiler
-Located in `tools/cui/`. It scans C++ headers for `@cui-*` annotations and generates the registry and C++ view classes.
-See [tools/cui/README.md](tools/cui/README.md) for usage.
+The engine compiles to a static archive in `lib/`:
 
-### Formatting & Linting
-- **Format:** `make format` (uses `.clang-format`).
-- **Lint:** `make lint` (uses `clang-tidy`).
-- **Check Syntax:** `make check-syntax`.
+```
+lib/
+├── debug/libcorelibs.a
+└── release/libcorelibs.a
+```
+
+To use the engine in another project:
+1. Build: `make release`
+2. Link against `lib/release/libcorelibs.a`
+3. Add `Libraries/includes/` to your include path
+
+---
+
+## 🛠️ Build Commands
+
+| Command | Effect |
+|---|---|
+| `make debug` | Debug build |
+| `make release` | Optimized release build |
+| `make clean` | Remove app objects, keep engine archive |
+| `make clean-libs` | Remove engine archives only |
+| `make clean-exec` | Remove compiled executables |
+| `make fclean` | Remove everything |
+| `make format` | Auto-format with clang-format |
+| `make lint` | Run clang-tidy |
+| `make test` | Run test suite |
 
 ---
 
 ## 📂 Project Structure
-- `Libraries/includes/`: Public headers.
-- `Libraries/src/`: Library implementations.
-- `src/`: Application entry point and UI views.
-- `tools/cui/`: Python source for the UI DSL toolchain.
-- `res/`: Shaders, textures, and fonts.
-- `tests/`: Unit and integration tests.
+- `Libraries/includes/` — Public engine headers
+- `Libraries/src/` — Engine implementations
+- `lib/` — Compiled engine archives (generated, not committed)
+- `src/` — Game application code and UI views
+- `tools/cui/` — CUI DSL precompiler (Python)
+- `res/` — Shaders, fonts, textures
+- `tests/` — Test suite
 
 ---
 

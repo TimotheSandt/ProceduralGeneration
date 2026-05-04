@@ -107,12 +107,25 @@ def _read_stored_hash(h_path: Path) -> str:
     return ""
 
 
+def _write_redirect(out_dir: Path, cui_name: str, stem: str) -> None:
+    redirect_path = out_dir / cui_name
+    redirect_path.write_text(
+        f"// AUTO-GENERATED — do not edit. Include redirect for {cui_name}\n"
+        f"#pragma once\n"
+        f'#include "{stem}.gen.h"\n',
+        encoding="utf-8",
+    )
+
+
 def _compile_file(cui_path: Path, out_dir: Path, registry):
     source = cui_path.read_text(encoding="utf-8")
     stem   = cui_path.stem  # e.g. "PerformanceView"
 
     h_path   = out_dir / (stem + ".gen.h")
     cpp_path = out_dir / (stem + ".gen.cpp")
+
+    # Always ensure the redirect header exists so #include "Foo.cui" resolves.
+    _write_redirect(out_dir, cui_path.name, stem)
 
     current_hash = _source_hash(source)
     if _read_stored_hash(h_path) == current_hash:
@@ -143,6 +156,16 @@ def _compile_file(cui_path: Path, out_dir: Path, registry):
     h_path.write_text(f"{_HASH_TAG} {current_hash}\n{header}", encoding="utf-8")
     cpp_path.write_text(impl, encoding="utf-8")
     print(f"[cui] {cui_path.name} -> {h_path.name}, {cpp_path.name}")
+
+
+def cmd_redirect(args):
+    """Write only the include-redirect shim for a .cui file."""
+    out_dir  = Path(args.output)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for cui_file in args.files:
+        cui_path = Path(cui_file)
+        _write_redirect(out_dir, cui_path.name, cui_path.stem)
+        print(f"[cui] redirect: {out_dir / cui_path.name}")
 
 
 def cmd_check(args):
@@ -227,6 +250,11 @@ def main():
     p_run.add_argument("--output",  required=True, help="Output directory for generated files")
     p_run.add_argument("files",     nargs="+",     help=".cui source files")
 
+    # redirect (write include-shim only)
+    p_redirect = sub.add_parser("redirect", help="Write include-redirect shim for a .cui file")
+    p_redirect.add_argument("--output", required=True, help="Output directory")
+    p_redirect.add_argument("files",    nargs="+",     help=".cui source files")
+
     # check (diagnostics for VS Code)
     p_check = sub.add_parser("check", help="Parse + validate → JSON diagnostics")
     p_check.add_argument("--registry", default="", help="Path to registry.json (optional)")
@@ -234,7 +262,7 @@ def main():
     p_check.add_argument("file",       help=".cui source file path")
 
     args = parser.parse_args()
-    {"scan": cmd_scan, "build": cmd_build, "run": cmd_run, "check": cmd_check}[args.command](args)
+    {"scan": cmd_scan, "build": cmd_build, "run": cmd_run, "redirect": cmd_redirect, "check": cmd_check}[args.command](args)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ vcpkg_installed/
 bin/
 build/
 obj/
+lib/
 logs/
 *.log
 imgui.ini

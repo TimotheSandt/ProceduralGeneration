@@ -6,7 +6,7 @@
 #include "glm/gtx/hash.hpp"
 
 #include "Renderer3D.h"
-#include "TerrainGenerator.h"
+#include "ProceduralGeneration/TerrainGenerator.h"
 #include "Light.h"
 
 class World

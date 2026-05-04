@@ -21,6 +21,7 @@ LIBRARIES_LIB_DIR := Libraries/libs
 MAIN_SRC_DIR := src
 OBJ_DIR := obj
 BIN_DIR := bin
+LIB_DIR := lib
 BUILD_DIR := build
 RES_DIR := res
 TEST_DIR := tests
@@ -178,15 +179,16 @@ CUI_TOOL        := tools/cui/main.py
 CUI_HEADERS     := $(INCLUDES_BASE)
 GEN_DIR         := Generated
 CUI_SOURCES     := $(shell $(FIND) $(MAIN_SRC_DIR) -type f -name "*.cui" 2>/dev/null)
-GEN_CPP_SOURCES := $(patsubst $(MAIN_SRC_DIR)/%.cui,$(GEN_DIR)/%.gen.cpp,$(CUI_SOURCES))
+GEN_CPP_SOURCES      := $(patsubst $(MAIN_SRC_DIR)/%.cui,$(GEN_DIR)/%.gen.cpp,$(CUI_SOURCES))
+GEN_REDIRECT_SOURCES := $(patsubst $(MAIN_SRC_DIR)/%.cui,$(GEN_DIR)/%.cui,$(CUI_SOURCES))
 SCANNED_HEADERS := $(shell $(FIND) $(CUI_HEADERS) -type f -name "*.h" 2>/dev/null)
 
 ALL_CPP_SOURCES := $(LIBRARIES_CPP_SOURCES) $(MAIN_CPP_SOURCES) $(GEN_CPP_SOURCES)
 ALL_C_SOURCES := $(LIBRARIES_C_SOURCES) $(MAIN_C_SOURCES)
 
-# Include generated headers
-INCLUDES += -I$(GEN_DIR)
-TEST_INCLUDES += -I$(GEN_DIR)
+# Generated/ before src/ so redirect .cui headers shadow the DSL source files
+INCLUDES += -I$(GEN_DIR) -I$(MAIN_SRC_DIR)
+TEST_INCLUDES += -I$(GEN_DIR) -I$(MAIN_SRC_DIR)
 
 # Objects
 LIBRARIES_CPP_OBJECTS := $(LIBRARIES_CPP_SOURCES:$(LIBRARIES_SRC_DIR)/%.cpp=$(OBJ_DIR_TYPE)/Libraries/%.o)
@@ -194,14 +196,23 @@ LIBRARIES_C_OBJECTS := $(LIBRARIES_C_SOURCES:$(LIBRARIES_SRC_DIR)/%.c=$(OBJ_DIR_
 MAIN_CPP_OBJECTS := $(MAIN_CPP_SOURCES:$(MAIN_SRC_DIR)/%.cpp=$(OBJ_DIR_TYPE)/src/%.o)
 MAIN_C_OBJECTS := $(MAIN_C_SOURCES:$(MAIN_SRC_DIR)/%.c=$(OBJ_DIR_TYPE)/src/%.o)
 GEN_CPP_OBJECTS := $(GEN_CPP_SOURCES:$(GEN_DIR)/%.gen.cpp=$(OBJ_DIR_TYPE)/Generated/%.o)
-ALL_OBJECTS := $(LIBRARIES_CPP_OBJECTS) $(LIBRARIES_C_OBJECTS) $(MAIN_CPP_OBJECTS) $(MAIN_C_OBJECTS) $(GEN_CPP_OBJECTS)
+
+# Static archive for Libraries/ — output to lib/ so it survives make clean
+LIB_ARCHIVE := $(LIB_DIR)/$(BUILD_TYPE)/libcorelibs.a
+
+# App objects (src/ + Generated/) — rebuilt on every app change
+APP_OBJECTS := $(MAIN_CPP_OBJECTS) $(MAIN_C_OBJECTS) $(GEN_CPP_OBJECTS)
+
+# ALL_OBJECTS kept for check-syntax / lint targets
+ALL_OBJECTS := $(LIBRARIES_CPP_OBJECTS) $(LIBRARIES_C_OBJECTS) $(APP_OBJECTS)
+
 TEST_CPP_OBJECTS := $(TEST_CPP_SOURCES:$(TEST_DIR)/%.cpp=$(TEST_OBJ_DIR)/tests/%.o)
-TEST_OBJECTS := $(TEST_CPP_OBJECTS) $(LIBRARIES_CPP_OBJECTS) $(LIBRARIES_C_OBJECTS) $(GEN_CPP_OBJECTS)
+TEST_OBJECTS := $(TEST_CPP_OBJECTS) $(GEN_CPP_OBJECTS)
 
 ifneq ($(strip $(ICON_NAME)),)
 ifneq ($(wildcard $(ICON_NAME)),)
 ifeq ($(DETECTED_OS),Windows)
-	ALL_OBJECTS += $(OBJ_DIR_TYPE)/src/icon.o
+	APP_OBJECTS += $(OBJ_DIR_TYPE)/src/icon.o
 endif
 endif
 endif
@@ -343,13 +354,27 @@ clean_bin:
 	@echo "Cleaning $(BUILD_TYPE) binaries..."
 	@rm -rf "$(BIN_DIR_TYPE)"
 
-# Build target
-$(TARGET): clean_bin all_copy $(ALL_OBJECTS) | $(BIN_DIR_TYPE)
-	$(CXX) $(CXXFLAGS) $(ALL_OBJECTS) $(LOCAL_LINK_DIR_FLAGS) $(LOCAL_A_LINK_INPUTS) $(LOCAL_IMPORT_LINK_INPUTS) $(LDFLAGS) -o $@
+# clean: remove app objects + Generated only; Libraries archive preserved
+clean:
+	@echo "Cleaning app objects (Libraries archive preserved)..."
+	@rm -f $(APP_OBJECTS) $(APP_OBJECTS:.o=.d)
+	@rm -rf $(GEN_DIR)
+	@rm -rf "$(BIN_DIR_TYPE)"
+	@echo "App objects deleted"
+
+# Static archive: rebuilt only when Libraries sources change
+$(LIB_ARCHIVE): $(LIBRARIES_CPP_OBJECTS) $(LIBRARIES_C_OBJECTS)
+	@mkdir -p "$(dir $@)"
+	$(AR) rcs $@ $^
+	@echo "Archived (Libraries) $(BUILD_TYPE): $@"
+
+# Build target: links archive + app objects
+$(TARGET): clean_bin all_copy $(APP_OBJECTS) $(LIB_ARCHIVE) | $(BIN_DIR_TYPE)
+	$(CXX) $(CXXFLAGS) $(APP_OBJECTS) $(LIB_ARCHIVE) $(LOCAL_LINK_DIR_FLAGS) $(LOCAL_A_LINK_INPUTS) $(LOCAL_IMPORT_LINK_INPUTS) $(LDFLAGS) -o $@
 	@echo "Compilation successful for: $(TARGET)"
 
-$(TEST_TARGET): $(TEST_OBJECTS) | $(TEST_BIN_DIR)
-	$(CXX) $(filter-out -flto=jobserver,$(CXXFLAGS)) $(TEST_OBJECTS) $(LOCAL_LINK_DIR_FLAGS) $(LOCAL_A_LINK_INPUTS) $(LOCAL_IMPORT_LINK_INPUTS) $(LDFLAGS) -o $@
+$(TEST_TARGET): $(TEST_OBJECTS) $(LIB_ARCHIVE) | $(TEST_BIN_DIR)
+	$(CXX) $(filter-out -flto=jobserver,$(CXXFLAGS)) $(TEST_OBJECTS) $(LIB_ARCHIVE) $(LOCAL_LINK_DIR_FLAGS) $(LOCAL_A_LINK_INPUTS) $(LOCAL_IMPORT_LINK_INPUTS) $(LDFLAGS) -o $@
 	@echo "Compilation successful for: $(TEST_TARGET)"
 
 # Compilation rules
@@ -390,16 +415,27 @@ $(TEST_BIN_DIR):
 	@mkdir -p "$@"
 
 # Clean rules
-clean:
+# fclean: remove everything including compiled engine archives
+fclean:
 	@rm -rf $(OBJ_DIR)
 	@rm -rf $(GEN_DIR)
+	@rm -rf $(BIN_DIR)
+	@rm -rf $(LIB_DIR)
 	@rm -f installers/windows/*.exe
 	@rm -f installers/linux/*.deb
-	@echo "Objects deleted"
+	@echo "Full clean done"
 
-fclean: clean
-	@rm -rf $(BIN_DIR)
-	@echo "Executables deleted"
+# clean-libs: remove only the engine archives (forces engine recompilation)
+clean-libs:
+	@rm -rf $(LIB_DIR)
+	@echo "Engine archives removed"
+
+# clean-exec: remove only the compiled executables, keep resources and lib objects
+clean-exec:
+	@rm -f "$(BIN_DIR)/debug/main$(EXE_EXT)"
+	@rm -f "$(BIN_DIR)/dev/main$(EXE_EXT)"
+	@rm -f "$(BIN_DIR)/release/$(PROJECT_NAME)$(EXE_EXT)"
+	@echo "Executables removed"
 
 fclean-build: fclean
 	@rm -rf $(BUILD_DIR)
@@ -472,7 +508,7 @@ endif
 .PHONY: all release dev debug
 .PHONY: test
 .PHONY: run run-release run-dev run-debug
-.PHONY: clean clean_bin fclean fclean-build re re-debug re-dev re-release
+.PHONY: clean clean-exec clean-libs clean_bin fclean fclean-build re re-debug re-dev re-release
 .PHONY: info info-debug info-dev info-release debug-info dev-info release-info
 .PHONY: check check-syntax check-format format lint copy_libs copy_res copy_test_libs all_copy
 .PHONY: create_windows_installer create_linux_installer installer

@@ -1,7 +1,7 @@
 #include "Manager.h"
 #include "Layout/HBox.h"
 #include "Layout/VBox.h"
-#include "Views/PerformanceView.h"
+#include "UI/Views/PerformanceView.cui"
 #include "Widgets.h"
 #include "Window.h"
 

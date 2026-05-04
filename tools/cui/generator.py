@@ -130,6 +130,12 @@ class Generator:
         h.append(f"    {ctor_params});")
         h.append("")
         h.append("} // namespace ui::generated")
+        h.append("")
+        h.append("namespace UI")
+        h.append("{")
+        h.append(f"using {view.name} = ui::generated::{view.name};")
+        h.append(f"using ui::generated::Create{view.name};")
+        h.append("} // namespace UI")
 
         # ── implementation (.gen.cpp) ─────────────────────────────────────────
         cpp: list[str] = []
