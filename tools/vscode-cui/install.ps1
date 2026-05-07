@@ -10,7 +10,7 @@ param(
     [switch]$List
 )
 
-$extDirName  = "proceduralgeneration.cui-language-0.1.1"
+$extDirName  = "proceduralgeneration.cui-language-0.2.0"
 $profilesDir = "$env:APPDATA\Code\User\profiles"
 $storageJson = "$env:APPDATA\Code\User\globalStorage\storage.json"
 
@@ -71,7 +71,7 @@ if ($Profile -ne "") {
 
     $entry = @{
         identifier = @{ id = "proceduralgeneration.cui-language" }
-        version    = "0.1.1"
+        version    = "0.2.0"
         location   = @{ "`$mid" = 1; fsPath = $dest; _sep = 1; external = $external; path = $posixPath; scheme = "file" }
         metadata   = @{
             isApplicationScoped = $false

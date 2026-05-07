@@ -1,6 +1,6 @@
 # CUI DSL Precompiler
 
-The CUI (Component UI) precompiler is a Python-based toolchain that bridges the gap between declarative UI files (`.cui`) and the C++ UI engine.
+The CUI (Component UI) precompiler now lives in `tools/cui-rs` and builds to a native Rust executable. This legacy Python directory is kept only as historical reference while the build and editor integration use the Rust binary.
 
 ## 🔍 How it works
 
@@ -25,7 +25,8 @@ The build system handles the precompiler automatically during `make`.
 
 ### Manual Usage
 ```bash
-python tools/cui/main.py --headers Libraries/includes --views src/UI/Views --output Generated
+make cui-tool
+tools/cui-rs/target/release/cui run --headers Libraries/includes --output Generated src/UI/Views/PerformanceView.cui
 ```
 
 ## 📝 Annotations Reference

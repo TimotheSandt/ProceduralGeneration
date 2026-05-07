@@ -12,6 +12,7 @@ RC ?= windres
 VCPKG ?= vcpkg
 CLANG_FORMAT ?= clang-format
 CLANG_TIDY ?= clang-tidy
+CARGO ?= cargo
 PLATFORM_DEFINES :=
 
 # Directories
@@ -175,13 +176,15 @@ MAIN_C_SOURCES := $(shell find $(MAIN_SRC_DIR) -type f -name "*.c" 2>/dev/null)
 LIB_SOURCES := $(LOCAL_DLLS) $(LOCAL_IMPORT_LIBS) $(LOCAL_A_LIBS)
 
 # CUI precompiler
-CUI_TOOL        := tools/cui/main.py
+CUI_MANIFEST    := tools/cui-rs/Cargo.toml
+CUI_RUST_SOURCES:= $(shell find tools/cui-rs/src -type f -name "*.rs" 2>/dev/null)
+CUI_TOOL        := tools/cui-rs/target/release/cui$(EXE_EXT)
 CUI_HEADERS     := $(INCLUDES_BASE)
 GEN_DIR         := Generated
-CUI_SOURCES     := $(shell $(FIND) $(MAIN_SRC_DIR) -type f -name "*.cui" 2>/dev/null)
+CUI_SOURCES     := $(shell find $(MAIN_SRC_DIR) -type f -name "*.cui" 2>/dev/null)
 GEN_CPP_SOURCES      := $(patsubst $(MAIN_SRC_DIR)/%.cui,$(GEN_DIR)/%.gen.cpp,$(CUI_SOURCES))
 GEN_REDIRECT_SOURCES := $(patsubst $(MAIN_SRC_DIR)/%.cui,$(GEN_DIR)/%.cui,$(CUI_SOURCES))
-SCANNED_HEADERS := $(shell $(FIND) $(CUI_HEADERS) -type f -name "*.h" 2>/dev/null)
+SCANNED_HEADERS := $(shell find $(CUI_HEADERS) -type f -name "*.h" 2>/dev/null)
 
 ALL_CPP_SOURCES := $(LIBRARIES_CPP_SOURCES) $(MAIN_CPP_SOURCES) $(GEN_CPP_SOURCES)
 ALL_C_SOURCES := $(LIBRARIES_C_SOURCES) $(MAIN_C_SOURCES)
@@ -307,24 +310,34 @@ $(BIN_DIR_TYPE)/$(ICON_RC): $(ICON_NAME) | $(BIN_DIR_TYPE)
 	@mkdir -p "$(dir $@)"
 	@printf '1 ICON "%s"\n' "$(ICON_NAME)" > "$@"
 
+# CUI tool: compile once to a native executable so the build no longer needs Python.
+$(CUI_TOOL): $(CUI_MANIFEST) $(CUI_RUST_SOURCES)
+	$(CARGO) build --release --manifest-path $(CUI_MANIFEST)
+
 # CUI generation: regenerate .gen.cpp/.gen.h when .cui source or scanned headers change
-$(GEN_DIR)/%.gen.cpp: $(MAIN_SRC_DIR)/%.cui $(SCANNED_HEADERS)
-	@$(MKDIR_P) "$(dir $@)"
-	python $(CUI_TOOL) run --headers $(CUI_HEADERS) --output $(dir $@) $<
+$(GEN_DIR)/%.gen.cpp: $(MAIN_SRC_DIR)/%.cui $(SCANNED_HEADERS) $(CUI_TOOL)
+	@mkdir -p "$(dir $@)"
+	$(CUI_TOOL) run --headers $(CUI_HEADERS) --output $(dir $@) $<
+
+# CUI redirect: Generated/path/Foo.cui -> tiny #include "Foo.gen.h" shim
+$(GEN_DIR)/%.cui: $(MAIN_SRC_DIR)/%.cui $(CUI_TOOL)
+	@mkdir -p "$(dir $@)"
+	$(CUI_TOOL) redirect --output $(dir $@) $<
 
 # Compilation rule for generated files
 $(OBJ_DIR_TYPE)/Generated/%.o: $(GEN_DIR)/%.gen.cpp
-	@$(MKDIR_P) "$(dir $@)"
+	@mkdir -p "$(dir $@)"
 	$(CXX) $(CXXFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
 	@echo "Compiled (C++ Generated) $(BUILD_TYPE): $<"
 
-.PHONY: cui-gen
-cui-gen: $(GEN_CPP_SOURCES)
+.PHONY: cui-tool cui-gen
+cui-tool: $(CUI_TOOL)
+cui-gen: $(GEN_CPP_SOURCES) $(GEN_REDIRECT_SOURCES)
 
-# Ensure all generated sources (and their headers) exist before any object is compiled.
+# Ensure all generated sources (and their headers/redirects) exist before any object is compiled.
 # Order-only (|) so objects are not recompiled just because a .gen.cpp timestamp changed;
 # the normal pattern-rule dependency handles that for generated objects.
-$(ALL_OBJECTS): | $(GEN_CPP_SOURCES)
+$(ALL_OBJECTS): | $(GEN_CPP_SOURCES) $(GEN_REDIRECT_SOURCES)
 
 # Asset copy
 copy_libs: | $(BIN_DIR_TYPE)

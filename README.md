@@ -86,7 +86,7 @@ To use the engine in another project:
 - `Libraries/src/` — Engine implementations
 - `lib/` — Compiled engine archives (generated, not committed)
 - `src/` — Game application code and UI views
-- `tools/cui/` — CUI DSL precompiler (Python)
+- `tools/cui-rs/` — CUI DSL precompiler (Rust native binary, built by `make cui-tool`)
 - `res/` — Shaders, fonts, textures
 - `tests/` — Test suite
 

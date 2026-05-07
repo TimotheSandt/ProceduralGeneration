@@ -13,3 +13,4 @@ imgui.ini
 Generated/
 tools/cui/__pycache__/
 tools/cui/*.pyc
+tools/cui-rs/target/

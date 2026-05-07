@@ -23,7 +23,7 @@ function log(msg) {
 function activate(context) {
     outputChannel = vscode.window.createOutputChannel("CUI");
     context.subscriptions.push(outputChannel);
-    outputChannel.show(true);  // show but don't steal focus
+    outputChannel.show(true);
 
     log("Extension activating");
     log(`  __dirname : ${__dirname}`);
@@ -71,13 +71,16 @@ function resolveToolPath() {
         log(`  toolPath (explicit): ${explicit}`);
         return explicit;
     }
+
+    const exeName = process.platform === "win32" ? "cui.exe" : "cui";
     for (const folder of (vscode.workspace.workspaceFolders || [])) {
-        const candidate = path.join(folder.uri.fsPath, "tools", "cui", "main.py");
-        log(`  toolPath candidate: ${candidate} → exists=${fs.existsSync(candidate)}`);
+        const candidate = path.join(folder.uri.fsPath, "tools", "cui-rs", "target", "release", exeName);
+        log(`  toolPath candidate: ${candidate} -> exists=${fs.existsSync(candidate)}`);
         if (fs.existsSync(candidate)) return candidate;
     }
-    const fallback = path.join(__dirname, "..", "cui", "main.py");
-    log(`  toolPath fallback: ${fallback} → exists=${fs.existsSync(fallback)}`);
+
+    const fallback = path.join(__dirname, "..", "cui-rs", "target", "release", exeName);
+    log(`  toolPath fallback: ${fallback} -> exists=${fs.existsSync(fallback)}`);
     return fallback;
 }
 
@@ -90,23 +93,20 @@ function resolveRegistryPath(raw) {
 }
 
 function checkDocument(doc) {
-    const cfg        = vscode.workspace.getConfiguration("cui");
-    const pythonPath = cfg.get("pythonPath") || "python";
-    const toolPath   = resolveToolPath();
-    const registry   = resolveRegistryPath(cfg.get("registryPath") || "");
+    const cfg      = vscode.workspace.getConfiguration("cui");
+    const toolPath = resolveToolPath();
+    const registry = resolveRegistryPath(cfg.get("registryPath") || "");
 
     log(`checkDocument: ${doc.fileName}`);
-    log(`  python   : ${pythonPath}`);
     log(`  toolPath : ${toolPath}`);
     log(`  registry : ${registry || "(none)"}`);
 
     if (!fs.existsSync(toolPath)) {
-        log(`  ERROR: toolPath not found`);
-        vscode.window.showErrorMessage(`CUI: checker not found at "${toolPath}". Set cui.toolPath in settings.`);
+        log("  ERROR: toolPath not found");
+        vscode.window.showErrorMessage(`CUI: checker not found at "${toolPath}". Run "make cui-tool" or set cui.toolPath in settings.`);
         return;
     }
 
-    // Write source to a temp file to avoid stdin/encoding issues on Windows
     const tmpFile = path.join(os.tmpdir(), `cui_check_${Date.now()}.cui`);
     try {
         fs.writeFileSync(tmpFile, doc.getText(), "utf8");
@@ -115,15 +115,15 @@ function checkDocument(doc) {
         return;
     }
 
-    const args = [toolPath, "check"];
+    const args = ["check"];
     if (registry && fs.existsSync(registry)) args.push("--registry", registry);
     args.push(tmpFile);
 
-    log(`  spawn: ${pythonPath} ${args.join(" ")}`);
+    log(`  spawn: ${toolPath} ${args.join(" ")}`);
 
     let proc;
     try {
-        proc = cp.spawn(pythonPath, args, { stdio: ["ignore", "pipe", "pipe"] });
+        proc = cp.spawn(toolPath, args, { stdio: ["ignore", "pipe", "pipe"] });
     } catch (err) {
         log(`  ERROR spawn failed: ${err}`);
         fs.unlink(tmpFile, () => {});
@@ -144,7 +144,7 @@ function checkDocument(doc) {
         try {
             items = JSON.parse(stdout.trim() || "[]");
         } catch {
-            log(`  ERROR: failed to parse JSON output`);
+            log("  ERROR: failed to parse JSON output");
             return;
         }
 
@@ -160,7 +160,7 @@ function checkDocument(doc) {
             return new vscode.Diagnostic(range, d.message, sev);
         });
 
-        log(`  → ${vsDiags.length} diagnostic(s) pushed`);
+        log(`  -> ${vsDiags.length} diagnostic(s) pushed`);
         diagnosticCollection.set(doc.uri, vsDiags);
     });
 }
