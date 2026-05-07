@@ -83,6 +83,10 @@ void ContainerBase::AddChild(const std::shared_ptr<ComponentBase> &child)
 {
     children.push_back(child);
     child->SetParent(std::static_pointer_cast<ContainerBase>(shared_from_this()));
+    if (initialized)
+    {
+        child->Initialize();
+    }
 }
 
 void ContainerBase::Initialize()

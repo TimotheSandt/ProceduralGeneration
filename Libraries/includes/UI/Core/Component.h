@@ -33,6 +33,8 @@ class ComponentBase : public std::enable_shared_from_this<ComponentBase>
 
     DeferredValue<bool> visible = true;
 
+    bool initialized = false;
+
     // Three-tier dirty system
     bool dirtyAppearance = true;   // Color/visibility - zone clear only
     bool dirtyChildLayout = false; // Child size/position - cascade/full clear

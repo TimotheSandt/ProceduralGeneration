@@ -44,7 +44,6 @@ void Game::init()
     {
         using namespace UI;
         auto perfView = CreatePerformanceView(Bounds(260_px, 175_px, Anchor::TOP_LEFT), &window);
-        perfView->Initialize();
         Manager::Instance().GetRootContainer()->AddChild(perfView);
     }
 }

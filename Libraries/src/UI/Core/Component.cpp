@@ -20,6 +20,7 @@ ComponentBase::ComponentBase(Bounds bounds) : localBounds(bounds)
 
 void ComponentBase::Initialize()
 {
+    initialized = true;
     MarkSelfLayoutDirty();
     CalculatePixelSize();
 }

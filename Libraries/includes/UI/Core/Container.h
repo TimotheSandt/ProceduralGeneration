@@ -21,6 +21,7 @@ enum class VAlign : std::uint8_t
 };
 enum class OverflowMode : std::uint8_t
 {
+    NONE,
     WRAP,
     HIDDEN,
     SCROLL
@@ -46,7 +47,7 @@ class ContainerBase : public ComponentBase
 
     glm::vec2 scrollOffset = {0, 0};
     glm::vec2 contentSize = {0, 0};
-    DeferredValue<OverflowMode> overflowMode = OverflowMode::HIDDEN;
+    DeferredValue<OverflowMode> overflowMode = OverflowMode::NONE;
 
   public:
     // Basic constructor
