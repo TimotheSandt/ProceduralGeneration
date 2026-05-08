@@ -151,17 +151,22 @@ else
     CUI_EXE := $(CUI_RS_DIR)/target/release/cui
 endif
 
+_CUI_INSTALLED := tools/$(notdir $(CUI_EXE))
+
 $(CUI_EXE): $(CUI_RS_MANIFEST) $(CUI_RS_SRCS)
 	$(CARGO) build --release --manifest-path $(CUI_RS_MANIFEST)
-	@echo "Built CUI precompiler: $(CUI_EXE)"
+
+$(_CUI_INSTALLED): $(CUI_EXE)
+	cp "$(CUI_EXE)" "$@"
+	@echo "Installed CUI precompiler: $@"
 
 .PHONY: cui-tool
-cui-tool: $(CUI_EXE)
+cui-tool: $(_CUI_INSTALLED)
 
 # ── Main targets ──────────────────────────────────────────────────────────────
 .PHONY: all debug release dev dist clean fclean
 
-all debug release dev: $(ENGINE_LIBS) $(CUI_EXE)
+all debug release dev: $(ENGINE_LIBS) $(_CUI_INSTALLED)
 	@echo "Engine [$(BUILD_TYPE)] — all archives up to date"
 
 # ── Archive rules ─────────────────────────────────────────────────────────────
@@ -215,7 +220,7 @@ $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.c
 
 DIST_DIR := dist/engine-$(ENGINE_PLATFORM)
 
-dist: $(CUI_EXE)
+dist: $(_CUI_INSTALLED)
 	@$(MAKE) -f Libraries/Makefile BUILD_TYPE=debug
 	@$(MAKE) -f Libraries/Makefile BUILD_TYPE=release
 	@rm -rf "$(DIST_DIR)"
@@ -225,7 +230,8 @@ dist: $(CUI_EXE)
 	@cp lib/debug/*.a    "$(DIST_DIR)/lib/debug/"
 	@cp lib/release/*.a  "$(DIST_DIR)/lib/release/"
 	@cp make/engine.mk   "$(DIST_DIR)/make/"
-	@cp "$(CUI_EXE)"     "$(DIST_DIR)/tools/$(notdir $(CUI_EXE))"
+	@cp "$(_CUI_INSTALLED)" "$(DIST_DIR)/tools/"
+	@cp make/dist.gitignore "$(DIST_DIR)/.gitignore"
 	@echo ""
 	@echo "Distribution ready: $(DIST_DIR)/"
 	@echo "  $(DIST_DIR)/includes/      public headers"

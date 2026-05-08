@@ -15,3 +15,5 @@ Generated/
 tools/cui/__pycache__/
 tools/cui/*.pyc
 tools/cui-rs/target/
+tools/cui.exe
+tools/cui
