@@ -29,6 +29,7 @@ BUILD_TYPE ?= release
 CXX        ?= g++
 CC         ?= gcc
 AR         ?= ar
+CARGO      ?= cargo
 
 # ── Platform detection ────────────────────────────────────────────────────────
 UNAME_S := $(shell uname -s 2>/dev/null || echo Unknown)
@@ -139,10 +140,28 @@ ThirdParty_OBJS := $(call obj_from_src,$(ThirdParty_SRCS))
 
 ALL_ENGINE_OBJS := $(Graphics_OBJS) $(UI_OBJS) $(Noise_OBJS) $(Profiler_OBJS) $(Utilities_OBJS) $(ThirdParty_OBJS)
 
+# ── CUI precompiler (Rust) ────────────────────────────────────────────────────
+CUI_RS_DIR      := tools/cui-rs
+CUI_RS_MANIFEST := $(CUI_RS_DIR)/Cargo.toml
+CUI_RS_SRCS     := $(shell find $(CUI_RS_DIR)/src -type f -name "*.rs" 2>/dev/null)
+
+ifeq ($(DETECTED_OS),Windows)
+    CUI_EXE := $(CUI_RS_DIR)/target/release/cui.exe
+else
+    CUI_EXE := $(CUI_RS_DIR)/target/release/cui
+endif
+
+$(CUI_EXE): $(CUI_RS_MANIFEST) $(CUI_RS_SRCS)
+	$(CARGO) build --release --manifest-path $(CUI_RS_MANIFEST)
+	@echo "Built CUI precompiler: $(CUI_EXE)"
+
+.PHONY: cui-tool
+cui-tool: $(CUI_EXE)
+
 # ── Main targets ──────────────────────────────────────────────────────────────
 .PHONY: all debug release dev dist clean fclean
 
-all debug release dev: $(ENGINE_LIBS)
+all debug release dev: $(ENGINE_LIBS) $(CUI_EXE)
 	@echo "Engine [$(BUILD_TYPE)] — all archives up to date"
 
 # ── Archive rules ─────────────────────────────────────────────────────────────
@@ -196,24 +215,24 @@ $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.c
 
 DIST_DIR := dist/engine-$(ENGINE_PLATFORM)
 
-dist:
+dist: $(CUI_EXE)
 	@$(MAKE) -f Libraries/Makefile BUILD_TYPE=debug
 	@$(MAKE) -f Libraries/Makefile BUILD_TYPE=release
 	@rm -rf "$(DIST_DIR)"
 	@mkdir -p "$(DIST_DIR)/lib/debug" "$(DIST_DIR)/lib/release" \
 	          "$(DIST_DIR)/make" "$(DIST_DIR)/tools"
 	@cp -r $(INCLUDES_BASE) "$(DIST_DIR)/includes"
-	@cp lib/debug/*.a   "$(DIST_DIR)/lib/debug/"
-	@cp lib/release/*.a "$(DIST_DIR)/lib/release/"
-	@cp make/engine.mk  "$(DIST_DIR)/make/"
-	@cp -r tools/cui    "$(DIST_DIR)/tools/"
+	@cp lib/debug/*.a    "$(DIST_DIR)/lib/debug/"
+	@cp lib/release/*.a  "$(DIST_DIR)/lib/release/"
+	@cp make/engine.mk   "$(DIST_DIR)/make/"
+	@cp "$(CUI_EXE)"     "$(DIST_DIR)/tools/$(notdir $(CUI_EXE))"
 	@echo ""
 	@echo "Distribution ready: $(DIST_DIR)/"
 	@echo "  $(DIST_DIR)/includes/      public headers"
 	@echo "  $(DIST_DIR)/lib/debug/     debug archives"
 	@echo "  $(DIST_DIR)/lib/release/   release archives"
 	@echo "  $(DIST_DIR)/make/          engine.mk"
-	@echo "  $(DIST_DIR)/tools/         CUI precompiler"
+	@echo "  $(DIST_DIR)/tools/         CUI precompiler (Rust binary)"
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
 clean:

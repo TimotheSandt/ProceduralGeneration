@@ -2,7 +2,7 @@
   "name": "cui-language",
   "displayName": "CUI Language Support",
   "description": "Syntax highlighting and diagnostics for .cui declarative UI DSL files",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "proceduralgeneration",
   "engines": { "vscode": "^1.80.0" },
   "categories": ["Programming Languages"],
@@ -27,20 +27,15 @@
     "configuration": {
       "title": "CUI DSL",
       "properties": {
-        "cui.pythonPath": {
-          "type": "string",
-          "default": "python",
-          "description": "Path to the Python interpreter used to run the CUI checker."
-        },
         "cui.toolPath": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to tools/cui/main.py. If empty, the extension searches the workspace for tools/cui/main.py automatically."
+          "description": "Absolute path to the native CUI checker binary. If empty, the extension searches the workspace for tools/cui-rs/target/release/cui automatically."
         },
         "cui.registryPath": {
           "type": "string",
           "default": "",
-          "description": "Path to registry.json produced by 'python main.py scan'. Relative paths are resolved from the workspace root. Leave empty to skip semantic validation."
+          "description": "Path to registry.json produced by 'cui scan'. Relative paths are resolved from the workspace root. Leave empty to skip semantic validation."
         }
       }
     }

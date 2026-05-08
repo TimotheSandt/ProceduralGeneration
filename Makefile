@@ -5,7 +5,6 @@
 #
 # ── Prerequisites ─────────────────────────────────────────────────────────────
 #   - Engine release unpacked (lib/ includes/ make/ tools/ present in ENGINE_DIR)
-#   - Python 3.x  (for the CUI precompiler)
 #   - GNU Make, g++ / clang++
 #
 # ── Quick start ───────────────────────────────────────────────────────────────
