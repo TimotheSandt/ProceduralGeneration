@@ -1,0 +1,278 @@
+name: Build & Release Engine
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+            platform: windows-x64
+            triplet: x64-mingw-static
+            msystem: MINGW64
+
+          - name: Linux x64
+            os: ubuntu-latest
+            platform: linux-x64
+            triplet: x64-linux
+
+          - name: macOS arm64
+            os: macos-latest
+            platform: macos-arm64
+            triplet: arm64-osx
+
+          - name: macOS x64
+            os: macos-13
+            platform: macos-x64
+            triplet: x64-osx
+
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Rust toolchain ─────────────────────────────────────────────────────────
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            tools/target
+          key: cargo-${{ matrix.platform }}-${{ hashFiles('tools/Cargo.lock') }}
+          restore-keys: cargo-${{ matrix.platform }}-
+
+      # ── Windows: MSYS2 + MinGW64 ───────────────────────────────────────────────
+      - name: Setup MSYS2
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            git
+            zip
+            unzip
+            tar
+
+      # ── Linux: system packages ─────────────────────────────────────────────────
+      - name: Setup Linux tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential curl zip unzip tar git \
+            pkg-config cmake ninja-build \
+            libgl1-mesa-dev libx11-dev libxrandr-dev \
+            libxinerama-dev libxcursor-dev libxi-dev
+
+      # ── macOS: ensure tools ────────────────────────────────────────────────────
+      - name: Setup macOS tools
+        if: runner.os == 'macOS'
+        run: brew install ninja cmake zip
+
+      # ── vcpkg bootstrap ────────────────────────────────────────────────────────
+      - name: Bootstrap vcpkg (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git /tmp/vcpkg --depth=1
+          /tmp/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+          echo "VCPKG_ROOT=/tmp/vcpkg" >> $GITHUB_ENV
+
+      - name: Bootstrap vcpkg (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git /tmp/vcpkg --depth=1
+          /tmp/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+          echo "VCPKG_ROOT=/tmp/vcpkg" >> $GITHUB_ENV
+
+      # ── vcpkg cache ────────────────────────────────────────────────────────────
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        id: vcpkg-cache
+        with:
+          path: vcpkg_installed
+          key: vcpkg-${{ matrix.triplet }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-${{ matrix.triplet }}-
+
+      # ── Install vcpkg dependencies ─────────────────────────────────────────────
+      - name: Install vcpkg dependencies
+        if: runner.os != 'Windows' && steps.vcpkg-cache.outputs.cache-hit != 'true'
+        run: |
+          $VCPKG_ROOT/vcpkg install \
+            --triplet=${{ matrix.triplet }} \
+            --x-manifest-root=. \
+            --x-install-root=./vcpkg_installed \
+            --no-print-usage
+
+      - name: Install vcpkg dependencies (Windows)
+        if: runner.os == 'Windows' && steps.vcpkg-cache.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        env:
+          VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}
+        run: |
+          $VCPKG_ROOT/vcpkg install \
+            --triplet=${{ matrix.triplet }} \
+            --x-manifest-root=. \
+            --x-install-root=./vcpkg_installed \
+            --no-print-usage
+
+      # ── Build C++ libraries + engine package ───────────────────────────────────
+      # 'make dist' builds debug+release archives, packages headers, engine.mk,
+      # CUI tool, and creates dist/engine-<platform>/dist/.
+      - name: Build engine libraries + dist package
+        if: runner.os != 'Windows'
+        run: |
+          make -f Libraries/Makefile dist \
+            VCPKG_TRIPLET=${{ matrix.triplet }} \
+            VCPKG_INSTALLED_ROOT=./vcpkg_installed
+
+      - name: Build engine libraries + dist package (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          mingw32-make -f Libraries/Makefile dist \
+            VCPKG_TRIPLET=${{ matrix.triplet }} \
+            VCPKG_INSTALLED_ROOT=./vcpkg_installed
+
+      # ── Build engine scaffolding tool ──────────────────────────────────────────
+      # The 'engine' binary embeds the dist package zip (created above).
+      # On Windows: build natively with PowerShell (no MSYS2 needed for Rust).
+      # The binary is standalone — users don't need MSYS2 to run it.
+      - name: Build engine tool (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          make -f Libraries/Makefile engine-tool \
+            VCPKG_TRIPLET=${{ matrix.triplet }} \
+            VCPKG_INSTALLED_ROOT=./vcpkg_installed
+
+      - name: Build engine tool (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Build the payload zip (MSYS2 already built the dist/ package)
+          $distDir = "dist\engine-${{ matrix.platform }}"
+          $zipDst  = "$PWD\dist\engine-${{ matrix.platform }}.zip"
+          Compress-Archive -Force -Path "$distDir\dist" -DestinationPath $zipDst
+
+          # Compile the engine tool with the embedded zip
+          $env:ENGINE_PAYLOAD_ZIP = $zipDst
+          cargo build --release --manifest-path tools/Cargo.toml --bin engine
+
+          # Install into the dist directory
+          New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+          Copy-Item "tools\target\release\engine.exe" "$distDir\engine.exe"
+
+      # ── Package release archives ───────────────────────────────────────────────
+      # Two archives per platform:
+      #   engine-<platform>.zip      — full: tool binary + embedded engine package
+      #   engine-pkg-<platform>.zip  — package only: headers, libs, make/, tools/
+      - name: Package release archives (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          PLAT="${{ matrix.platform }}"
+          DIST_DIR="dist/engine-$PLAT"
+          # Full zip (tool + package)
+          cd dist && zip -r "engine-$PLAT-full.zip" "engine-$PLAT/" && cd ..
+          # Package-only zip
+          cd "$DIST_DIR" && zip -r "../../dist/engine-pkg-$PLAT.zip" "dist/" && cd ../..
+          mv "dist/engine-$PLAT-full.zip" "dist/engine-$PLAT.zip"
+
+      - name: Package release archives (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $plat    = "${{ matrix.platform }}"
+          $distDir = "dist\engine-$plat"
+          # Full zip (tool + package)
+          Compress-Archive -Force -Path $distDir `
+            -DestinationPath "dist\engine-$plat.zip"
+          # Package-only zip
+          Compress-Archive -Force -Path "$distDir\dist" `
+            -DestinationPath "dist\engine-pkg-$plat.zip"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-${{ matrix.platform }}
+          path: |
+            dist/engine-${{ matrix.platform }}.zip
+            dist/engine-pkg-${{ matrix.platform }}.zip
+          retention-days: 7
+
+  # ── GitHub Release ─────────────────────────────────────────────────────────────
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Engine ${{ github.ref_name }}"
+          body: |
+            ## C++ Game Engine — ${{ github.ref_name }}
+
+            ### Download
+
+            | Platform | Engine tool (recommended) | Package only |
+            |---|---|---|
+            | Windows x64 (MinGW) | `engine-windows-x64.zip` | `engine-pkg-windows-x64.zip` |
+            | Linux x64           | `engine-linux-x64.zip`   | `engine-pkg-linux-x64.zip`   |
+            | macOS arm64 (M1+)   | `engine-macos-arm64.zip` | `engine-pkg-macos-arm64.zip` |
+            | macOS x64 (Intel)   | `engine-macos-x64.zip`   | `engine-pkg-macos-x64.zip`   |
+
+            **Engine tool** — self-contained binary that scaffolds new projects and updates existing ones.
+
+            **Package only** — headers, pre-built libraries, and `engine.mk` for manual integration.
+
+            ### Quick start with the engine tool
+
+            ```sh
+            # Extract engine-<platform>.zip, then:
+            ./engine init myproject
+            cd myproject
+            make debug
+            ```
+
+            ### Manual setup (package only)
+
+            Extract `engine-pkg-<platform>.zip` as `engine/` in your project, then:
+
+            ```makefile
+            ENGINE_DIR   := engine
+            GAME_SRC_DIR := src
+            BUILD_TYPE   := debug
+            include $(ENGINE_DIR)/make/engine.mk
+            ```
+
+            See `engine/make/engine.mk` inside the package for full documentation.
+          generate_release_notes: true
+          files: dist/*.zip

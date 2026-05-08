@@ -17,10 +17,14 @@
 #
 # ── Distribution (make dist) ─────────────────────────────────────────────────
 #   dist/engine-<platform>/
-#     includes/   — public headers
-#     lib/        — debug + release archives
-#     make/       — engine.mk
-#     tools/      — CUI precompiler
+#     dist/         — engine package (embedded in engine[.exe] as a zip)
+#       includes/   — public headers
+#       lib/        — debug + release archives
+#       make/       — engine.mk
+#       tools/      — CUI precompiler
+#
+# ── engine tool (make engine-tool) ───────────────────────────────────────────
+#   dist/engine-<platform>/engine[.exe]  — scaffolding tool (engine init/update)
 
 SHELL := /bin/sh
 
@@ -146,18 +150,31 @@ TOOLS_RS_SRCS     := $(shell find tools/cui-rs/src tools/engine-init-rs/src -typ
 
 ifeq ($(DETECTED_OS),Windows)
     CUI_EXE         := tools/target/release/cui.exe
-    ENGINE_INIT_EXE := tools/target/release/engine-init.exe
+    ENGINE_INIT_EXE := tools/target/release/engine.exe
 else
     CUI_EXE         := tools/target/release/cui
-    ENGINE_INIT_EXE := tools/target/release/engine-init
+    ENGINE_INIT_EXE := tools/target/release/engine
 endif
 
 _CUI_INSTALLED := tools/$(notdir $(CUI_EXE))
 
-DIST_ZIP := dist/engine-$(ENGINE_PLATFORM).zip
+# ── Distribution paths ─────────────────────────────────────────────────────────
+# Layout:
+#   dist/engine-<platform>/
+#     engine[.exe]   ← scaffolding tool
+#     dist/          ← engine package (headers, libs, tools) — embedded in tool
+DIST_DIR      := dist/engine-$(ENGINE_PLATFORM)
+DIST_PKG_DIR  := $(DIST_DIR)/dist
+DIST_ZIP      := dist/engine-$(ENGINE_PLATFORM).zip
+
+ifeq ($(DETECTED_OS),Windows)
+    ENGINE_TOOL_EXE := $(DIST_DIR)/engine.exe
+else
+    ENGINE_TOOL_EXE := $(DIST_DIR)/engine
+endif
 
 # ── Main targets ──────────────────────────────────────────────────────────────
-.PHONY: all debug release dev dist engine-init clean fclean
+.PHONY: all debug release dev dist engine-tool install-demo clean fclean
 
 all debug release dev: $(ENGINE_LIBS) $(_CUI_INSTALLED)
 	@echo "Engine [$(BUILD_TYPE)] — all archives up to date"
@@ -205,8 +222,8 @@ $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.c
 	@echo "  CC  [$(BUILD_TYPE)] $<"
 
 # ── Rust workspace build rules ────────────────────────────────────────────────
-# cui is built as part of the normal engine build (no engine-init here to avoid
-# circular deps: engine-init embeds the dist zip which itself requires the dist).
+# cui is built as part of the normal engine build (engine-tool is separate to
+# avoid circular deps: engine-tool embeds the dist zip which requires dist).
 
 $(CUI_EXE): $(TOOLS_WORKSPACE) $(TOOLS_RS_SRCS)
 	$(CARGO) build --release --manifest-path $(TOOLS_WORKSPACE) --bin cui
@@ -219,54 +236,58 @@ $(_CUI_INSTALLED): $(CUI_EXE)
 cui-tool: $(_CUI_INSTALLED)
 
 # ── Distribution package ──────────────────────────────────────────────────────
-# Packages C++ archives, headers, engine.mk and the CUI binary.
-# engine-init is NOT part of dist — it is built separately and embeds this dist.
-
-DIST_DIR := dist/engine-$(ENGINE_PLATFORM)
+# Builds debug+release archives, packages headers, engine.mk, and CUI binary
+# into $(DIST_PKG_DIR)/. The engine tool binary goes at $(DIST_DIR)/engine[.exe].
 
 dist: $(_CUI_INSTALLED)
 	@$(MAKE) -f Libraries/Makefile BUILD_TYPE=debug
 	@$(MAKE) -f Libraries/Makefile BUILD_TYPE=release
 	@rm -rf "$(DIST_DIR)"
-	@mkdir -p "$(DIST_DIR)/lib/debug" "$(DIST_DIR)/lib/release" \
-	          "$(DIST_DIR)/make" "$(DIST_DIR)/tools"
-	@cp -r $(INCLUDES_BASE) "$(DIST_DIR)/includes"
-	@cp lib/debug/*.a    "$(DIST_DIR)/lib/debug/"
-	@cp lib/release/*.a  "$(DIST_DIR)/lib/release/"
-	@cp make/engine.mk   "$(DIST_DIR)/make/"
-	@cp "$(_CUI_INSTALLED)" "$(DIST_DIR)/tools/"
-	@cp make/dist.gitignore "$(DIST_DIR)/.gitignore"
-	@cp make/dist-README.md "$(DIST_DIR)/README.md"
-	@echo "Distribution ready: $(DIST_DIR)/"
+	@mkdir -p "$(DIST_PKG_DIR)/lib/debug" "$(DIST_PKG_DIR)/lib/release" \
+	          "$(DIST_PKG_DIR)/make" "$(DIST_PKG_DIR)/tools"
+	@cp -r $(INCLUDES_BASE) "$(DIST_PKG_DIR)/includes"
+	@cp lib/debug/*.a             "$(DIST_PKG_DIR)/lib/debug/"
+	@cp lib/release/*.a           "$(DIST_PKG_DIR)/lib/release/"
+	@cp engine-sdk/engine.mk      "$(DIST_PKG_DIR)/make/"
+	@cp "$(_CUI_INSTALLED)"       "$(DIST_PKG_DIR)/tools/"
+	@cp engine-sdk/dist.gitignore "$(DIST_PKG_DIR)/.gitignore"
+	@cp engine-sdk/dist-README.md "$(DIST_PKG_DIR)/README.md"
+	@echo "Engine package ready: $(DIST_PKG_DIR)/"
 
-# ── engine-init binary (embeds the dist as a zip) ─────────────────────────────
-# Zip command: PowerShell on Windows, zip on Unix.
-ifeq ($(DETECTED_OS),Windows)
-    _DO_ZIP = powershell -NoProfile -Command \
-        "Compress-Archive -Force \
-         -Path '$(subst /,\,$(DIST_DIR))' \
-         -DestinationPath '$(subst /,\,$(abspath $(DIST_ZIP)))'"
-else
-    _DO_ZIP = cd dist && zip -r "$(abspath $(DIST_ZIP))" "engine-$(ENGINE_PLATFORM)/"
-endif
+# ── engine tool binary (embeds the dist pkg as a zip) ─────────────────────────
+# The zip contains dist/ as its top-level so strip_top_dir() in Rust works correctly.
+# 'zip' is available natively on Linux/macOS and via MSYS2/MinGW on Windows.
+_DO_ZIP = cd "$(DIST_DIR)" && zip -r "$(abspath $(DIST_ZIP))" "dist/"
 
-# Zip is rebuilt whenever the dist directory content changes.
-# Use a sentinel file so Make can track freshness without globbing every file.
-_DIST_SENTINEL := $(DIST_DIR)/.gitignore
+# Sentinel tracks freshness of the engine package without globbing every file.
+_DIST_SENTINEL := $(DIST_PKG_DIR)/.gitignore
 
 $(DIST_ZIP): $(_DIST_SENTINEL)
 	$(_DO_ZIP)
 	@echo "Zipped: $(DIST_ZIP)"
 
-# engine-init embeds the zip at compile time via build.rs / include_bytes!
+# engine tool embeds the zip at compile time via build.rs / include_bytes!
 $(ENGINE_INIT_EXE): $(TOOLS_WORKSPACE) $(TOOLS_RS_SRCS) $(DIST_ZIP)
 	ENGINE_PAYLOAD_ZIP="$(abspath $(DIST_ZIP))" \
-	    $(CARGO) build --release --manifest-path $(TOOLS_WORKSPACE) --bin engine-init
+	    $(CARGO) build --release --manifest-path $(TOOLS_WORKSPACE) --bin engine
 	@echo "Built: $(ENGINE_INIT_EXE)"
 
-.PHONY: engine-init
-engine-init: $(ENGINE_INIT_EXE)
-	@echo "engine-init ready: $(ENGINE_INIT_EXE)"
+$(ENGINE_TOOL_EXE): $(ENGINE_INIT_EXE)
+	@mkdir -p "$(DIST_DIR)"
+	cp "$(ENGINE_INIT_EXE)" "$@"
+	@echo "Installed engine tool: $@"
+
+.PHONY: engine-tool
+engine-tool: dist $(ENGINE_TOOL_EXE)
+	@echo "engine tool ready: $(ENGINE_TOOL_EXE)"
+
+# ── Install demo ──────────────────────────────────────────────────────────────
+# Extracts the engine package into demo/engine/ for local development.
+install-demo: dist
+	@rm -rf demo/engine
+	@mkdir -p demo/engine
+	@cp -r "$(DIST_PKG_DIR)/." demo/engine/
+	@echo "Engine installed to demo/engine/"
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
 clean:

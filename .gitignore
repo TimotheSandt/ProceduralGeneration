@@ -1,4 +1,5 @@
 .*/
+!.github/
 .vscode/
 .VSCodeCounter/
 .vs/
@@ -12,10 +13,9 @@ logs/
 *.log
 imgui.ini
 Generated/
-tools/cui/__pycache__/
-tools/cui/*.pyc
 tools/target/
 tools/cui.exe
 tools/cui
-tools/engine-init.exe
-tools/engine-init
+tools/engine.exe
+tools/engine
+demo/engine/

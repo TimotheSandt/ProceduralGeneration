@@ -1,0 +1,12 @@
+.*/
+.vscode/
+.VSCodeCounter/
+bin/
+obj/
+build/
+Generated/
+logs/
+*.log
+imgui.ini
+engine/lib/
+engine/tools/
