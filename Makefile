@@ -95,10 +95,13 @@ else
     COPY_EXTRA :=
 endif
 
-# ── Engine build (alias for Libraries/Makefile dist) ─────────────────────────
-.PHONY: engine engine-dist
+# ── Engine build targets (aliases for Libraries/Makefile) ────────────────────
+.PHONY: engine engine-dist engine-init
 engine engine-dist:
 	$(MAKE) -f Libraries/Makefile dist
+
+engine-init:
+	$(MAKE) -f Libraries/Makefile engine-init
 
 # ── Main targets ──────────────────────────────────────────────────────────────
 .PHONY: all debug dev release run run-debug run-dev run-release

@@ -14,6 +14,8 @@ imgui.ini
 Generated/
 tools/cui/__pycache__/
 tools/cui/*.pyc
-tools/cui-rs/target/
+tools/target/
 tools/cui.exe
 tools/cui
+tools/engine-init.exe
+tools/engine-init

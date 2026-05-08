@@ -140,21 +140,24 @@ ThirdParty_OBJS := $(call obj_from_src,$(ThirdParty_SRCS))
 
 ALL_ENGINE_OBJS := $(Graphics_OBJS) $(UI_OBJS) $(Noise_OBJS) $(Profiler_OBJS) $(Utilities_OBJS) $(ThirdParty_OBJS)
 
-# ── CUI precompiler (Rust) — variables only, rules come after main targets ────
-CUI_RS_DIR      := tools/cui-rs
-CUI_RS_MANIFEST := $(CUI_RS_DIR)/Cargo.toml
-CUI_RS_SRCS     := $(shell find $(CUI_RS_DIR)/src -type f -name "*.rs" 2>/dev/null)
+# ── Rust tools workspace — variables only, rules come after main targets ───────
+TOOLS_WORKSPACE   := tools/Cargo.toml
+TOOLS_RS_SRCS     := $(shell find tools/cui-rs/src tools/engine-init-rs/src -type f -name "*.rs" 2>/dev/null)
 
 ifeq ($(DETECTED_OS),Windows)
-    CUI_EXE := $(CUI_RS_DIR)/target/release/cui.exe
+    CUI_EXE         := tools/target/release/cui.exe
+    ENGINE_INIT_EXE := tools/target/release/engine-init.exe
 else
-    CUI_EXE := $(CUI_RS_DIR)/target/release/cui
+    CUI_EXE         := tools/target/release/cui
+    ENGINE_INIT_EXE := tools/target/release/engine-init
 endif
 
 _CUI_INSTALLED := tools/$(notdir $(CUI_EXE))
 
+DIST_ZIP := dist/engine-$(ENGINE_PLATFORM).zip
+
 # ── Main targets ──────────────────────────────────────────────────────────────
-.PHONY: all debug release dev dist clean fclean
+.PHONY: all debug release dev dist engine-init clean fclean
 
 all debug release dev: $(ENGINE_LIBS) $(_CUI_INSTALLED)
 	@echo "Engine [$(BUILD_TYPE)] — all archives up to date"
@@ -201,9 +204,12 @@ $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.c
 	$(CC) $(CFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
 	@echo "  CC  [$(BUILD_TYPE)] $<"
 
-# ── CUI build + install rules ─────────────────────────────────────────────────
-$(CUI_EXE): $(CUI_RS_MANIFEST) $(CUI_RS_SRCS)
-	$(CARGO) build --release --manifest-path $(CUI_RS_MANIFEST)
+# ── Rust workspace build rules ────────────────────────────────────────────────
+# cui is built as part of the normal engine build (no engine-init here to avoid
+# circular deps: engine-init embeds the dist zip which itself requires the dist).
+
+$(CUI_EXE): $(TOOLS_WORKSPACE) $(TOOLS_RS_SRCS)
+	$(CARGO) build --release --manifest-path $(TOOLS_WORKSPACE) --bin cui
 
 $(_CUI_INSTALLED): $(CUI_EXE)
 	cp "$(CUI_EXE)" "$@"
@@ -213,11 +219,8 @@ $(_CUI_INSTALLED): $(CUI_EXE)
 cui-tool: $(_CUI_INSTALLED)
 
 # ── Distribution package ──────────────────────────────────────────────────────
-# Builds debug + release archives and packages everything a game project needs:
-#   dist/engine-<platform>/includes/   public headers
-#   dist/engine-<platform>/lib/        debug + release archives
-#   dist/engine-<platform>/make/       engine.mk
-#   dist/engine-<platform>/tools/      CUI precompiler binary
+# Packages C++ archives, headers, engine.mk and the CUI binary.
+# engine-init is NOT part of dist — it is built separately and embeds this dist.
 
 DIST_DIR := dist/engine-$(ENGINE_PLATFORM)
 
@@ -234,13 +237,36 @@ dist: $(_CUI_INSTALLED)
 	@cp "$(_CUI_INSTALLED)" "$(DIST_DIR)/tools/"
 	@cp make/dist.gitignore "$(DIST_DIR)/.gitignore"
 	@cp make/dist-README.md "$(DIST_DIR)/README.md"
-	@echo ""
 	@echo "Distribution ready: $(DIST_DIR)/"
-	@echo "  $(DIST_DIR)/includes/      public headers"
-	@echo "  $(DIST_DIR)/lib/debug/     debug archives"
-	@echo "  $(DIST_DIR)/lib/release/   release archives"
-	@echo "  $(DIST_DIR)/make/          engine.mk"
-	@echo "  $(DIST_DIR)/tools/         CUI precompiler (Rust binary)"
+
+# ── engine-init binary (embeds the dist as a zip) ─────────────────────────────
+# Zip command: PowerShell on Windows, zip on Unix.
+ifeq ($(DETECTED_OS),Windows)
+    _DO_ZIP = powershell -NoProfile -Command \
+        "Compress-Archive -Force \
+         -Path '$(subst /,\,$(DIST_DIR))' \
+         -DestinationPath '$(subst /,\,$(abspath $(DIST_ZIP)))'"
+else
+    _DO_ZIP = cd dist && zip -r "$(abspath $(DIST_ZIP))" "engine-$(ENGINE_PLATFORM)/"
+endif
+
+# Zip is rebuilt whenever the dist directory content changes.
+# Use a sentinel file so Make can track freshness without globbing every file.
+_DIST_SENTINEL := $(DIST_DIR)/.gitignore
+
+$(DIST_ZIP): $(_DIST_SENTINEL)
+	$(_DO_ZIP)
+	@echo "Zipped: $(DIST_ZIP)"
+
+# engine-init embeds the zip at compile time via build.rs / include_bytes!
+$(ENGINE_INIT_EXE): $(TOOLS_WORKSPACE) $(TOOLS_RS_SRCS) $(DIST_ZIP)
+	ENGINE_PAYLOAD_ZIP="$(abspath $(DIST_ZIP))" \
+	    $(CARGO) build --release --manifest-path $(TOOLS_WORKSPACE) --bin engine-init
+	@echo "Built: $(ENGINE_INIT_EXE)"
+
+.PHONY: engine-init
+engine-init: $(ENGINE_INIT_EXE)
+	@echo "engine-init ready: $(ENGINE_INIT_EXE)"
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
 clean:

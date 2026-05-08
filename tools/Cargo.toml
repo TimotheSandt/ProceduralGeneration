@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "cui-rs",
+    "engine-init-rs",
+]
+resolver = "2"
+
+[profile.release]
+strip = "symbols"
+lto = true
+codegen-units = 1
