@@ -140,7 +140,7 @@ ThirdParty_OBJS := $(call obj_from_src,$(ThirdParty_SRCS))
 
 ALL_ENGINE_OBJS := $(Graphics_OBJS) $(UI_OBJS) $(Noise_OBJS) $(Profiler_OBJS) $(Utilities_OBJS) $(ThirdParty_OBJS)
 
-# ── CUI precompiler (Rust) ────────────────────────────────────────────────────
+# ── CUI precompiler (Rust) — variables only, rules come after main targets ────
 CUI_RS_DIR      := tools/cui-rs
 CUI_RS_MANIFEST := $(CUI_RS_DIR)/Cargo.toml
 CUI_RS_SRCS     := $(shell find $(CUI_RS_DIR)/src -type f -name "*.rs" 2>/dev/null)
@@ -152,16 +152,6 @@ else
 endif
 
 _CUI_INSTALLED := tools/$(notdir $(CUI_EXE))
-
-$(CUI_EXE): $(CUI_RS_MANIFEST) $(CUI_RS_SRCS)
-	$(CARGO) build --release --manifest-path $(CUI_RS_MANIFEST)
-
-$(_CUI_INSTALLED): $(CUI_EXE)
-	cp "$(CUI_EXE)" "$@"
-	@echo "Installed CUI precompiler: $@"
-
-.PHONY: cui-tool
-cui-tool: $(_CUI_INSTALLED)
 
 # ── Main targets ──────────────────────────────────────────────────────────────
 .PHONY: all debug release dev dist clean fclean
@@ -211,12 +201,23 @@ $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.c
 	$(CC) $(CFLAGS) $(DEPFLAGS) $(INCLUDES) -c $< -o $@
 	@echo "  CC  [$(BUILD_TYPE)] $<"
 
+# ── CUI build + install rules ─────────────────────────────────────────────────
+$(CUI_EXE): $(CUI_RS_MANIFEST) $(CUI_RS_SRCS)
+	$(CARGO) build --release --manifest-path $(CUI_RS_MANIFEST)
+
+$(_CUI_INSTALLED): $(CUI_EXE)
+	cp "$(CUI_EXE)" "$@"
+	@echo "Installed CUI precompiler: $@"
+
+.PHONY: cui-tool
+cui-tool: $(_CUI_INSTALLED)
+
 # ── Distribution package ──────────────────────────────────────────────────────
-# Builds both debug + release, then packages everything a user needs:
+# Builds debug + release archives and packages everything a game project needs:
 #   dist/engine-<platform>/includes/   public headers
 #   dist/engine-<platform>/lib/        debug + release archives
 #   dist/engine-<platform>/make/       engine.mk
-#   dist/engine-<platform>/tools/      CUI precompiler
+#   dist/engine-<platform>/tools/      CUI precompiler binary
 
 DIST_DIR := dist/engine-$(ENGINE_PLATFORM)
 
@@ -232,6 +233,7 @@ dist: $(_CUI_INSTALLED)
 	@cp make/engine.mk   "$(DIST_DIR)/make/"
 	@cp "$(_CUI_INSTALLED)" "$(DIST_DIR)/tools/"
 	@cp make/dist.gitignore "$(DIST_DIR)/.gitignore"
+	@cp make/dist-README.md "$(DIST_DIR)/README.md"
 	@echo ""
 	@echo "Distribution ready: $(DIST_DIR)/"
 	@echo "  $(DIST_DIR)/includes/      public headers"
