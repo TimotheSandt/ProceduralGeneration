@@ -1,8 +1,8 @@
-# demo/Makefile — ProceduralGeneration demo game
+# demo/Makefile — game project build system
 #
-# Uses the engine from the parent repo root (ENGINE_DIR := ..).
-# Run from the repo root via: make demo-debug / make demo-release
-# Or directly from demo/: make debug / make release
+# Works in two modes:
+#   Template mode  (standalone game project): ENGINE_DIR = engine (default)
+#   In-repo mode   (demo/ inside engine repo): override via config.local.mk
 #
 # ── Quick start ───────────────────────────────────────────────────────────────
 #   make debug        build debug binary
@@ -10,9 +10,15 @@
 #   make run          run last built binary
 #   make clean        remove objects + Generated/
 #   make fclean       remove objects, Generated/, and bin/
+#
+# ── Dependencies ──────────────────────────────────────────────────────────────
+#   make install-deps             install all vcpkg.json packages
+#   make add-dep DEP=nlohmann-json   add & install a package
+#   make search-dep Q=json           search vcpkg catalog
 
 SHELL := /bin/sh
 -include config.mk
+-include config.local.mk
 
 # ── Toolchain ─────────────────────────────────────────────────────────────────
 CXX          ?= g++
@@ -20,10 +26,17 @@ CC           ?= gcc
 RC           ?= windres
 CLANG_FORMAT ?= clang-format
 CLANG_TIDY   ?= clang-tidy
+VCPKG        ?= vcpkg
 
 # ── Engine integration ────────────────────────────────────────────────────────
-# ENGINE_DIR points to the repo root (Libraries/includes/, lib/, tools/ are there).
-ENGINE_DIR   := ..
+# Defaults for standalone (template) use. In-repo: override via config.local.mk
+#   ENGINE_DIR  ?= engine
+#   _ENGINE_MK  ?= $(ENGINE_DIR)/make/engine.mk
+#   _VCPKG_ROOT ?= vcpkg_installed
+ENGINE_DIR  ?= engine
+_ENGINE_MK  ?= $(ENGINE_DIR)/make/engine.mk
+_VCPKG_ROOT ?= vcpkg_installed
+
 GAME_SRC_DIR := src
 BUILD_TYPE   ?= release
 
@@ -35,7 +48,21 @@ else ifneq ($(findstring release,$(MAKECMDGOALS)),)
     BUILD_TYPE := release
 endif
 
-include $(ENGINE_DIR)/engine-sdk/engine.mk
+include $(_ENGINE_MK)
+
+# ── Game-specific vcpkg ───────────────────────────────────────────────────────
+# Game deps are installed to $(_VCPKG_ROOT)/ (separate from the engine's own
+# vcpkg_installed inside ENGINE_DIR). In template mode this is vcpkg_installed/
+# at the project root; in in-repo mode it is ../vcpkg_installed (shared).
+_GAME_VCPKG_DIR       = $(_VCPKG_ROOT)/$(ENGINE_VCPKG_TRIPLET)
+_ADD_DEP_VCPKG_ROOT   = $(_VCPKG_ROOT)
+_ADD_DEP_VCPKG_LIBDIR = $(_VCPKG_ROOT)/$(ENGINE_VCPKG_TRIPLET)/lib
+
+GAME_CXXFLAGS = $(EXTRA_CXXFLAGS) \
+    $(if $(wildcard $(_GAME_VCPKG_DIR)/include),-I$(_GAME_VCPKG_DIR)/include)
+GAME_LDFLAGS  = \
+    $(if $(wildcard $(_GAME_VCPKG_DIR)/lib),-L$(_GAME_VCPKG_DIR)/lib) \
+    $(EXTRA_LDLIBS)
 
 # ── Directories ───────────────────────────────────────────────────────────────
 SRC_DIR  := src
@@ -101,18 +128,19 @@ run-release: $(TARGET)
 
 # ── Link ──────────────────────────────────────────────────────────────────────
 $(TARGET): $(ALL_OBJS) $(ENGINE_LIBS) | $(BIN_DIR) copy_res $(COPY_EXTRA)
-	$(CXX) $(ENGINE_CXXFLAGS) $(ALL_OBJS) $(ENGINE_LINK_LIBS) $(ENGINE_LDFLAGS) -o $@
+	$(CXX) $(ENGINE_CXXFLAGS) $(ALL_OBJS) \
+	    $(ENGINE_LINK_LIBS) $(ENGINE_LDFLAGS) $(GAME_LDFLAGS) -o $@
 	@echo "Compiled: $@"
 
 # ── Compilation rules ─────────────────────────────────────────────────────────
 $(OBJ_DIR)/src/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p "$(dir $@)"
-	$(CXX) $(ENGINE_CXXFLAGS) -MMD -MP $(ENGINE_INCLUDES) -c $< -o $@
+	$(CXX) $(ENGINE_CXXFLAGS) $(GAME_CXXFLAGS) -MMD -MP $(ENGINE_INCLUDES) -c $< -o $@
 	@echo "  CXX $<"
 
 $(OBJ_DIR)/src/%.o: $(SRC_DIR)/%.c
 	@mkdir -p "$(dir $@)"
-	$(CC) $(ENGINE_CXXFLAGS) -MMD -MP $(ENGINE_INCLUDES) -c $< -o $@
+	$(CC) $(ENGINE_CXXFLAGS) $(GAME_CXXFLAGS) -MMD -MP $(ENGINE_INCLUDES) -c $< -o $@
 	@echo "  CC  $<"
 
 $(OBJ_DIR)/gen/%.o: $(ENGINE_GEN_DIR)/%.gen.cpp
@@ -152,10 +180,114 @@ copy_res: | $(BIN_DIR)
 copy_libs: | $(BIN_DIR)
 	@set -- "$(ENGINE_DIR)/vcpkg_installed/$(ENGINE_VCPKG_TRIPLET)/bin"/*.dll; \
 	 if [ -e "$$1" ]; then cp -f "$$@" "$(BIN_DIR)/" 2>/dev/null || :; fi
+	@set -- "$(_GAME_VCPKG_DIR)/bin"/*.dll; \
+	 if [ -e "$$1" ]; then cp -f "$$@" "$(BIN_DIR)/" 2>/dev/null || :; fi
 
 # ── Directories ───────────────────────────────────────────────────────────────
 $(BIN_DIR) bin/tests:
 	@mkdir -p "$@"
+
+# ── vcpkg dependency management ───────────────────────────────────────────────
+# install:   no args → install all vcpkg.json deps (incremental, skips installed)
+#            with args → add packages, install them, auto-detect linker flags
+# search:    search the vcpkg catalog
+#
+# Usage:
+#   make install
+#   make install fmt nlohmann-json
+#   make install fmt LIBS="-lfmt"   # rare: manual linker flag override
+#   make search json
+
+# Capture positional args: 'make install <pkg>...' / 'make search <kw>'
+ifeq ($(firstword $(MAKECMDGOALS)),install)
+  _INSTALL_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  ifneq ($(_INSTALL_ARGS),)
+    $(foreach _d,$(_INSTALL_ARGS),$(eval $(_d):;@true))
+  endif
+endif
+ifeq ($(firstword $(MAKECMDGOALS)),search)
+  _Q_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  ifneq ($(_Q_ARGS),)
+    Q ?= $(_Q_ARGS)
+    $(foreach _q,$(_Q_ARGS),$(eval $(_q):;@true))
+  endif
+endif
+
+.PHONY: i install install-deps search search-dep
+
+install install-deps:
+	@if [ -z "$(_INSTALL_ARGS)" ]; then \
+	    if [ -f "$(ENGINE_DIR)/vcpkg.json" ]; then \
+	        $(VCPKG) install \
+	            --triplet=$(ENGINE_VCPKG_TRIPLET) \
+	            --x-manifest-root=$(ENGINE_DIR) \
+	            --x-install-root=$(ENGINE_DIR)/vcpkg_installed \
+	            --no-print-usage; \
+	    fi; \
+	    $(VCPKG) install \
+	        --triplet=$(ENGINE_VCPKG_TRIPLET) \
+	        --x-manifest-root=. \
+	        --x-install-root=$(_ADD_DEP_VCPKG_ROOT) \
+	        --no-print-usage; \
+	else \
+	    [ -f vcpkg.json ] || printf '{\n  "name": "game",\n  "version": "0.1.0",\n  "dependencies": []\n}\n' > vcpkg.json; \
+	    LIBDIR="$(_ADD_DEP_VCPKG_LIBDIR)"; \
+	    for dep in $(_INSTALL_ARGS); do \
+	        if command -v jq >/dev/null 2>&1; then \
+	            if jq --arg d "$$dep" -e '.dependencies[] | select((type=="string" and .==$d) or (.name?==$d))' vcpkg.json >/dev/null 2>&1; then \
+	                printf "  [vcpkg.json] %s already listed\n" "$$dep"; \
+	            else \
+	                tmp=$$(mktemp); jq --arg d "$$dep" '.dependencies += [$$d]' vcpkg.json > "$$tmp" && mv "$$tmp" vcpkg.json; \
+	                printf "  [vcpkg.json] Added %s\n" "$$dep"; \
+	            fi; \
+	        elif command -v python3 >/dev/null 2>&1; then \
+	            DEP="$$dep" python3 -c "import json,os; dep=os.environ['DEP']; d=json.load(open('vcpkg.json')); deps=d.setdefault('dependencies',[]); n=[x if isinstance(x,str) else x.get('name','') for x in deps]; deps.append(dep) if dep not in n else None; open('vcpkg.json','w').write(json.dumps(d,indent=2))"; \
+	            printf "  [vcpkg.json] Updated (%s)\n" "$$dep"; \
+	        else \
+	            printf "Error: jq or python3 required to edit vcpkg.json\n"; exit 1; \
+	        fi; \
+	        b=$$(mktemp); a=$$(mktemp); \
+	        ls "$$LIBDIR/"*.a 2>/dev/null | sort > "$$b" || :; \
+	        $(VCPKG) install "$$dep" \
+	            --triplet=$(ENGINE_VCPKG_TRIPLET) \
+	            --x-manifest-root=. \
+	            --x-install-root=$(_ADD_DEP_VCPKG_ROOT) \
+	            --no-print-usage; \
+	        ls "$$LIBDIR/"*.a 2>/dev/null | sort > "$$a" || :; \
+	        if [ -n "$(LIBS)" ]; then \
+	            NEW="$(LIBS)"; \
+	        else \
+	            NEW=$$(comm -13 "$$b" "$$a" \
+	                | sed 's|.*/lib\([^.]*\)\.a|-l\1|' \
+	                | tr '\n' ' ' | sed 's/[[:space:]]*$$//'); \
+	        fi; \
+	        rm -f "$$b" "$$a"; \
+	        if [ -z "$$NEW" ]; then \
+	            printf "  [config.mk] %s is header-only — no linker flags needed\n" "$$dep"; \
+	        else \
+	            printf "  Detected: %s\n" "$$NEW"; \
+	            EXISTING=$$(grep '^EXTRA_LDLIBS' config.mk 2>/dev/null \
+	                | sed 's/^EXTRA_LDLIBS[^=]*=[[:space:]]*//' \
+	                | tr -s ' ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$$//'); \
+	            ALL=$$(printf '%s %s' "$$EXISTING" "$$NEW" \
+	                | tr -s ' ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$$//'); \
+	            tmp=$$(mktemp); found=0; \
+	            while IFS= read -r line; do \
+	                case "$$line" in \
+	                    EXTRA_LDLIBS*) printf 'EXTRA_LDLIBS ?= %s\n' "$$ALL" >> "$$tmp"; found=1;; \
+	                    *) printf '%s\n' "$$line" >> "$$tmp";; \
+	                esac; \
+	            done < config.mk; \
+	            [ "$$found" -eq 1 ] || printf '\nEXTRA_LDLIBS ?= %s\n' "$$ALL" >> "$$tmp"; \
+	            mv "$$tmp" config.mk; \
+	            printf "  [config.mk] EXTRA_LDLIBS = %s\n" "$$ALL"; \
+	        fi; \
+	    done; \
+	fi
+
+search search-dep:
+	@[ -n "$(Q)" ] || { printf "Usage: make search <keyword>\n"; exit 1; }
+	$(VCPKG) search "$(Q)"
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
 .PHONY: clean fclean re re-debug re-dev re-release
@@ -181,7 +313,7 @@ check: check-syntax check-format lint
 check-syntax:
 	@echo "Checking syntax..."
 	@if [ -n "$(strip $(SRCS_CPP))" ]; then \
-	    $(CXX) $(ENGINE_CXXFLAGS) $(ENGINE_INCLUDES) -fsyntax-only $(SRCS_CPP); fi
+	    $(CXX) $(ENGINE_CXXFLAGS) $(GAME_CXXFLAGS) $(ENGINE_INCLUDES) -fsyntax-only $(SRCS_CPP); fi
 
 check-format:
 	@command -v $(CLANG_FORMAT) >/dev/null 2>&1 || { echo "clang-format not found"; exit 1; }

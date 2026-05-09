@@ -8,5 +8,6 @@ Generated/
 logs/
 *.log
 imgui.ini
-engine/lib/
-engine/tools/
+engine/
+vcpkg_installed/
+config.local.mk

@@ -149,7 +149,13 @@ else
 endif
 
 _ENG_INC_DIRS  := $(notdir $(wildcard $(_ENG_INC_BASE)/*))
-_ENG_VCPKG_DIR := $(ENGINE_DIR)/vcpkg_installed/$(ENGINE_VCPKG_TRIPLET)
+# Allow caller to set ENGINE_VCPKG_ROOT to redirect the vcpkg installation
+# (useful when the engine is installed into a project but vcpkg is shared elsewhere)
+ifdef ENGINE_VCPKG_ROOT
+    _ENG_VCPKG_DIR := $(ENGINE_VCPKG_ROOT)/$(ENGINE_VCPKG_TRIPLET)
+else
+    _ENG_VCPKG_DIR := $(ENGINE_DIR)/vcpkg_installed/$(ENGINE_VCPKG_TRIPLET)
+endif
 ENGINE_GEN_DIR := $(ENGINE_DIR)/Generated
 
 ENGINE_INCLUDES := \

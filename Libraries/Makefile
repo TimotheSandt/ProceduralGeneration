@@ -34,6 +34,7 @@ CXX        ?= g++
 CC         ?= gcc
 AR         ?= ar
 CARGO      ?= cargo
+VCPKG      ?= vcpkg
 
 # ── Platform detection ────────────────────────────────────────────────────────
 UNAME_S := $(shell uname -s 2>/dev/null || echo Unknown)
@@ -245,13 +246,15 @@ dist: $(_CUI_INSTALLED)
 	@rm -rf "$(DIST_DIR)"
 	@mkdir -p "$(DIST_PKG_DIR)/lib/debug" "$(DIST_PKG_DIR)/lib/release" \
 	          "$(DIST_PKG_DIR)/make" "$(DIST_PKG_DIR)/tools"
-	@cp -r $(INCLUDES_BASE) "$(DIST_PKG_DIR)/includes"
-	@cp lib/debug/*.a             "$(DIST_PKG_DIR)/lib/debug/"
-	@cp lib/release/*.a           "$(DIST_PKG_DIR)/lib/release/"
-	@cp engine-sdk/engine.mk      "$(DIST_PKG_DIR)/make/"
-	@cp "$(_CUI_INSTALLED)"       "$(DIST_PKG_DIR)/tools/"
-	@cp engine-sdk/dist.gitignore "$(DIST_PKG_DIR)/.gitignore"
-	@cp engine-sdk/dist-README.md "$(DIST_PKG_DIR)/README.md"
+	@cp -r $(INCLUDES_BASE)            "$(DIST_PKG_DIR)/includes"
+	@cp lib/debug/*.a                  "$(DIST_PKG_DIR)/lib/debug/"
+	@cp lib/release/*.a                "$(DIST_PKG_DIR)/lib/release/"
+	@cp engine-sdk/engine.mk           "$(DIST_PKG_DIR)/make/"
+	@cp "$(_CUI_INSTALLED)"            "$(DIST_PKG_DIR)/tools/"
+	@cp Libraries/vcpkg.json           "$(DIST_PKG_DIR)/vcpkg.json"
+	@cp engine-sdk/dist.gitignore      "$(DIST_PKG_DIR)/.gitignore"
+	@cp engine-sdk/dist-README.md      "$(DIST_PKG_DIR)/README.md"
+	@cp -r "$(VCPKG_INSTALLED_ROOT)/." "$(DIST_PKG_DIR)/vcpkg_installed/"
 	@echo "Engine package ready: $(DIST_PKG_DIR)/"
 
 # ── engine tool binary (embeds the dist pkg as a zip) ─────────────────────────
@@ -281,13 +284,113 @@ $(ENGINE_TOOL_EXE): $(ENGINE_INIT_EXE)
 engine-tool: dist $(ENGINE_TOOL_EXE)
 	@echo "engine tool ready: $(ENGINE_TOOL_EXE)"
 
+# ── Sync demo ─────────────────────────────────────────────────────────────────
+# Copies the current BUILD_TYPE artifacts directly into demo/engine/.
+# Faster than install-demo: no dist packaging step required.
+# vcpkg_installed/ is linked (not copied) to avoid duplicating hundreds of MB.
+.PHONY: sync-demo
+sync-demo: $(ENGINE_LIBS) $(_CUI_INSTALLED)
+	@mkdir -p demo/engine/lib/$(BUILD_TYPE) demo/engine/make demo/engine/tools
+	@rm -rf demo/engine/includes && cp -r $(INCLUDES_BASE) demo/engine/includes
+	@cp $(ENGINE_LIBS) demo/engine/lib/$(BUILD_TYPE)/
+	@cp engine-sdk/engine.mk demo/engine/make/
+	@cp "$(_CUI_INSTALLED)" demo/engine/tools/
+	@if [ ! -e demo/engine/vcpkg_installed ]; then \
+	    if [ "$(DETECTED_OS)" = "Windows" ]; then \
+	        TARGET=$$(cd "$(VCPKG_INSTALLED_ROOT)" && pwd -W 2>/dev/null || echo "$(VCPKG_INSTALLED_ROOT)"); \
+	        MSYS_NO_PATHCONV=1 cmd /c "mklink /J \"demo\\engine\\vcpkg_installed\" \"$$TARGET\"" 2>/dev/null \
+	            || ln -sfn "../../$(VCPKG_INSTALLED_ROOT)" demo/engine/vcpkg_installed; \
+	    else \
+	        ln -sfn "../../$(VCPKG_INSTALLED_ROOT)" demo/engine/vcpkg_installed; \
+	    fi; \
+	fi
+	@echo "Synced [$(BUILD_TYPE)] → demo/engine/"
+
 # ── Install demo ──────────────────────────────────────────────────────────────
-# Extracts the engine package into demo/engine/ for local development.
+# Full dist-based install: packages headers, both build types, and tools.
 install-demo: dist
 	@rm -rf demo/engine
-	@mkdir -p demo/engine
-	@cp -r "$(DIST_PKG_DIR)/." demo/engine/
+	@cp -r "$(DIST_PKG_DIR)" demo/engine
 	@echo "Engine installed to demo/engine/"
+
+# ── vcpkg dependency management ───────────────────────────────────────────────
+# install:   no args → install all Libraries/vcpkg.json deps (incremental)
+#            with args → add packages, install them, print detected linker flags
+# search:    search the vcpkg catalog
+#
+# Usage:
+#   make -f Libraries/Makefile install
+#   make -f Libraries/Makefile install fmt
+#   make -f Libraries/Makefile search json
+
+ifeq ($(firstword $(MAKECMDGOALS)),install)
+  _INSTALL_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  ifneq ($(_INSTALL_ARGS),)
+    $(foreach _d,$(_INSTALL_ARGS),$(eval $(_d):;@true))
+  endif
+endif
+ifeq ($(firstword $(MAKECMDGOALS)),search)
+  _Q_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  ifneq ($(_Q_ARGS),)
+    Q ?= $(_Q_ARGS)
+    $(foreach _q,$(_Q_ARGS),$(eval $(_q):;@true))
+  endif
+endif
+
+.PHONY: install install-deps search
+
+install install-deps:
+	@if [ -z "$(_INSTALL_ARGS)" ]; then \
+	    $(VCPKG) install \
+	        --triplet=$(VCPKG_TRIPLET) \
+	        --x-manifest-root=Libraries \
+	        --x-install-root=$(VCPKG_INSTALLED_ROOT) \
+	        --no-print-usage; \
+	else \
+	    [ -f Libraries/vcpkg.json ] || printf '{\n  "name": "engine",\n  "version": "0.1.0",\n  "dependencies": []\n}\n' > Libraries/vcpkg.json; \
+	    LIBDIR="$(VCPKG_INSTALLED_DIR)/lib"; \
+	    for dep in $(_INSTALL_ARGS); do \
+	        if command -v jq >/dev/null 2>&1; then \
+	            if jq --arg d "$$dep" -e '.dependencies[] | select((type=="string" and .==$d) or (.name?==$d))' Libraries/vcpkg.json >/dev/null 2>&1; then \
+	                printf "  [vcpkg.json] %s already listed\n" "$$dep"; \
+	            else \
+	                tmp=$$(mktemp); jq --arg d "$$dep" '.dependencies += [$$d]' Libraries/vcpkg.json > "$$tmp" && mv "$$tmp" Libraries/vcpkg.json; \
+	                printf "  [vcpkg.json] Added %s\n" "$$dep"; \
+	            fi; \
+	        elif command -v python3 >/dev/null 2>&1; then \
+	            DEP="$$dep" python3 -c "import json,os; dep=os.environ['DEP']; d=json.load(open('Libraries/vcpkg.json')); deps=d.setdefault('dependencies',[]); n=[x if isinstance(x,str) else x.get('name','') for x in deps]; deps.append(dep) if dep not in n else None; open('Libraries/vcpkg.json','w').write(json.dumps(d,indent=2))"; \
+	            printf "  [vcpkg.json] Updated (%s)\n" "$$dep"; \
+	        else \
+	            printf "Error: jq or python3 required to edit Libraries/vcpkg.json\n"; exit 1; \
+	        fi; \
+	        b=$$(mktemp); a=$$(mktemp); \
+	        ls "$$LIBDIR/"*.a 2>/dev/null | sort > "$$b" || :; \
+	        $(VCPKG) install "$$dep" \
+	            --triplet=$(VCPKG_TRIPLET) \
+	            --x-manifest-root=Libraries \
+	            --x-install-root=$(VCPKG_INSTALLED_ROOT) \
+	            --no-print-usage; \
+	        ls "$$LIBDIR/"*.a 2>/dev/null | sort > "$$a" || :; \
+	        if [ -n "$(LIBS)" ]; then \
+	            NEW="$(LIBS)"; \
+	        else \
+	            NEW=$$(comm -13 "$$b" "$$a" \
+	                | sed 's|.*/lib\([^.]*\)\.a|-l\1|' \
+	                | tr '\n' ' ' | sed 's/[[:space:]]*$$//'); \
+	        fi; \
+	        rm -f "$$b" "$$a"; \
+	        if [ -z "$$NEW" ]; then \
+	            printf "  %s is header-only — no linker flags needed\n" "$$dep"; \
+	        else \
+	            printf "  Detected: %s\n" "$$NEW"; \
+	            printf "  → Add to engine-sdk/engine.mk _ENG_VCPKG_LIBS: %s\n" "$$NEW"; \
+	        fi; \
+	    done; \
+	fi
+
+search:
+	@[ -n "$(Q)" ] || { printf "Usage: make -f Libraries/Makefile search <keyword>\n"; exit 1; }
+	$(VCPKG) search "$(Q)"
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
 clean:

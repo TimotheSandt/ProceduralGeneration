@@ -19,3 +19,4 @@ tools/cui
 tools/engine.exe
 tools/engine
 demo/engine/
+demo/config.local.mk

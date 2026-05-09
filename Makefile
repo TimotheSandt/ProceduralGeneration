@@ -1,28 +1,53 @@
 # Makefile — ProceduralGeneration engine root
 #
-# ── Engine ────────────────────────────────────────────────────────────────────
-#   make debug           build engine libraries (debug)
-#   make release         build engine libraries (release)
-#   make dist            package engine for distribution (dist/engine-<platform>/)
-#   make engine-tool     build the scaffolding binary (dist/engine-<platform>/engine)
-#   make install-demo    install dist package into demo/engine/
+# ── vcpkg ─────────────────────────────────────────────────────────────────────
+#   make install-deps          install engine vcpkg deps
+#   make install-deps-demo     install demo vcpkg deps
+#   make install-deps-all      both
 #
-# ── Demo game ─────────────────────────────────────────────────────────────────
-#   make demo            build and run demo (debug)
-#   make demo-debug      build demo (debug)
-#   make demo-release    build demo (release)
-#   make demo-run        run last built demo binary
-#   make demo-clean      remove demo build artifacts
-#   make demo-fclean     remove demo build artifacts + binaries
+# ── Engine (Libraries/) ───────────────────────────────────────────────────────
+#   make debug                 build engine archives (debug)
+#   make release               build engine archives (release)
+#   make dist                  package engine → dist/engine-<platform>/
+#   make engine-tool           build the engine scaffolding binary
+#   make sync-demo             copy built artifacts into demo/engine/ (fast)
+#   make install-demo          copy full dist package into demo/engine/
+#   make clean / fclean        remove engine build artifacts
+#
+# ── Demo (demo/) ──────────────────────────────────────────────────────────────
+#   make demo-debug            build demo (debug)
+#   make demo-release          build demo (release)
+#   make demo-run              run last built demo binary
+#   make demo-install [pkg…]   add vcpkg dep(s) to demo
+#   make demo-search kw        search vcpkg catalog
+#   make demo-clean / fclean   remove demo build artifacts
+#
+# ── Combined ──────────────────────────────────────────────────────────────────
+#   make all-debug             engine debug → sync → demo debug
+#   make all-release           engine release → sync → demo release
+#   make setup                 install-deps-all + dist (debug+release) + install to demo + demo debug
+#   make setup-run             setup + run demo
 
-SHELL := /bin/sh
+SHELL      := /bin/sh
+VCPKG      ?= vcpkg
+BUILD_TYPE ?= debug
+ENGINE_MK  := Libraries/Makefile
 
-ENGINE_MK := Libraries/Makefile
+# ── vcpkg ─────────────────────────────────────────────────────────────────────
+.PHONY: install-deps install-deps-demo install-deps-all
 
-# ── Engine targets ─────────────────────────────────────────────────────────────
-.PHONY: all debug dev release dist engine-tool install-demo clean fclean
+install-deps:
+	$(MAKE) -f $(ENGINE_MK) install VCPKG=$(VCPKG)
 
-all debug dev release:
+install-deps-demo:
+	$(MAKE) -C demo install VCPKG=$(VCPKG)
+
+install-deps-all: install-deps install-deps-demo
+
+# ── Engine ────────────────────────────────────────────────────────────────────
+.PHONY: debug dev release dist engine-tool sync-demo install-demo clean fclean
+
+debug dev release:
 	$(MAKE) -f $(ENGINE_MK) $@
 
 dist:
@@ -30,6 +55,9 @@ dist:
 
 engine-tool:
 	$(MAKE) -f $(ENGINE_MK) engine-tool
+
+sync-demo:
+	$(MAKE) -f $(ENGINE_MK) sync-demo BUILD_TYPE=$(BUILD_TYPE)
 
 install-demo:
 	$(MAKE) -f $(ENGINE_MK) install-demo
@@ -40,10 +68,11 @@ clean:
 fclean:
 	$(MAKE) -f $(ENGINE_MK) fclean
 
-# ── Demo game targets ──────────────────────────────────────────────────────────
-.PHONY: demo demo-debug demo-dev demo-release demo-run demo-clean demo-fclean
+# ── Demo ──────────────────────────────────────────────────────────────────────
+.PHONY: demo-debug demo-dev demo-release demo-run demo-clean demo-fclean
+.PHONY: demo-install demo-search
 
-demo demo-debug:
+demo-debug:
 	$(MAKE) -C demo debug
 
 demo-dev:
@@ -60,3 +89,28 @@ demo-clean:
 
 demo-fclean:
 	$(MAKE) -C demo fclean
+
+demo-install:
+	$(MAKE) -C demo install $(ARGS) LIBS=$(LIBS) VCPKG=$(VCPKG)
+
+demo-search:
+	$(MAKE) -C demo search Q=$(Q) VCPKG=$(VCPKG)
+
+# ── Combined ──────────────────────────────────────────────────────────────────
+.PHONY: all-debug all-release setup setup-run
+
+all-debug:
+	$(MAKE) -f $(ENGINE_MK) sync-demo BUILD_TYPE=debug
+	$(MAKE) -C demo debug
+
+all-release:
+	$(MAKE) -f $(ENGINE_MK) sync-demo BUILD_TYPE=release
+	$(MAKE) -C demo release
+
+# install engine deps → install engine to demo/engine/ → install demo deps → build demo
+setup: install-deps
+	$(MAKE) -f $(ENGINE_MK) install-demo
+	$(MAKE) -C demo install VCPKG=$(VCPKG)
+	$(MAKE) -C demo debug
+
+setup-run: setup demo-run

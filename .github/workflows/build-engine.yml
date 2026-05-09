@@ -108,7 +108,7 @@ jobs:
         id: vcpkg-cache
         with:
           path: vcpkg_installed
-          key: vcpkg-${{ matrix.triplet }}-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-${{ matrix.triplet }}-${{ hashFiles('Libraries/vcpkg.json') }}
           restore-keys: vcpkg-${{ matrix.triplet }}-
 
       # ── Install vcpkg dependencies ─────────────────────────────────────────────
@@ -117,7 +117,7 @@ jobs:
         run: |
           $VCPKG_ROOT/vcpkg install \
             --triplet=${{ matrix.triplet }} \
-            --x-manifest-root=. \
+            --x-manifest-root=Libraries \
             --x-install-root=./vcpkg_installed \
             --no-print-usage
 
@@ -129,7 +129,7 @@ jobs:
         run: |
           $VCPKG_ROOT/vcpkg install \
             --triplet=${{ matrix.triplet }} \
-            --x-manifest-root=. \
+            --x-manifest-root=Libraries \
             --x-install-root=./vcpkg_installed \
             --no-print-usage
 

@@ -5,11 +5,9 @@ use zip::ZipArchive;
 
 // ── Embedded payloads (set by build.rs) ──────────────────────────────────────
 
-const ENGINE_ZIP: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/engine_payload.zip"));
+const ENGINE_ZIP:   &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/engine_payload.zip"));
+const TPL_SRC_ZIP:  &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/templates/src.zip"));
 
-const TPL_MAIN_CPP:  &str = include_str!(concat!(env!("OUT_DIR"), "/templates/main.cpp"));
-const TPL_GAME_H:    &str = include_str!(concat!(env!("OUT_DIR"), "/templates/Game.h"));
-const TPL_GAME_CPP:  &str = include_str!(concat!(env!("OUT_DIR"), "/templates/Game.cpp"));
 const TPL_MAKEFILE:  &str = include_str!(concat!(env!("OUT_DIR"), "/templates/Makefile"));
 const TPL_CONFIG_MK: &str = include_str!(concat!(env!("OUT_DIR"), "/templates/config.mk"));
 const TPL_GITIGNORE: &str = include_str!(concat!(env!("OUT_DIR"), "/templates/gitignore"));
@@ -150,19 +148,46 @@ fn extract_engine(project_dir: &Path) -> Result<(), String> {
 // ── Source files ──────────────────────────────────────────────────────────────
 
 fn create_sources(project_dir: &Path, name: &str) -> Result<(), String> {
-    let src = project_dir.join("src");
-    fs::create_dir_all(&src)
-        .map_err(|e| format!("failed to create src/: {e}"))?;
+    let cursor = Cursor::new(TPL_SRC_ZIP);
+    let mut archive = ZipArchive::new(cursor)
+        .map_err(|e| format!("failed to read embedded src template: {e}"))?;
 
-    fs::write(src.join("main.cpp"), TPL_MAIN_CPP)
-        .map_err(|e| format!("failed to write main.cpp: {e}"))?;
-    fs::write(src.join("Game.cpp"), TPL_GAME_CPP)
-        .map_err(|e| format!("failed to write Game.cpp: {e}"))?;
-    fs::write(src.join("Game.h"), &render(TPL_GAME_H, name))
-        .map_err(|e| format!("failed to write Game.h: {e}"))?;
+    let mut count = 0;
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i)
+            .map_err(|e| format!("failed to read src entry {i}: {e}"))?;
+        if entry.is_dir() { continue; }
 
-    println!("  [ok] src/main.cpp  src/Game.h  src/Game.cpp");
+        let rel  = entry.name().to_string();
+        let dest = project_dir.join("src").join(&rel);
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
+        }
+
+        let mut data = Vec::new();
+        io::copy(&mut entry, &mut data)
+            .map_err(|e| format!("failed to read src/{rel}: {e}"))?;
+
+        let content = if is_text_file(&rel) {
+            render(&String::from_utf8_lossy(&data), name).into_bytes()
+        } else {
+            data
+        };
+        fs::write(&dest, &content)
+            .map_err(|e| format!("failed to write {}: {e}", dest.display()))?;
+        count += 1;
+    }
+
+    println!("  [ok] src/ ({count} files)");
     Ok(())
+}
+
+fn is_text_file(name: &str) -> bool {
+    matches!(
+        Path::new(name).extension().and_then(|e| e.to_str()).unwrap_or(""),
+        "cpp" | "h" | "hpp" | "c" | "inl" | "glsl" | "vert" | "frag" | "cui" | "txt" | "md"
+    )
 }
 
 // ── Template helpers ──────────────────────────────────────────────────────────
@@ -273,7 +298,7 @@ fn print_usage() {
     eprintln!();
     eprintln!("'engine init' creates:");
     eprintln!("  engine/      pre-built engine (headers, libraries, tools)");
-    eprintln!("  src/         minimal C++ sources (main.cpp, Game.h, Game.cpp)");
+    eprintln!("  src/         C++ sources from the reference demo project");
     eprintln!("  Makefile     ready to use with 'make debug' / 'make release'");
     eprintln!("  config.mk    project configuration (name, version, …)");
     eprintln!("  .gitignore   standard ignores for this project layout");

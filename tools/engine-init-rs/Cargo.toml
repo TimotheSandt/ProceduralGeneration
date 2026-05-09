@@ -5,3 +5,6 @@ edition = "2024"
 
 [dependencies]
 zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[build-dependencies]
+zip = { version = "2", default-features = false, features = ["deflate"] }
