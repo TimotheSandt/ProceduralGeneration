@@ -26,7 +26,7 @@
 # ── engine tool (make engine-tool) ───────────────────────────────────────────
 #   dist/engine-<platform>/engine[.exe]  — scaffolding tool (engine init/update)
 
-SHELL := /bin/sh
+SHELL := sh
 
 # ── Overridable by the root Makefile ─────────────────────────────────────────
 BUILD_TYPE ?= release
@@ -35,6 +35,14 @@ CC         ?= gcc
 AR         ?= ar
 CARGO      ?= cargo
 VCPKG      ?= vcpkg
+
+ifneq ($(filter debug,$(MAKECMDGOALS)),)
+    BUILD_TYPE := debug
+else ifneq ($(filter dev,$(MAKECMDGOALS)),)
+    BUILD_TYPE := dev
+else ifneq ($(filter release,$(MAKECMDGOALS)),)
+    BUILD_TYPE := release
+endif
 
 # ── Platform detection ────────────────────────────────────────────────────────
 UNAME_S := $(shell uname -s 2>/dev/null || echo Unknown)
@@ -147,14 +155,16 @@ ALL_ENGINE_OBJS := $(Graphics_OBJS) $(UI_OBJS) $(Noise_OBJS) $(Profiler_OBJS) $(
 
 # ── Rust tools workspace — variables only, rules come after main targets ───────
 TOOLS_WORKSPACE   := tools/Cargo.toml
-TOOLS_RS_SRCS     := $(shell find tools/cui-rs/src tools/engine-init-rs/src -type f -name "*.rs" 2>/dev/null)
+TOOLS_BUILD_RS    := $(wildcard tools/cui-rs/build.rs tools/engine-init-rs/build.rs)
+TOOLS_RS_SRCS     := $(shell find tools/cui-rs/src tools/engine-init-rs/src -type f -name "*.rs" 2>/dev/null) $(TOOLS_BUILD_RS)
+CARGO_TARGET_DIR  ?= build/cargo-tools
 
 ifeq ($(DETECTED_OS),Windows)
-    CUI_EXE         := tools/target/release/cui.exe
-    ENGINE_INIT_EXE := tools/target/release/engine.exe
+    CUI_EXE         := $(CARGO_TARGET_DIR)/release/cui.exe
+    ENGINE_INIT_EXE := $(CARGO_TARGET_DIR)/release/engine.exe
 else
-    CUI_EXE         := tools/target/release/cui
-    ENGINE_INIT_EXE := tools/target/release/engine
+    CUI_EXE         := $(CARGO_TARGET_DIR)/release/cui
+    ENGINE_INIT_EXE := $(CARGO_TARGET_DIR)/release/engine
 endif
 
 _CUI_INSTALLED := tools/$(notdir $(CUI_EXE))
@@ -167,6 +177,8 @@ _CUI_INSTALLED := tools/$(notdir $(CUI_EXE))
 DIST_DIR      := dist/engine-$(ENGINE_PLATFORM)
 DIST_PKG_DIR  := $(DIST_DIR)/dist
 DIST_ZIP      := dist/engine-$(ENGINE_PLATFORM).zip
+ENGINE_PAYLOAD_DIR := build/engine-payload
+ENGINE_PAYLOAD_ZIP := $(ENGINE_PAYLOAD_DIR)/engine-$(ENGINE_PLATFORM)-$(shell date +%s%N 2>/dev/null || date +%s).zip
 
 ifeq ($(DETECTED_OS),Windows)
     ENGINE_TOOL_EXE := $(DIST_DIR)/engine.exe
@@ -175,10 +187,43 @@ else
 endif
 
 # ── Main targets ──────────────────────────────────────────────────────────────
-.PHONY: all debug release dev dist engine-tool install-demo clean fclean
+.PHONY: all debug release dev engine dist engine-tool install-demo clean fclean info
+
+# ── Tool check helper ─────────────────────────────────────────────────────────
+# Usage: $(call _chk,binary,install hint)
+.PHONY: info
+info:
+	@echo ""
+	@echo "Engine build -- required tools"
+	@echo "=============================="
+	@if command -v $(CXX) >/dev/null 2>&1; then printf "  [ok] %s\n" "$(CXX)"; \
+	    else printf "  [!!] %-24s -- scoop install mingw / brew install gcc / apt install g++\n" "$(CXX)"; fi
+	@if command -v $(AR) >/dev/null 2>&1; then printf "  [ok] %s\n" "$(AR)"; \
+	    else printf "  [!!] %-24s -- scoop install mingw / brew install binutils / apt install binutils\n" "$(AR)"; fi
+	@if command -v $(VCPKG) >/dev/null 2>&1; then printf "  [ok] %s\n" "$(VCPKG)"; \
+	    else printf "  [!!] %-24s -- https://vcpkg.io/en/getting-started\n" "$(VCPKG)"; fi
+	@echo ""
+	@echo "  make dist -- needs one of: zip / 7z / python3"
+	@if command -v zip >/dev/null 2>&1; then \
+	    printf "  [ok] zip\n"; \
+	elif command -v 7z >/dev/null 2>&1; then \
+	    printf "  [ok] 7z  (zip fallback)\n"; \
+	elif command -v python3 >/dev/null 2>&1; then \
+	    printf "  [ok] python3  (zip fallback)\n"; \
+	else \
+	    printf "  [!!] none found  -- scoop install zip / scoop install 7zip\n"; \
+	fi
+	@echo ""
+	@echo "  make engine-tool -- optional"
+	@if command -v cargo >/dev/null 2>&1; then printf "  [ok] cargo\n"; \
+	    else printf "  [!!] %-24s -- https://rustup.rs\n" "cargo"; fi
+	@echo ""
 
 all debug release dev: $(ENGINE_LIBS) $(_CUI_INSTALLED)
 	@echo "Engine [$(BUILD_TYPE)] — all archives up to date"
+
+engine: install-demo
+	@echo "Engine fully prepared in $(DIST_DIR)/ and demo/engine/"
 
 # ── Archive rules ─────────────────────────────────────────────────────────────
 $(LIB_GRAPHICS): $(Graphics_OBJS)
@@ -227,10 +272,15 @@ $(OBJ_DIR_TYPE)/Libraries/%.o: $(LIBRARIES_SRC_DIR)/%.c
 # avoid circular deps: engine-tool embeds the dist zip which requires dist).
 
 $(CUI_EXE): $(TOOLS_WORKSPACE) $(TOOLS_RS_SRCS)
-	$(CARGO) build --release --manifest-path $(TOOLS_WORKSPACE) --bin cui
+	CARGO_TARGET_DIR="$(abspath $(CARGO_TARGET_DIR))" \
+	    $(CARGO) build --release --manifest-path $(TOOLS_WORKSPACE) --bin cui
 
 $(_CUI_INSTALLED): $(CUI_EXE)
+ifeq ($(DETECTED_OS),Windows)
+	@powershell -NoProfile -Command "Copy-Item -Path '$(CUI_EXE)' -Destination '$@' -Force"
+else
 	cp "$(CUI_EXE)" "$@"
+endif
 	@echo "Installed CUI precompiler: $@"
 
 .PHONY: cui-tool
@@ -241,47 +291,84 @@ cui-tool: $(_CUI_INSTALLED)
 # into $(DIST_PKG_DIR)/. The engine tool binary goes at $(DIST_DIR)/engine[.exe].
 
 dist: $(_CUI_INSTALLED)
-	@$(MAKE) -f Libraries/Makefile BUILD_TYPE=debug
-	@$(MAKE) -f Libraries/Makefile BUILD_TYPE=release
+	@$(MAKE) -f Libraries/Makefile BUILD_TYPE=debug debug
+	@$(MAKE) -f Libraries/Makefile BUILD_TYPE=release release
+ifeq ($(DETECTED_OS),Windows)
+	@mkdir -p "$(DIST_PKG_DIR)/includes" "$(DIST_PKG_DIR)/lib/debug" "$(DIST_PKG_DIR)/lib/release" \
+	          "$(DIST_PKG_DIR)/make" "$(DIST_PKG_DIR)/tools"
+	@powershell -NoProfile -Command "Remove-Item -Path '$(DIST_DIR)/engine-payload-*.zip' -Force -ErrorAction SilentlyContinue"
+	@powershell -NoProfile -Command "Copy-Item -Path '$(INCLUDES_BASE)/*' -Destination '$(DIST_PKG_DIR)/includes' -Recurse -Force"
+	@powershell -NoProfile -Command "Copy-Item -Path 'lib/debug/*.a' -Destination '$(DIST_PKG_DIR)/lib/debug' -Force"
+	@powershell -NoProfile -Command "Copy-Item -Path 'lib/release/*.a' -Destination '$(DIST_PKG_DIR)/lib/release' -Force"
+	@powershell -NoProfile -Command "Copy-Item -Path 'engine-sdk/engine.mk' -Destination '$(DIST_PKG_DIR)/make' -Force"
+	@powershell -NoProfile -Command "Copy-Item -Path '$(_CUI_INSTALLED)' -Destination '$(DIST_PKG_DIR)/tools' -Force"
+	@powershell -NoProfile -Command "Copy-Item -Path 'Libraries/vcpkg.json' -Destination '$(DIST_PKG_DIR)' -Force"
+	@powershell -NoProfile -Command "Copy-Item -Path 'engine-sdk/dist.gitignore' -Destination '$(DIST_PKG_DIR)/.gitignore' -Force"
+	@powershell -NoProfile -Command "Copy-Item -Path 'engine-sdk/dist-README.md' -Destination '$(DIST_PKG_DIR)/README.md' -Force"
+else
 	@rm -rf "$(DIST_DIR)"
 	@mkdir -p "$(DIST_PKG_DIR)/lib/debug" "$(DIST_PKG_DIR)/lib/release" \
 	          "$(DIST_PKG_DIR)/make" "$(DIST_PKG_DIR)/tools"
-	@cp -r $(INCLUDES_BASE)            "$(DIST_PKG_DIR)/includes"
-	@cp lib/debug/*.a                  "$(DIST_PKG_DIR)/lib/debug/"
-	@cp lib/release/*.a                "$(DIST_PKG_DIR)/lib/release/"
-	@cp engine-sdk/engine.mk           "$(DIST_PKG_DIR)/make/"
-	@cp "$(_CUI_INSTALLED)"            "$(DIST_PKG_DIR)/tools/"
-	@cp Libraries/vcpkg.json           "$(DIST_PKG_DIR)/vcpkg.json"
-	@cp engine-sdk/dist.gitignore      "$(DIST_PKG_DIR)/.gitignore"
-	@cp engine-sdk/dist-README.md      "$(DIST_PKG_DIR)/README.md"
-	@cp -r "$(VCPKG_INSTALLED_ROOT)/." "$(DIST_PKG_DIR)/vcpkg_installed/"
+	@cp -r $(INCLUDES_BASE)       "$(DIST_PKG_DIR)/includes"
+	@cp lib/debug/*.a             "$(DIST_PKG_DIR)/lib/debug/"
+	@cp lib/release/*.a           "$(DIST_PKG_DIR)/lib/release/"
+	@cp engine-sdk/engine.mk      "$(DIST_PKG_DIR)/make/"
+	@cp "$(_CUI_INSTALLED)"       "$(DIST_PKG_DIR)/tools/"
+	@cp Libraries/vcpkg.json      "$(DIST_PKG_DIR)/vcpkg.json"
+	@cp engine-sdk/dist.gitignore "$(DIST_PKG_DIR)/.gitignore"
+	@cp engine-sdk/dist-README.md "$(DIST_PKG_DIR)/README.md"
+endif
 	@echo "Engine package ready: $(DIST_PKG_DIR)/"
 
 # ── engine tool binary (embeds the dist pkg as a zip) ─────────────────────────
 # The zip contains dist/ as its top-level so strip_top_dir() in Rust works correctly.
-# 'zip' is available natively on Linux/macOS and via MSYS2/MinGW on Windows.
-_DO_ZIP = cd "$(DIST_DIR)" && zip -r "$(abspath $(DIST_ZIP))" "dist/"
+# $(call _DO_ZIP,output.zip[,subdir_to_exclude])  — exclude is relative to dist/
+define _DO_ZIP
+	cd "$(DIST_DIR)" && \
+	if command -v zip >/dev/null 2>&1; then \
+	    zip -r "$(abspath $(1))" "dist/" $(if $(2),-x "dist/$(2)/*"); \
+	elif command -v 7z >/dev/null 2>&1; then \
+	    7z a -tzip "$(abspath $(1))" "dist/" $(if $(2),-x!"dist/$(2)") > /dev/null; \
+	else \
+	    python3 -c " \
+import zipfile, os, sys; \
+excl=sys.argv[3] if len(sys.argv)>3 else ''; \
+root=sys.argv[2]; out=sys.argv[1]; \
+z=zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED); \
+[z.write(os.path.join(d,f), os.path.relpath(os.path.join(d,f))) \
+ for d,_,fs in os.walk(root) for f in fs \
+ if not excl or not os.path.relpath(os.path.join(d,f)).startswith(excl)]; \
+z.close()" "$(abspath $(1))" "dist/" $(if $(2),"dist/$(2)"); \
+	fi
+endef
 
 # Sentinel tracks freshness of the engine package without globbing every file.
 _DIST_SENTINEL := $(DIST_PKG_DIR)/.gitignore
 
 $(DIST_ZIP): $(_DIST_SENTINEL)
-	$(_DO_ZIP)
+	$(call _DO_ZIP,$(DIST_ZIP))
 	@echo "Zipped: $(DIST_ZIP)"
 
 # engine tool embeds the zip at compile time via build.rs / include_bytes!
-$(ENGINE_INIT_EXE): $(TOOLS_WORKSPACE) $(TOOLS_RS_SRCS) $(DIST_ZIP)
-	ENGINE_PAYLOAD_ZIP="$(abspath $(DIST_ZIP))" \
+$(ENGINE_INIT_EXE): $(TOOLS_WORKSPACE) $(TOOLS_RS_SRCS) dist
+	@mkdir -p "$(ENGINE_PAYLOAD_DIR)"
+	$(call _DO_ZIP,$(ENGINE_PAYLOAD_ZIP))
+	ENGINE_PAYLOAD_ZIP="$(abspath $(ENGINE_PAYLOAD_ZIP))" \
+	CARGO_TARGET_DIR="$(abspath $(CARGO_TARGET_DIR))" \
 	    $(CARGO) build --release --manifest-path $(TOOLS_WORKSPACE) --bin engine
 	@echo "Built: $(ENGINE_INIT_EXE)"
 
 $(ENGINE_TOOL_EXE): $(ENGINE_INIT_EXE)
 	@mkdir -p "$(DIST_DIR)"
+ifeq ($(DETECTED_OS),Windows)
+	@powershell -NoProfile -Command "Copy-Item -Path '$(ENGINE_INIT_EXE)' -Destination '$@' -Force"
+else
 	cp "$(ENGINE_INIT_EXE)" "$@"
+endif
 	@echo "Installed engine tool: $@"
 
 .PHONY: engine-tool
-engine-tool: dist $(ENGINE_TOOL_EXE)
+engine-tool: $(ENGINE_TOOL_EXE)
 	@echo "engine tool ready: $(ENGINE_TOOL_EXE)"
 
 # ── Sync demo ─────────────────────────────────────────────────────────────────
@@ -291,10 +378,21 @@ engine-tool: dist $(ENGINE_TOOL_EXE)
 .PHONY: sync-demo
 sync-demo: $(ENGINE_LIBS) $(_CUI_INSTALLED)
 	@mkdir -p demo/engine/lib/$(BUILD_TYPE) demo/engine/make demo/engine/tools
+ifeq ($(DETECTED_OS),Windows)
+	@mkdir -p demo/engine/includes
+	@powershell -NoProfile -Command "Copy-Item -Path '$(INCLUDES_BASE)/*' -Destination 'demo/engine/includes' -Recurse -Force"
+else
 	@rm -rf demo/engine/includes && cp -r $(INCLUDES_BASE) demo/engine/includes
+endif
+ifeq ($(DETECTED_OS),Windows)
+	@for f in $(ENGINE_LIBS); do powershell -NoProfile -Command "Copy-Item -Path '$$f' -Destination 'demo/engine/lib/$(BUILD_TYPE)' -Force"; done
+	@powershell -NoProfile -Command "Copy-Item -Path 'engine-sdk/engine.mk' -Destination 'demo/engine/make' -Force"
+	@powershell -NoProfile -Command "Copy-Item -Path '$(_CUI_INSTALLED)' -Destination 'demo/engine/tools' -Force"
+else
 	@cp $(ENGINE_LIBS) demo/engine/lib/$(BUILD_TYPE)/
 	@cp engine-sdk/engine.mk demo/engine/make/
 	@cp "$(_CUI_INSTALLED)" demo/engine/tools/
+endif
 	@if [ ! -e demo/engine/vcpkg_installed ]; then \
 	    if [ "$(DETECTED_OS)" = "Windows" ]; then \
 	        TARGET=$$(cd "$(VCPKG_INSTALLED_ROOT)" && pwd -W 2>/dev/null || echo "$(VCPKG_INSTALLED_ROOT)"); \
@@ -308,9 +406,21 @@ sync-demo: $(ENGINE_LIBS) $(_CUI_INSTALLED)
 
 # ── Install demo ──────────────────────────────────────────────────────────────
 # Full dist-based install: packages headers, both build types, and tools.
-install-demo: dist
+install-demo: engine-tool
+ifeq ($(DETECTED_OS),Windows)
+	@mkdir -p demo/engine
+	@powershell -NoProfile -Command "Copy-Item -Path '$(DIST_PKG_DIR)/*' -Destination 'demo/engine' -Recurse -Force"
+else
 	@rm -rf demo/engine
 	@cp -r "$(DIST_PKG_DIR)" demo/engine
+endif
+	@if [ "$(DETECTED_OS)" = "Windows" ]; then \
+	    TARGET=$$(cd "$(VCPKG_INSTALLED_ROOT)" && pwd -W 2>/dev/null || echo "$(VCPKG_INSTALLED_ROOT)"); \
+	    MSYS_NO_PATHCONV=1 cmd /c "mklink /J \"demo\\engine\\vcpkg_installed\" \"$$TARGET\"" 2>/dev/null \
+	        || ln -sfn "../../$(VCPKG_INSTALLED_ROOT)" demo/engine/vcpkg_installed; \
+	else \
+	    ln -sfn "../../$(VCPKG_INSTALLED_ROOT)" demo/engine/vcpkg_installed; \
+	fi
 	@echo "Engine installed to demo/engine/"
 
 # ── vcpkg dependency management ───────────────────────────────────────────────
@@ -351,7 +461,7 @@ install install-deps:
 	    LIBDIR="$(VCPKG_INSTALLED_DIR)/lib"; \
 	    for dep in $(_INSTALL_ARGS); do \
 	        if command -v jq >/dev/null 2>&1; then \
-	            if jq --arg d "$$dep" -e '.dependencies[] | select((type=="string" and .==$d) or (.name?==$d))' Libraries/vcpkg.json >/dev/null 2>&1; then \
+	            if jq --arg d "$$dep" -e '.dependencies[] | select((type=="string" and .==$$d) or (.name?==$$d))' Libraries/vcpkg.json >/dev/null 2>&1; then \
 	                printf "  [vcpkg.json] %s already listed\n" "$$dep"; \
 	            else \
 	                tmp=$$(mktemp); jq --arg d "$$dep" '.dependencies += [$$d]' Libraries/vcpkg.json > "$$tmp" && mv "$$tmp" Libraries/vcpkg.json; \

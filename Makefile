@@ -8,9 +8,10 @@
 # ── Engine (Libraries/) ───────────────────────────────────────────────────────
 #   make debug                 build engine archives (debug)
 #   make release               build engine archives (release)
+#   make engine                build debug+release, dist, tools, and demo/engine/
 #   make dist                  package engine → dist/engine-<platform>/
 #   make engine-tool           build the engine scaffolding binary
-#   make sync-demo             copy built artifacts into demo/engine/ (fast)
+#   make sync-demo             fast sync of current BUILD_TYPE into demo/engine/
 #   make install-demo          copy full dist package into demo/engine/
 #   make clean / fclean        remove engine build artifacts
 #
@@ -25,10 +26,10 @@
 # ── Combined ──────────────────────────────────────────────────────────────────
 #   make all-debug             engine debug → sync → demo debug
 #   make all-release           engine release → sync → demo release
-#   make setup                 install-deps-all + dist (debug+release) + install to demo + demo debug
+#   make setup                 install engine deps + make engine + demo deps + demo debug
 #   make setup-run             setup + run demo
 
-SHELL      := /bin/sh
+SHELL      := sh
 VCPKG      ?= vcpkg
 BUILD_TYPE ?= debug
 ENGINE_MK  := Libraries/Makefile
@@ -45,10 +46,13 @@ install-deps-demo:
 install-deps-all: install-deps install-deps-demo
 
 # ── Engine ────────────────────────────────────────────────────────────────────
-.PHONY: debug dev release dist engine-tool sync-demo install-demo clean fclean
+.PHONY: debug dev release engine dist engine-tool sync-demo install-demo clean fclean info
 
 debug dev release:
-	$(MAKE) -f $(ENGINE_MK) $@
+	$(MAKE) -f $(ENGINE_MK) BUILD_TYPE=$@ $@
+
+engine:
+	$(MAKE) -f $(ENGINE_MK) engine
 
 dist:
 	$(MAKE) -f $(ENGINE_MK) dist
@@ -107,10 +111,21 @@ all-release:
 	$(MAKE) -f $(ENGINE_MK) sync-demo BUILD_TYPE=release
 	$(MAKE) -C demo release
 
-# install engine deps → install engine to demo/engine/ → install demo deps → build demo
-setup: install-deps
-	$(MAKE) -f $(ENGINE_MK) install-demo
+# install engine deps → prepare full engine → install demo deps → build demo
+setup:
+	$(MAKE) -f $(ENGINE_MK) install VCPKG=$(VCPKG)
+	$(MAKE) -f $(ENGINE_MK) engine
 	$(MAKE) -C demo install VCPKG=$(VCPKG)
 	$(MAKE) -C demo debug
 
 setup-run: setup demo-run
+
+# ── Info ──────────────────────────────────────────────────────────────────────
+.PHONY: info
+info:
+	@printf "\n=== Engine ===\n"
+	@$(MAKE) -f $(ENGINE_MK) info --no-print-directory
+	@printf "=== Demo ===\n"
+	@$(MAKE) -C demo info --no-print-directory
+	@printf "BUILD_TYPE  : $(BUILD_TYPE)\n"
+	@printf "VCPKG       : $(VCPKG)\n\n"

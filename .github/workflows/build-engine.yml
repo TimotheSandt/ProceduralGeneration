@@ -17,21 +17,25 @@ jobs:
             platform: windows-x64
             triplet: x64-mingw-static
             msystem: MINGW64
+            exe_ext: .exe
 
           - name: Linux x64
             os: ubuntu-latest
             platform: linux-x64
             triplet: x64-linux
+            exe_ext: ""
 
           - name: macOS arm64
             os: macos-latest
             platform: macos-arm64
             triplet: arm64-osx
+            exe_ext: ""
 
           - name: macOS x64
             os: macos-13
             platform: macos-x64
             triplet: x64-osx
+            exe_ext: ""
 
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.name }}
@@ -49,7 +53,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            tools/target
+            build/cargo-tools
           key: cargo-${{ matrix.platform }}-${{ hashFiles('tools/Cargo.lock') }}
           restore-keys: cargo-${{ matrix.platform }}-
 
@@ -112,7 +116,7 @@ jobs:
           restore-keys: vcpkg-${{ matrix.triplet }}-
 
       # ── Install vcpkg dependencies ─────────────────────────────────────────────
-      - name: Install vcpkg dependencies
+      - name: Install vcpkg dependencies (Unix)
         if: runner.os != 'Windows' && steps.vcpkg-cache.outputs.cache-hit != 'true'
         run: |
           $VCPKG_ROOT/vcpkg install \
@@ -124,8 +128,6 @@ jobs:
       - name: Install vcpkg dependencies (Windows)
         if: runner.os == 'Windows' && steps.vcpkg-cache.outputs.cache-hit != 'true'
         shell: msys2 {0}
-        env:
-          VCPKG_DEFAULT_TRIPLET: ${{ matrix.triplet }}
         run: |
           $VCPKG_ROOT/vcpkg install \
             --triplet=${{ matrix.triplet }} \
@@ -133,28 +135,9 @@ jobs:
             --x-install-root=./vcpkg_installed \
             --no-print-usage
 
-      # ── Build C++ libraries + engine package ───────────────────────────────────
-      # 'make dist' builds debug+release archives, packages headers, engine.mk,
-      # CUI tool, and creates dist/engine-<platform>/dist/.
-      - name: Build engine libraries + dist package
-        if: runner.os != 'Windows'
-        run: |
-          make -f Libraries/Makefile dist \
-            VCPKG_TRIPLET=${{ matrix.triplet }} \
-            VCPKG_INSTALLED_ROOT=./vcpkg_installed
-
-      - name: Build engine libraries + dist package (Windows)
-        if: runner.os == 'Windows'
-        shell: msys2 {0}
-        run: |
-          mingw32-make -f Libraries/Makefile dist \
-            VCPKG_TRIPLET=${{ matrix.triplet }} \
-            VCPKG_INSTALLED_ROOT=./vcpkg_installed
-
-      # ── Build engine scaffolding tool ──────────────────────────────────────────
-      # The 'engine' binary embeds the dist package zip (created above).
-      # On Windows: build natively with PowerShell (no MSYS2 needed for Rust).
-      # The binary is standalone — users don't need MSYS2 to run it.
+      # ── Build dist package + engine tool ───────────────────────────────────────
+      # 'engine-tool' builds debug+release archives, packages the dist/, and
+      # compiles the standalone engine binary (embeds dist/ without vcpkg_installed).
       - name: Build engine tool (Unix)
         if: runner.os != 'Windows'
         run: |
@@ -164,47 +147,31 @@ jobs:
 
       - name: Build engine tool (Windows)
         if: runner.os == 'Windows'
-        shell: pwsh
+        shell: msys2 {0}
         run: |
-          # Build the payload zip (MSYS2 already built the dist/ package)
-          $distDir = "dist\engine-${{ matrix.platform }}"
-          $zipDst  = "$PWD\dist\engine-${{ matrix.platform }}.zip"
-          Compress-Archive -Force -Path "$distDir\dist" -DestinationPath $zipDst
+          mingw32-make -f Libraries/Makefile engine-tool \
+            VCPKG_TRIPLET=${{ matrix.triplet }} \
+            VCPKG_INSTALLED_ROOT=./vcpkg_installed
 
-          # Compile the engine tool with the embedded zip
-          $env:ENGINE_PAYLOAD_ZIP = $zipDst
-          cargo build --release --manifest-path tools/Cargo.toml --bin engine
-
-          # Install into the dist directory
-          New-Item -ItemType Directory -Force -Path $distDir | Out-Null
-          Copy-Item "tools\target\release\engine.exe" "$distDir\engine.exe"
-
-      # ── Package release archives ───────────────────────────────────────────────
-      # Two archives per platform:
-      #   engine-<platform>.zip      — full: tool binary + embedded engine package
-      #   engine-pkg-<platform>.zip  — package only: headers, libs, make/, tools/
-      - name: Package release archives (Unix)
+      # ── Package artifacts ──────────────────────────────────────────────────────
+      # Produces per platform:
+      #   engine-<platform>[.exe]      — standalone engine tool (self-contained, embeds dist/)
+      #   engine-pkg-<platform>.zip    — package only: headers, libs, make/, tools/, vcpkg.json
+      #                                  (vcpkg_installed/ is populated by 'make install' in the user's project)
+      - name: Package artifacts (Unix)
         if: runner.os != 'Windows'
         run: |
           PLAT="${{ matrix.platform }}"
-          DIST_DIR="dist/engine-$PLAT"
-          # Full zip (tool + package)
-          cd dist && zip -r "engine-$PLAT-full.zip" "engine-$PLAT/" && cd ..
-          # Package-only zip
-          cd "$DIST_DIR" && zip -r "../../dist/engine-pkg-$PLAT.zip" "dist/" && cd ../..
-          mv "dist/engine-$PLAT-full.zip" "dist/engine-$PLAT.zip"
+          cp "dist/engine-$PLAT/engine" "dist/engine-$PLAT"
+          cd "dist/engine-$PLAT" && zip -r "../../dist/engine-pkg-$PLAT.zip" "dist/"
 
-      - name: Package release archives (Windows)
+      - name: Package artifacts (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $plat    = "${{ matrix.platform }}"
-          $distDir = "dist\engine-$plat"
-          # Full zip (tool + package)
-          Compress-Archive -Force -Path $distDir `
-            -DestinationPath "dist\engine-$plat.zip"
-          # Package-only zip
-          Compress-Archive -Force -Path "$distDir\dist" `
+          $plat = "${{ matrix.platform }}"
+          Copy-Item "dist\engine-$plat\engine.exe" "dist\engine-$plat.exe"
+          Compress-Archive -Force -Path "dist\engine-$plat\dist" `
             -DestinationPath "dist\engine-pkg-$plat.zip"
 
       - name: Upload artifacts
@@ -212,7 +179,7 @@ jobs:
         with:
           name: engine-${{ matrix.platform }}
           path: |
-            dist/engine-${{ matrix.platform }}.zip
+            dist/engine-${{ matrix.platform }}${{ matrix.exe_ext }}
             dist/engine-pkg-${{ matrix.platform }}.zip
           retention-days: 7
 
@@ -242,37 +209,19 @@ jobs:
 
             ### Download
 
-            | Platform | Engine tool (recommended) | Package only |
+            | Platform | Engine tool | Package only |
             |---|---|---|
-            | Windows x64 (MinGW) | `engine-windows-x64.zip` | `engine-pkg-windows-x64.zip` |
-            | Linux x64           | `engine-linux-x64.zip`   | `engine-pkg-linux-x64.zip`   |
-            | macOS arm64 (M1+)   | `engine-macos-arm64.zip` | `engine-pkg-macos-arm64.zip` |
-            | macOS x64 (Intel)   | `engine-macos-x64.zip`   | `engine-pkg-macos-x64.zip`   |
+            | Windows x64 (MinGW) | `engine-windows-x64.exe` | `engine-pkg-windows-x64.zip` |
+            | Linux x64           | `engine-linux-x64`       | `engine-pkg-linux-x64.zip`   |
+            | macOS arm64 (M1+)   | `engine-macos-arm64`     | `engine-pkg-macos-arm64.zip` |
+            | macOS x64 (Intel)   | `engine-macos-x64`       | `engine-pkg-macos-x64.zip`   |
 
-            **Engine tool** — self-contained binary that scaffolds new projects and updates existing ones.
-
-            **Package only** — headers, pre-built libraries, and `engine.mk` for manual integration.
-
-            ### Quick start with the engine tool
-
+            **Engine tool** — binary standalone qui scaffolde de nouveaux projets et met à jour les existants.
             ```sh
-            # Extract engine-<platform>.zip, then:
             ./engine init myproject
-            cd myproject
-            make debug
+            cd myproject && make debug
             ```
 
-            ### Manual setup (package only)
-
-            Extract `engine-pkg-<platform>.zip` as `engine/` in your project, then:
-
-            ```makefile
-            ENGINE_DIR   := engine
-            GAME_SRC_DIR := src
-            BUILD_TYPE   := debug
-            include $(ENGINE_DIR)/make/engine.mk
-            ```
-
-            See `engine/make/engine.mk` inside the package for full documentation.
+            **Package only** — headers, libs pre-built, `engine.mk`, tools, and `vcpkg.json`. Run `make install` in your project to populate `engine/vcpkg_installed/` automatically.
           generate_release_notes: true
-          files: dist/*.zip
+          files: dist/*

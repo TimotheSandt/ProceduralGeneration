@@ -16,15 +16,15 @@ A C++23 game engine in development, with a multi-backend graphics system (OpenGL
 1. Clone the repository.
 2. Install dependencies:
    ```bash
-   make install_deps
+   make install-deps-all
    ```
 3. Build:
    ```bash
-   make dev
+   make all-debug
    ```
 4. Run:
    ```bash
-   make run-dev
+   make demo-run
    ```
 
 ---
@@ -50,17 +50,19 @@ Lightweight performance monitoring with per-frame timing and FPS tracking.
 
 ## 📦 Using as a Library
 
-The engine compiles to a static archive in `lib/`:
+The engine compiles to subsystem static archives in `lib/<build>/`:
 
 ```
 lib/
-├── debug/libcorelibs.a
-└── release/libcorelibs.a
+├── debug/libgraphics.a
+├── debug/libui.a
+├── debug/libnoise.a
+└── release/*.a
 ```
 
 To use the engine in another project:
 1. Build: `make release`
-2. Link against `lib/release/libcorelibs.a`
+2. Link against the archives in `lib/release/`
 3. Add `Libraries/includes/` to your include path
 
 ---
@@ -71,13 +73,14 @@ To use the engine in another project:
 |---|---|
 | `make debug` | Debug build |
 | `make release` | Optimized release build |
-| `make clean` | Remove app objects, keep engine archive |
-| `make clean-libs` | Remove engine archives only |
-| `make clean-exec` | Remove compiled executables |
-| `make fclean` | Remove everything |
-| `make format` | Auto-format with clang-format |
-| `make lint` | Run clang-tidy |
-| `make test` | Run test suite |
+| `make all-debug` | Build engine debug, sync it into `demo/`, then build demo debug |
+| `make all-release` | Build engine release, sync it into `demo/`, then build demo release |
+| `make sync-demo` | Copy current engine build into `demo/engine/` |
+| `make demo-run` | Run the demo binary |
+| `make clean` | Remove engine objects |
+| `make fclean` | Remove engine objects and archives |
+| `make demo-clean` | Remove demo objects and generated sources |
+| `make demo-fclean` | Remove demo objects, generated sources, and binaries |
 
 ---
 
@@ -85,10 +88,10 @@ To use the engine in another project:
 - `Libraries/includes/` — Public engine headers
 - `Libraries/src/` — Engine implementations
 - `lib/` — Compiled engine archives (generated, not committed)
-- `src/` — Game application code and UI views
-- `tools/cui-rs/` — CUI DSL precompiler (Rust native binary, built by `make cui-tool`)
-- `res/` — Shaders, fonts, textures
-- `tests/` — Test suite
+- `demo/src/` — Demo application code and UI views
+- `demo/res/` — Demo shaders, fonts, textures
+- `demo/tests/` — Demo test suite
+- `tools/` — Rust CUI precompiler, engine scaffolding tool, and editor helpers
 
 ---
 

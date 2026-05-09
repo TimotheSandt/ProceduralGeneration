@@ -16,7 +16,7 @@
 #   make add-dep DEP=nlohmann-json   add & install a package
 #   make search-dep Q=json           search vcpkg catalog
 
-SHELL := /bin/sh
+SHELL := sh
 -include config.mk
 -include config.local.mk
 
@@ -48,7 +48,59 @@ else ifneq ($(findstring release,$(MAKECMDGOALS)),)
     BUILD_TYPE := release
 endif
 
-include $(_ENGINE_MK)
+_ENGINE_MK_FOUND := $(wildcard $(_ENGINE_MK))
+
+ifeq ($(_ENGINE_MK_FOUND),)
+    _DEMO_ENGINELESS_GOALS := install install-deps search search-dep clean fclean info
+    ifeq ($(filter $(_DEMO_ENGINELESS_GOALS),$(MAKECMDGOALS)),)
+        $(error Missing engine SDK at $(_ENGINE_MK). Run "make sync-demo" or "make install-demo" from the repository root first)
+    endif
+
+    _DEMO_UNAME := $(shell uname -s 2>/dev/null || echo Unknown)
+    ifeq ($(OS),Windows_NT)
+        ENGINE_OS := Windows
+    else ifneq ($(filter Linux,$(_DEMO_UNAME)),)
+        ENGINE_OS := Linux
+    else ifneq ($(filter Darwin,$(_DEMO_UNAME)),)
+        ENGINE_OS := Darwin
+    else ifneq ($(filter MSYS% MINGW% CYGWIN%,$(_DEMO_UNAME)),)
+        ENGINE_OS := Windows
+    else
+        ENGINE_OS := Linux
+    endif
+
+    ifeq ($(ENGINE_OS),Windows)
+        ENGINE_VCPKG_TRIPLET ?= x64-mingw-static
+        ENGINE_EXE_EXT       := .exe
+    else ifeq ($(ENGINE_OS),Darwin)
+        _DEMO_ARCH := $(shell uname -m 2>/dev/null)
+        ifeq ($(_DEMO_ARCH),arm64)
+            ENGINE_VCPKG_TRIPLET ?= arm64-osx
+        else
+            ENGINE_VCPKG_TRIPLET ?= x64-osx
+        endif
+        ENGINE_EXE_EXT :=
+    else
+        _DEMO_ARCH := $(shell uname -m 2>/dev/null)
+        ifeq ($(_DEMO_ARCH),aarch64)
+            ENGINE_VCPKG_TRIPLET ?= arm64-linux
+        else
+            ENGINE_VCPKG_TRIPLET ?= x64-linux
+        endif
+        ENGINE_EXE_EXT :=
+    endif
+
+    ENGINE_CXXFLAGS      :=
+    ENGINE_INCLUDES      := -I$(GAME_SRC_DIR)
+    ENGINE_LIBS          :=
+    ENGINE_LINK_LIBS     :=
+    ENGINE_LDFLAGS       :=
+    ENGINE_GEN_DIR       := Generated
+    GEN_CPP_SOURCES      :=
+    GEN_REDIRECT_SOURCES :=
+else
+    include $(_ENGINE_MK)
+endif
 
 # ── Game-specific vcpkg ───────────────────────────────────────────────────────
 # Game deps are installed to $(_VCPKG_ROOT)/ (separate from the engine's own
@@ -87,6 +139,7 @@ OBJS_CPP := $(SRCS_CPP:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/src/%.o)
 OBJS_C   := $(SRCS_C:$(SRC_DIR)/%.c=$(OBJ_DIR)/src/%.o)
 GEN_OBJS := $(GEN_CPP_SOURCES:$(ENGINE_GEN_DIR)/%.gen.cpp=$(OBJ_DIR)/gen/%.o)
 ALL_OBJS := $(OBJS_CPP) $(OBJS_C) $(GEN_OBJS)
+TEST_GAME_OBJS := $(filter-out $(OBJ_DIR)/src/main.o,$(OBJS_CPP) $(OBJS_C))
 
 # Windows icon resource
 ICON_RC :=
@@ -101,7 +154,7 @@ endif
 
 # Test sources
 TEST_SRCS   := $(shell find $(TEST_DIR) -type f -name "*.cpp" 2>/dev/null)
-TEST_OBJS   := $(TEST_SRCS:$(TEST_DIR)/%.cpp=$(OBJ_DIR)/tests/%.o) $(GEN_OBJS)
+TEST_OBJS   := $(TEST_SRCS:$(TEST_DIR)/%.cpp=$(OBJ_DIR)/tests/%.o) $(TEST_GAME_OBJS) $(GEN_OBJS)
 TEST_TARGET := bin/tests/tests$(ENGINE_EXE_EXT)
 
 # Style sources
@@ -175,7 +228,11 @@ $(OBJ_DIR)/tests/%.o: $(TEST_DIR)/%.cpp
 .PHONY: copy_res copy_libs
 
 copy_res: | $(BIN_DIR)
-	@cp -r $(RES_DIR) $(BIN_DIR)/
+ifeq ($(ENGINE_OS),Windows)
+	@if [ -d "$(RES_DIR)" ]; then mkdir -p "$(BIN_DIR)/$(RES_DIR)"; powershell -NoProfile -Command "Copy-Item -Path '$(RES_DIR)/*' -Destination '$(BIN_DIR)/$(RES_DIR)' -Recurse -Force"; fi
+else
+	@if [ -d "$(RES_DIR)" ]; then cp -r "$(RES_DIR)" "$(BIN_DIR)/"; fi
+endif
 
 copy_libs: | $(BIN_DIR)
 	@set -- "$(ENGINE_DIR)/vcpkg_installed/$(ENGINE_VCPKG_TRIPLET)/bin"/*.dll; \
@@ -234,7 +291,7 @@ install install-deps:
 	    LIBDIR="$(_ADD_DEP_VCPKG_LIBDIR)"; \
 	    for dep in $(_INSTALL_ARGS); do \
 	        if command -v jq >/dev/null 2>&1; then \
-	            if jq --arg d "$$dep" -e '.dependencies[] | select((type=="string" and .==$d) or (.name?==$d))' vcpkg.json >/dev/null 2>&1; then \
+	            if jq --arg d "$$dep" -e '.dependencies[] | select((type=="string" and .==$$d) or (.name?==$$d))' vcpkg.json >/dev/null 2>&1; then \
 	                printf "  [vcpkg.json] %s already listed\n" "$$dep"; \
 	            else \
 	                tmp=$$(mktemp); jq --arg d "$$dep" '.dependencies += [$$d]' vcpkg.json > "$$tmp" && mv "$$tmp" vcpkg.json; \
@@ -293,11 +350,11 @@ search search-dep:
 .PHONY: clean fclean re re-debug re-dev re-release
 
 clean:
-	@rm -rf obj/ $(ENGINE_GEN_DIR) bin/
+	@rm -rf obj/ $(ENGINE_GEN_DIR)
 	@echo "Cleaned"
 
-fclean:
-	@rm -rf obj/ $(ENGINE_GEN_DIR) bin/
+fclean: clean
+	@rm -rf bin/
 	@echo "Full clean done"
 
 re:         fclean all
@@ -345,6 +402,14 @@ info:
 	@echo "CUI views:    $(words $(GEN_CPP_SOURCES)) generated"
 	@echo "Engine libs:  $(notdir $(ENGINE_LIBS))"
 	@echo "Compiler:     $(CXX)"
+	@echo ""
+	@echo "Required tools:"
+	@if command -v $(CXX) >/dev/null 2>&1; then printf "  [ok] %s\n" "$(CXX)"; \
+	    else printf "  [!!] %-24s -- scoop install mingw / brew install gcc / apt install g++\n" "$(CXX)"; fi
+	@if command -v $(AR) >/dev/null 2>&1; then printf "  [ok] %s\n" "$(AR)"; \
+	    else printf "  [!!] %-24s -- scoop install mingw / brew install binutils / apt install binutils\n" "$(AR)"; fi
+	@if command -v $(VCPKG) >/dev/null 2>&1; then printf "  [ok] %s\n" "$(VCPKG)"; \
+	    else printf "  [!!] %-24s -- https://vcpkg.io/en/getting-started\n" "$(VCPKG)"; fi
 
 # ── Dependency files ──────────────────────────────────────────────────────────
 -include $(wildcard $(ALL_OBJS:.o=.d))

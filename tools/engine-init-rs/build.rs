@@ -36,6 +36,7 @@ fn main() {
     visit_files(&src_dir, &mut |p| println!("cargo:rerun-if-changed={}", p.display()));
 
     // Engine payload zip (set by Libraries/Makefile during dist build)
+    println!("cargo:rerun-if-env-changed=ENGINE_PAYLOAD_ZIP");
     let zip_src = env::var("ENGINE_PAYLOAD_ZIP")
         .expect("ENGINE_PAYLOAD_ZIP must point to the engine dist zip (set by Libraries/Makefile)");
     let zip_dst = out_dir.join("engine_payload.zip");
