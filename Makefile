@@ -28,6 +28,11 @@
 #   make all-release           engine release → sync → demo release
 #   make setup                 install engine deps + make engine + demo deps + demo debug
 #   make setup-run             setup + run demo
+#
+# ── Release ───────────────────────────────────────────────────────────────────
+#   make publish               bump patch (0.1.0 → 0.1.1), commit, tag, push
+#   make publish VERSION=x.y.z bump to exact version, commit, tag, push
+#                              Must be on main/master. VERSION must be > current.
 
 SHELL      := sh
 VCPKG      ?= vcpkg
@@ -119,6 +124,69 @@ setup:
 	$(MAKE) -C demo debug
 
 setup-run: setup demo-run
+
+# ── Publish ───────────────────────────────────────────────────────────────────
+# make publish              — bump patch version (0.1.0 → 0.1.1)
+# make publish VERSION=x.y.z — bump to exact version (must be > current)
+# Requires: clean working tree, main or master branch.
+.PHONY: publish
+publish:
+	@set -e; \
+	CONFIG=Libraries/config.mk; \
+	\
+	BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null); \
+	if [ "$$BRANCH" != "main" ] && [ "$$BRANCH" != "master" ]; then \
+	    printf "error: publish requires main or master branch (current: %s)\n" "$$BRANCH"; \
+	    exit 1; \
+	fi; \
+	\
+	if ! git diff --quiet || ! git diff --cached --quiet; then \
+	    printf "error: working tree has uncommitted changes -- commit or stash first\n"; \
+	    exit 1; \
+	fi; \
+	\
+	CURRENT=$$(awk '/^ENGINE_VERSION[[:space:]]*\?=/ { \
+	    match($$0, /\?=[[:space:]]*/); \
+	    print substr($$0, RSTART+RLENGTH) }' "$$CONFIG" | tr -d ' \t\r'); \
+	if [ -z "$$CURRENT" ]; then \
+	    printf "error: ENGINE_VERSION not found in %s\n" "$$CONFIG"; \
+	    exit 1; \
+	fi; \
+	\
+	if [ -n "$(VERSION)" ]; then \
+	    NEW="$(VERSION)"; \
+	    if ! printf '%s' "$$NEW" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+	        printf "error: VERSION=%s is not valid semver (expected X.Y.Z)\n" "$$NEW"; \
+	        exit 1; \
+	    fi; \
+	    VALID=$$(awk -v cur="$$CURRENT" -v new="$$NEW" 'BEGIN { \
+	        split(cur,c,"."); split(new,n,"."); \
+	        if (n[1]+0>c[1]+0 || \
+	            (n[1]+0==c[1]+0 && n[2]+0>c[2]+0) || \
+	            (n[1]+0==c[1]+0 && n[2]+0==c[2]+0 && n[3]+0>c[3]+0)) \
+	            print "ok"; else print "fail" }'); \
+	    if [ "$$VALID" != "ok" ]; then \
+	        printf "error: VERSION=%s is not greater than current %s\n" "$$NEW" "$$CURRENT"; \
+	        exit 1; \
+	    fi; \
+	else \
+	    MAJ=$$(printf '%s' "$$CURRENT" | cut -d. -f1); \
+	    MIN=$$(printf '%s' "$$CURRENT" | cut -d. -f2); \
+	    PAT=$$(printf '%s' "$$CURRENT" | cut -d. -f3); \
+	    NEW="$$MAJ.$$MIN.$$((PAT + 1))"; \
+	fi; \
+	\
+	printf "Bumping %s -> %s\n" "$$CURRENT" "$$NEW"; \
+	awk -v ver="$$NEW" '/^ENGINE_VERSION[[:space:]]*\?=/ \
+	    { sub(/\?=.*/, "?= " ver) } 1' "$$CONFIG" > "$$CONFIG.tmp" \
+	    && mv "$$CONFIG.tmp" "$$CONFIG"; \
+	\
+	git add "$$CONFIG"; \
+	git commit -m "update version to $$NEW"; \
+	git tag "v$$NEW"; \
+	git push; \
+	git push origin "v$$NEW"; \
+	printf "Published v%s\n" "$$NEW"
 
 # ── Info ──────────────────────────────────────────────────────────────────────
 .PHONY: info
