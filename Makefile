@@ -18,7 +18,10 @@
 # ── Demo (demo/) ──────────────────────────────────────────────────────────────
 #   make demo-debug            build demo (debug)
 #   make demo-release          build demo (release)
-#   make demo-run              run last built demo binary
+#   make run                   run last built binary (debug or release, whichever is newer); builds debug if none exists
+#   make run-debug             build debug if needed, then run it
+#   make run-release           build release if needed, then run it
+#   make demo-run              alias for make run
 #   make demo-install [pkg…]   add vcpkg dep(s) to demo
 #   make demo-search kw        search vcpkg catalog
 #   make demo-clean / fclean   remove demo build artifacts
@@ -78,7 +81,7 @@ fclean:
 	$(MAKE) -f $(ENGINE_MK) fclean
 
 # ── Demo ──────────────────────────────────────────────────────────────────────
-.PHONY: demo-debug demo-dev demo-release demo-run demo-clean demo-fclean
+.PHONY: demo-debug demo-dev demo-release run run-debug run-release demo-run demo-clean demo-fclean
 .PHONY: demo-install demo-search
 
 demo-debug:
@@ -90,8 +93,16 @@ demo-dev:
 demo-release:
 	$(MAKE) -C demo release
 
-demo-run:
+run:
 	$(MAKE) -C demo run
+
+run-debug:
+	$(MAKE) -C demo run-debug
+
+run-release:
+	$(MAKE) -C demo run-release
+
+demo-run: run
 
 demo-clean:
 	$(MAKE) -C demo clean

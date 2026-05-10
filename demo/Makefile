@@ -131,6 +131,10 @@ else
 endif
 TARGET := $(BIN_DIR)/$(TARGET_NAME)$(ENGINE_EXE_EXT)
 
+# Fixed paths used by 'make run' to detect the newest built binary
+_DBG_BIN := bin/debug/main$(ENGINE_EXE_EXT)
+_REL_BIN := bin/release/$(PROJECT_NAME)$(ENGINE_EXE_EXT)
+
 # ── Sources ───────────────────────────────────────────────────────────────────
 SRCS_CPP := $(shell find $(SRC_DIR) -type f -name "*.cpp" 2>/dev/null)
 SRCS_C   := $(shell find $(SRC_DIR) -type f -name "*.c"   2>/dev/null)
@@ -173,11 +177,29 @@ endif
 
 all debug dev release: $(TARGET)
 
-run run-debug run-dev: $(TARGET)
+# run-debug / run-dev / run-release: build the requested variant if needed, then run it.
+# BUILD_TYPE is set at parse time via the findstring block above, so $(TARGET) already
+# points to the correct binary (bin/debug/main or bin/release/<name>).
+run-debug run-dev: $(TARGET)
 	@./$(TARGET)
 
 run-release: $(TARGET)
 	@./$(TARGET)
+
+# run: launch the most recently compiled binary (debug or release).
+# Recompiles it if sources are out-of-date. Builds debug from scratch if nothing exists.
+run:
+	@set -e; \
+	DBG="$(_DBG_BIN)"; REL="$(_REL_BIN)"; \
+	if [ -f "$$REL" ] && { [ ! -f "$$DBG" ] || [ "$$REL" -nt "$$DBG" ]; }; then \
+	    $(MAKE) release; \
+	    printf "Running [release] $$REL\n"; \
+	    "./$$REL"; \
+	else \
+	    $(MAKE) debug; \
+	    printf "Running [debug]   $$DBG\n"; \
+	    "./$$DBG"; \
+	fi
 
 # ── Link ──────────────────────────────────────────────────────────────────────
 $(TARGET): $(ALL_OBJS) $(ENGINE_LIBS) | $(BIN_DIR) copy_res $(COPY_EXTRA)
