@@ -8,7 +8,9 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <future>
 #include <unordered_map>
+#include <utility>
 
 #include "Graphics/Backends/Vulkan/VulkanPipelineCache.h"
 #include "Graphics/Backends/Vulkan/VulkanRenderState.h"
@@ -18,15 +20,208 @@
 namespace
 {
 
-std::vector<std::byte> CopyBytes(const void *data, std::size_t size)
+// Forward declarations — CreateBufferHandle is defined further down in this anonymous namespace
+// but the staging arena helpers (which sit above it for readability) need to call it.
+bool CreateBufferHandle(const std::shared_ptr<VulkanDeviceContext> &deviceContext, VkBufferUsageFlags usage, VkDeviceSize size,
+                        VkBuffer &bufferOut, VkDeviceMemory &memoryOut);
+void InvalidateDescriptorCache() noexcept;
+
+// Texture uploads queued outside a frame (e.g. at construction) are batched here and flushed
+// at the start of BeginFrame, recorded into the frame command buffer.
+// All staging data lives in a shared arena buffer rather than per-upload allocations — this
+// turns N expensive vkAllocateMemory calls into one. With ~256 font glyphs at startup this
+// is the dominant init-time speedup.
+struct PendingImageUpload
 {
-    std::vector<std::byte> output(size);
-    if (data != nullptr && size > 0)
-    {
-        std::memcpy(output.data(), data, size);
-    }
-    return output;
+    std::shared_ptr<VulkanDeviceContext> deviceContext;
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;  // not owned — the staging arena owns it
+    VkDeviceSize bufferOffset = 0;            // offset into the arena's buffer where this upload's data lives
+    VkImage image = VK_NULL_HANDLE;
+    VkImageAspectFlags aspectMask = 0;
+    std::uint32_t width = 0, height = 0, mipLevels = 1;
+    VkImageLayout fromLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkImageLayout finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+};
+std::vector<PendingImageUpload> g_pendingImageUploads;
+
+// A persistent, mapped staging buffer. Many uploads bump-allocate into this single VkBuffer.
+// Rotated (retired + replaced) at flush time; the previous arena's VkBuffer is freed by the
+// retirement queue once the GPU is done with the command buffer that referenced it.
+struct StagingArena
+{
+    std::shared_ptr<VulkanDeviceContext> deviceContext;
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    void *mapped = nullptr;
+    VkDeviceSize capacity = 0;
+    VkDeviceSize offset = 0;
+};
+StagingArena g_stagingArena;
+
+constexpr VkDeviceSize kStagingAlignment = 64;            // covers Vulkan's optimal copy alignment
+constexpr VkDeviceSize kStagingMinCapacity = 4 * 1024 * 1024;  // 4 MB seed; grows on demand
+
+// Vertex arena — sub-allocates transient vertex/instance data (TextRenderer's per-glyph quads,
+// procedural mesh updates) from a single mapped VkBuffer. Eliminates per-update vkAllocateMemory
+// (each call is 100–500µs on desktop drivers; 50 glyph quads/frame = 5–25ms wasted).
+struct VertexArena
+{
+    std::shared_ptr<VulkanDeviceContext> deviceContext;
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    void *mapped = nullptr;
+    VkDeviceSize capacity = 0;
+    VkDeviceSize offset = 0;
+};
+VertexArena g_vertexArena;
+
+constexpr VkDeviceSize kVertexAlignment = 16;
+constexpr VkDeviceSize kVertexArenaMinCapacity = 1 * 1024 * 1024;  // 1 MB seed; rotates when full
+
+VkDeviceSize StagingAlignUp(VkDeviceSize value, VkDeviceSize align) noexcept
+{
+    return (value + align - 1) & ~(align - 1);
 }
+
+void RetireStagingArena() noexcept
+{
+    if (g_stagingArena.buffer == VK_NULL_HANDLE || g_stagingArena.deviceContext == nullptr)
+    {
+        g_stagingArena = {};
+        return;
+    }
+    if (g_stagingArena.mapped != nullptr)
+    {
+        vkUnmapMemory(g_stagingArena.deviceContext->device, g_stagingArena.memory);
+    }
+    VulkanRenderState::RetireBuffer(g_stagingArena.deviceContext->device, g_stagingArena.buffer, g_stagingArena.memory);
+    g_stagingArena = {};
+}
+
+bool StagingArenaAllocate(const std::shared_ptr<VulkanDeviceContext> &deviceContext, VkDeviceSize size,
+                          VkBuffer &outBuffer, VkDeviceSize &outOffset, void *&outPtr)
+{
+    if (deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE || size == 0)
+    {
+        return false;
+    }
+
+    const VkDeviceSize alignedOffset = StagingAlignUp(g_stagingArena.offset, kStagingAlignment);
+
+    if (g_stagingArena.buffer == VK_NULL_HANDLE || alignedOffset + size > g_stagingArena.capacity)
+    {
+        RetireStagingArena();
+
+        VkDeviceSize newCapacity = std::max<VkDeviceSize>(size, kStagingMinCapacity);
+        newCapacity = StagingAlignUp(newCapacity, kStagingAlignment);
+
+        StagingArena fresh{};
+        fresh.deviceContext = deviceContext;
+        fresh.capacity = newCapacity;
+        if (!CreateBufferHandle(deviceContext, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, newCapacity, fresh.buffer, fresh.memory))
+        {
+            return false;
+        }
+        if (vkMapMemory(deviceContext->device, fresh.memory, 0, VK_WHOLE_SIZE, 0, &fresh.mapped) != VK_SUCCESS || fresh.mapped == nullptr)
+        {
+            VulkanRenderState::RetireBuffer(deviceContext->device, fresh.buffer, fresh.memory);
+            return false;
+        }
+        g_stagingArena = fresh;
+    }
+
+    const VkDeviceSize finalOffset = StagingAlignUp(g_stagingArena.offset, kStagingAlignment);
+    outOffset = finalOffset;
+    outBuffer = g_stagingArena.buffer;
+    outPtr = static_cast<std::byte *>(g_stagingArena.mapped) + finalOffset;
+    g_stagingArena.offset = finalOffset + size;
+    return true;
+}
+
+void RetireVertexArena() noexcept
+{
+    if (g_vertexArena.buffer == VK_NULL_HANDLE || g_vertexArena.deviceContext == nullptr)
+    {
+        g_vertexArena = {};
+        return;
+    }
+    if (g_vertexArena.mapped != nullptr)
+    {
+        vkUnmapMemory(g_vertexArena.deviceContext->device, g_vertexArena.memory);
+    }
+    VulkanRenderState::RetireBuffer(g_vertexArena.deviceContext->device, g_vertexArena.buffer, g_vertexArena.memory);
+    g_vertexArena = {};
+}
+
+bool VertexArenaAllocate(const std::shared_ptr<VulkanDeviceContext> &deviceContext, VkDeviceSize size,
+                         VkBuffer &outBuffer, VkDeviceSize &outOffset, void *&outPtr)
+{
+    if (deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE || size == 0)
+    {
+        return false;
+    }
+
+    const VkDeviceSize alignedOffset = StagingAlignUp(g_vertexArena.offset, kVertexAlignment);
+
+    if (g_vertexArena.buffer == VK_NULL_HANDLE || alignedOffset + size > g_vertexArena.capacity)
+    {
+        // Current arena is full (or doesn't exist) — retire it (the retirement queue keeps the
+        // VkBuffer alive until in-flight frames that reference it have completed) and allocate
+        // a fresh, larger one.
+        RetireVertexArena();
+
+        VkDeviceSize newCapacity = std::max<VkDeviceSize>(size, kVertexArenaMinCapacity);
+        newCapacity = StagingAlignUp(newCapacity, kVertexAlignment);
+
+        VertexArena fresh{};
+        fresh.deviceContext = deviceContext;
+        fresh.capacity = newCapacity;
+        if (!CreateBufferHandle(deviceContext, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, newCapacity, fresh.buffer, fresh.memory))
+        {
+            return false;
+        }
+        if (vkMapMemory(deviceContext->device, fresh.memory, 0, VK_WHOLE_SIZE, 0, &fresh.mapped) != VK_SUCCESS || fresh.mapped == nullptr)
+        {
+            VulkanRenderState::RetireBuffer(deviceContext->device, fresh.buffer, fresh.memory);
+            return false;
+        }
+        g_vertexArena = fresh;
+    }
+
+    const VkDeviceSize finalOffset = StagingAlignUp(g_vertexArena.offset, kVertexAlignment);
+    outOffset = finalOffset;
+    outBuffer = g_vertexArena.buffer;
+    outPtr = static_cast<std::byte *>(g_vertexArena.mapped) + finalOffset;
+    g_vertexArena.offset = finalOffset + size;
+    return true;
+}
+
+// Persistent descriptor cache. The original code did vkAllocateDescriptorSets +
+// vkUpdateDescriptorSets per draw call from a per-frame pool. With stable scenes (e.g. text
+// rendering the same glyph set across frames, terrain reusing the same material) every frame
+// repeated the exact same allocation and write. We now hash the binding state at draw time and
+// reuse cached sets across frames; misses still pay the alloc/update cost but hits skip both.
+struct DescriptorCacheKey
+{
+    VkDescriptorSetLayout layout = VK_NULL_HANDLE;
+    std::uint64_t bindingHash = 0;
+    bool operator==(const DescriptorCacheKey &other) const noexcept
+    {
+        return layout == other.layout && bindingHash == other.bindingHash;
+    }
+};
+struct DescriptorCacheKeyHash
+{
+    std::size_t operator()(const DescriptorCacheKey &k) const noexcept
+    {
+        return std::hash<void *>{}(static_cast<void *>(k.layout)) ^ (k.bindingHash * 0x9E3779B97F4A7C15ULL);
+    }
+};
+VkDescriptorPool g_persistentDescPool = VK_NULL_HANDLE;
+std::unordered_map<DescriptorCacheKey, VkDescriptorSet, DescriptorCacheKeyHash> g_descriptorCache;
+std::shared_ptr<VulkanDeviceContext> g_persistentDescDevice;  // remembered for invalidation cleanup
+
+constexpr std::uint32_t kPersistentPoolMaxSets = 4096;
 
 VkBufferUsageFlags BufferUsageToVulkan(BufferUsage usage) noexcept
 {
@@ -241,6 +436,24 @@ void DestroyImageHandle(const std::shared_ptr<VulkanDeviceContext> &deviceContex
         return;
     }
 
+    // Cancel any deferred uploads that target this image. Their staging bytes are part of the
+    // shared arena buffer so we don't free anything per-upload — the wasted bytes will be
+    // reclaimed when the arena rotates at the next flush.
+    if (image != VK_NULL_HANDLE)
+    {
+        g_pendingImageUploads.erase(
+            std::remove_if(g_pendingImageUploads.begin(), g_pendingImageUploads.end(),
+                           [&](const PendingImageUpload &u) { return u.image == image; }),
+            g_pendingImageUploads.end());
+    }
+
+    // Drop the descriptor cache: cached sets may reference this image's view/sampler, which are
+    // about to be destroyed. The cache rebuilds itself lazily on subsequent draws.
+    if (imageView != VK_NULL_HANDLE || sampler != VK_NULL_HANDLE)
+    {
+        InvalidateDescriptorCache();
+    }
+
     if (sampler != VK_NULL_HANDLE)
     {
         vkDestroySampler(deviceContext->device, sampler, nullptr);
@@ -407,40 +620,19 @@ bool UploadBytesToImage(const std::shared_ptr<VulkanDeviceContext> &deviceContex
     }
 
     VkBuffer stagingBuffer = VK_NULL_HANDLE;
-    VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
-    if (!CreateBufferHandle(deviceContext, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, bytes.size(), stagingBuffer, stagingMemory))
+    VkDeviceSize stagingOffset = 0;
+    void *stagingPtr = nullptr;
+    if (!StagingArenaAllocate(deviceContext, bytes.size(), stagingBuffer, stagingOffset, stagingPtr))
     {
         return false;
     }
+    std::memcpy(stagingPtr, bytes.data(), bytes.size());
 
-    void *mapped = nullptr;
-    const bool mappedOk = vkMapMemory(deviceContext->device, stagingMemory, 0, bytes.size(), 0, &mapped) == VK_SUCCESS && mapped != nullptr;
-    if (mappedOk)
-    {
-        std::memcpy(mapped, bytes.data(), bytes.size());
-        vkUnmapMemory(deviceContext->device, stagingMemory);
-    }
-
-    const bool submitted = mappedOk && SubmitImmediateCommands(deviceContext, [&](VkCommandBuffer commandBuffer) {
-        RecordImageLayoutTransition(commandBuffer, image, aspectMask, mipLevels, currentLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-
-        VkBufferImageCopy region{};
-        region.imageSubresource.aspectMask = aspectMask;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = 0;
-        region.imageSubresource.layerCount = 1;
-        region.imageExtent = {width, height, 1};
-        vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-        RecordImageLayoutTransition(commandBuffer, image, aspectMask, mipLevels, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, finalLayout);
-    });
-
-    DestroyBufferHandle(deviceContext, stagingBuffer, stagingMemory);
-    if (submitted)
-    {
-        currentLayout = finalLayout;
-    }
-    return submitted;
+    // Defer the GPU upload — flushed as a single batch in FlushPendingTextureUploads (called at BeginFrame).
+    g_pendingImageUploads.push_back(
+        {deviceContext, stagingBuffer, stagingOffset, image, aspectMask, width, height, mipLevels, currentLayout, finalLayout});
+    currentLayout = finalLayout;  // optimistic: correct once the batch flushes
+    return true;
 }
 
 bool ReadbackImageBytes(const std::shared_ptr<VulkanDeviceContext> &deviceContext, std::vector<std::byte> &bytes, VkImage image,
@@ -541,6 +733,50 @@ VkImageLayout GetTextureRestingLayout(const TextureDesc &desc) noexcept
 
 } // namespace
 
+void DestroyPersistentDescriptorCache(VkDevice device) noexcept
+{
+    if (g_persistentDescPool != VK_NULL_HANDLE && device != VK_NULL_HANDLE)
+    {
+        vkDestroyDescriptorPool(device, g_persistentDescPool, nullptr);
+    }
+    g_persistentDescPool = VK_NULL_HANDLE;
+    g_descriptorCache.clear();
+    g_persistentDescDevice.reset();
+}
+
+void FlushPendingTextureUploads(VkCommandBuffer cmd) noexcept
+{
+    if (g_pendingImageUploads.empty() || cmd == VK_NULL_HANDLE)
+    {
+        return;
+    }
+
+    // Record all pending uploads directly into the frame command buffer, before the render pass
+    // begins. Pipeline barriers in RecordImageLayoutTransition guarantee the copies complete and
+    // images reach SHADER_READ_ONLY before any fragment shader stage reads them.
+    for (const PendingImageUpload &u : g_pendingImageUploads)
+    {
+        RecordImageLayoutTransition(cmd, u.image, u.aspectMask, u.mipLevels, u.fromLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+        VkBufferImageCopy region{};
+        region.bufferOffset = u.bufferOffset;
+        region.imageSubresource.aspectMask = u.aspectMask;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.layerCount = 1;
+        region.imageExtent = {u.width, u.height, 1};
+        vkCmdCopyBufferToImage(cmd, u.stagingBuffer, u.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+        RecordImageLayoutTransition(cmd, u.image, u.aspectMask, u.mipLevels, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, u.finalLayout);
+    }
+    g_pendingImageUploads.clear();
+
+    // The arena's VkBuffer is now referenced by recorded copy commands. Retire the whole arena
+    // so it stays alive until the GPU finishes this frame, then a new arena will be allocated
+    // on demand for subsequent uploads.
+    RetireStagingArena();
+}
+
 VulkanShaderProgramResource::VulkanShaderProgramResource(ShaderProgramCreateInfo createInfo)
     : desc(createInfo.desc), debugName(std::move(createInfo.debugName)), stageSources(std::move(createInfo.stageSources))
 {
@@ -582,22 +818,39 @@ VulkanShaderProgramResource::VulkanShaderProgramResource(ShaderProgramCreateInfo
 
     // Pass 2 — re-preprocess each stage with the *unified* push-constant block injected,
     // then compile to SPIR-V. After this all stages agree on field offsets, so a single
-    // vkCmdPushConstants on the merged buffer feeds them all correctly.
-    compiledStages.reserve(stageSources.size());
-    for (const ShaderStageSource &source : stageSources)
+    // vkCmdPushConstants on the merged buffer feeds them all correctly. We compile stages
+    // in parallel: glslang/shaderc is the dominant init cost; with vertex+fragment in
+    // parallel that halves the wall-clock time on cold-cache runs.
+    // Lambdas can't capture members directly; alias them as local references for the closure.
+    const std::vector<ShaderStageSource> &sources = stageSources;
+    const std::string &progDebugName = debugName;
+    std::vector<VulkanPipelineCache::CompiledShaderStage> stageSlots(stageSources.size());
+    std::vector<std::future<bool>> compileFutures;
+    compileFutures.reserve(stageSources.size());
+    for (std::size_t i = 0; i < stageSources.size(); ++i)
     {
-        VulkanPipelineCache::CompiledShaderStage compiled;
-        compiled.stage = source.stage;
-        compiled.pushConstantSizeBytes = pushConstantSize;
+        stageSlots[i].stage = stageSources[i].stage;
+        stageSlots[i].pushConstantSizeBytes = pushConstantSize;
+        compileFutures.push_back(std::async(std::launch::async, [i, &sources, &stageSlots, &unifiedUniforms, &progDebugName]() {
+            const ShaderStageSource &source = sources[i];
+            VulkanPipelineCache::CompiledShaderStage &slot = stageSlots[i];
+            const std::string vulkanGlsl = VulkanPipelineCache::PreprocessGlslWithUnifiedPushConstants(
+                source.stage, source.sourceCode, unifiedUniforms, slot.bindings);
+            return VulkanPipelineCache::CompileGlslToSpirv(source.stage, vulkanGlsl, progDebugName, slot.spirv);
+        }));
+    }
 
-        const std::string vulkanGlsl =
-            VulkanPipelineCache::PreprocessGlslWithUnifiedPushConstants(source.stage, source.sourceCode, unifiedUniforms, compiled.bindings);
-        if (!VulkanPipelineCache::CompileGlslToSpirv(source.stage, vulkanGlsl, debugName, compiled.spirv))
+    compiledStages.reserve(stageSources.size());
+    for (std::size_t i = 0; i < compileFutures.size(); ++i)
+    {
+        if (compileFutures[i].get())
         {
-            LOG_ERROR(1, "[Vulkan] Failed to compile stage for '", debugName, "' stage=", static_cast<int>(source.stage));
-            continue;
+            compiledStages.push_back(std::move(stageSlots[i]));
         }
-        compiledStages.push_back(std::move(compiled));
+        else
+        {
+            LOG_ERROR(1, "[Vulkan] Failed to compile stage for '", debugName, "' stage=", static_cast<int>(stageSources[i].stage));
+        }
     }
 }
 
@@ -629,50 +882,48 @@ void VulkanShaderProgramResource::Unbind() const
 
 int VulkanShaderProgramResource::GetUniformLocation(std::string name) const
 {
-    const std::string key(name);
-    const auto it = uniformLocations.find(key);
+    const auto it = uniformLocations.find(name);
     if (it != uniformLocations.end())
     {
         return it->second;
     }
 
     const int location = nextUniformLocation++;
-    uniformLocations.emplace(key, location);
+    uniformLocations.emplace(name, location);
+
+    // Build direct location→slot mapping so SetXxxUniform is O(1) (no reverse scan needed).
+    const auto slotIt = pushConstantSlots.find(name);
+    if (slotIt != pushConstantSlots.end())
+    {
+        locationToSlotCache.emplace(location, slotIt->second);
+    }
+
     return location;
 }
 
 namespace
 {
-void WritePushConstantBytes(const std::unordered_map<std::string, int> &uniformLocations,
-                            const std::unordered_map<std::string, VulkanShaderProgramResource::PushConstantSlot> &slots,
+// O(1) push-constant write: locationToSlotCache is populated in GetUniformLocation the first
+// time a name is queried, so by draw time the map is already warm.
+void WritePushConstantBytes(const std::unordered_map<int, VulkanShaderProgramResource::PushConstantSlot> &locationToSlot,
                             std::vector<std::byte> &buffer, int location, const void *data, std::size_t sizeBytes)
 {
     if (data == nullptr)
     {
         return;
     }
-    // Resolve location → name → slot. The shader program is the only owner of these maps so the
-    // double indirection only happens during uniform writes (not per draw).
-    for (const auto &[name, loc] : uniformLocations)
+    const auto it = locationToSlot.find(location);
+    if (it == locationToSlot.end())
     {
-        if (loc != location)
-        {
-            continue;
-        }
-        const auto slotIt = slots.find(name);
-        if (slotIt == slots.end())
-        {
-            return;
-        }
-        const VulkanShaderProgramResource::PushConstantSlot &slot = slotIt->second;
-        const std::size_t writeBytes = std::min<std::size_t>(sizeBytes, slot.sizeBytes);
-        if (slot.offset + writeBytes > buffer.size())
-        {
-            return;
-        }
-        std::memcpy(buffer.data() + slot.offset, data, writeBytes);
         return;
     }
+    const VulkanShaderProgramResource::PushConstantSlot &slot = it->second;
+    const std::size_t writeBytes = std::min<std::size_t>(sizeBytes, slot.sizeBytes);
+    if (slot.offset + writeBytes > buffer.size())
+    {
+        return;
+    }
+    std::memcpy(buffer.data() + slot.offset, data, writeBytes);
 }
 } // namespace
 
@@ -682,9 +933,7 @@ void VulkanShaderProgramResource::SetFloatUniform(int location, const float *dat
     {
         return;
     }
-
-    uniformData[location] = CopyBytes(data, componentCount * sizeof(float));
-    WritePushConstantBytes(uniformLocations, pushConstantSlots, pushConstantBuffer, location, data, componentCount * sizeof(float));
+    WritePushConstantBytes(locationToSlotCache, pushConstantBuffer, location, data, componentCount * sizeof(float));
 }
 
 void VulkanShaderProgramResource::SetIntUniform(int location, const int *data, std::size_t componentCount) const
@@ -693,9 +942,7 @@ void VulkanShaderProgramResource::SetIntUniform(int location, const int *data, s
     {
         return;
     }
-
-    uniformData[location] = CopyBytes(data, componentCount * sizeof(int));
-    WritePushConstantBytes(uniformLocations, pushConstantSlots, pushConstantBuffer, location, data, componentCount * sizeof(int));
+    WritePushConstantBytes(locationToSlotCache, pushConstantBuffer, location, data, componentCount * sizeof(int));
 }
 
 void VulkanShaderProgramResource::SetMatrix4Uniform(int location, const float *data) const
@@ -704,9 +951,7 @@ void VulkanShaderProgramResource::SetMatrix4Uniform(int location, const float *d
     {
         return;
     }
-
-    uniformData[location] = CopyBytes(data, 16 * sizeof(float));
-    WritePushConstantBytes(uniformLocations, pushConstantSlots, pushConstantBuffer, location, data, 16 * sizeof(float));
+    WritePushConstantBytes(locationToSlotCache, pushConstantBuffer, location, data, 16 * sizeof(float));
 }
 
 bool VulkanShaderProgramResource::GetBinary(std::vector<std::byte> &dataOut, std::uint32_t &formatOut) const
@@ -824,18 +1069,26 @@ void *VulkanBufferResource::Map(BufferMapAccess access)
 
 void VulkanBufferResource::Unmap()
 {
-    if (mappedData != nullptr && deviceContext != nullptr && deviceContext->device != VK_NULL_HANDLE)
-    {
-        vkUnmapMemory(deviceContext->device, memory);
-        mappedData = nullptr;
-    }
+    // Buffer stays persistently mapped; the actual vkUnmapMemory is deferred to DestroyBuffer.
+    // HOST_COHERENT memory needs no explicit flush — the GPU sees writes immediately.
     mapped = false;
 }
 
 bool VulkanBufferResource::CreateBuffer(std::size_t sizeInBytes)
 {
     DestroyBuffer();
-    return CreateBufferHandle(deviceContext, BufferUsageToVulkan(desc.usage), sizeInBytes, buffer, memory);
+    if (!CreateBufferHandle(deviceContext, BufferUsageToVulkan(desc.usage), sizeInBytes, buffer, memory))
+    {
+        return false;
+    }
+    // Keep buffer permanently mapped for zero-cost uploads: vkMapMemory/vkUnmapMemory per write
+    // adds ~200-700ns of driver overhead each time. HOST_COHERENT guarantees GPU visibility without
+    // explicit flushes, so the persistent map is both safe and optimal.
+    if (deviceContext != nullptr && deviceContext->device != VK_NULL_HANDLE)
+    {
+        vkMapMemory(deviceContext->device, memory, 0, VK_WHOLE_SIZE, 0, &mappedData);
+    }
+    return true;
 }
 
 void VulkanBufferResource::DestroyBuffer() noexcept
@@ -850,18 +1103,30 @@ void VulkanBufferResource::DestroyBuffer() noexcept
 
 void VulkanBufferResource::UploadStorageToGPU(std::size_t offset, std::size_t size) const
 {
-    if (memory == VK_NULL_HANDLE || deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE || size == 0 || offset >= storage.size())
+    if (size == 0 || offset >= storage.size())
     {
         return;
     }
 
+    if (mappedData != nullptr)
+    {
+        // Fast path: direct write into the persistently-mapped pointer, zero driver overhead.
+        std::memcpy(static_cast<std::byte *>(mappedData) + offset, storage.data() + offset, size);
+        return;
+    }
+
+    // Fallback (should not happen after CreateBuffer succeeds): map from offset 0 to avoid
+    // alignment issues with partial maps (minMemoryMapAlignment is typically 64 bytes).
+    if (memory == VK_NULL_HANDLE || deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE)
+    {
+        return;
+    }
     void *gpuData = nullptr;
-    if (vkMapMemory(deviceContext->device, memory, offset, size, 0, &gpuData) != VK_SUCCESS || gpuData == nullptr)
+    if (vkMapMemory(deviceContext->device, memory, 0, VK_WHOLE_SIZE, 0, &gpuData) != VK_SUCCESS || gpuData == nullptr)
     {
         return;
     }
-
-    std::memcpy(gpuData, storage.data() + offset, size);
+    std::memcpy(static_cast<std::byte *>(gpuData) + offset, storage.data() + offset, size);
     vkUnmapMemory(deviceContext->device, memory);
 }
 
@@ -914,13 +1179,29 @@ void VulkanGeometryResource::UpdateVertexData(const float *data, std::size_t flo
     }
 
     const std::size_t requiredFloats = offsetFloats + floatCount;
-    if (vertexData.size() < requiredFloats)
+    const bool needsGrow = requiredFloats > vertexData.size();
+    if (needsGrow)
     {
         vertexData.resize(requiredFloats);
     }
 
     std::copy_n(data, floatCount, vertexData.begin() + static_cast<std::ptrdiff_t>(offsetFloats));
-    CreateOrResizeBuffers();
+
+    // If a frame is being recorded, the current VkBuffer may already be referenced by recorded
+    // draw commands that have not yet executed. A host-side memcpy into the same buffer would
+    // make those earlier draws read this update's data on the GPU (single-buffered aliasing —
+    // see TextRenderer::renderText, which calls UpdateVertexData + DrawIndexed in a loop on the
+    // same geometry). Allocate a fresh vertex buffer in that case so each in-flight draw sees
+    // the vertices that were current at record time. Index/instance buffers are untouched.
+    const bool insideFrame = VulkanRenderState::GetCurrentCommandBuffer() != VK_NULL_HANDLE;
+    if (needsGrow || vertexBuffer == VK_NULL_HANDLE || insideFrame)
+    {
+        RecreateVertexBuffer();
+    }
+    else
+    {
+        UploadBuffer(vertexBuffer, vertexMemory, data, floatCount * sizeof(float), offsetFloats * sizeof(float));
+    }
 }
 
 void VulkanGeometryResource::UpdateInstanceData(const float *data, std::size_t floatCount, std::size_t offsetFloats)
@@ -931,13 +1212,24 @@ void VulkanGeometryResource::UpdateInstanceData(const float *data, std::size_t f
     }
 
     const std::size_t requiredFloats = offsetFloats + floatCount;
-    if (instanceData.size() < requiredFloats)
+    const bool needsGrow = requiredFloats > instanceData.size();
+    if (needsGrow)
     {
         instanceData.resize(requiredFloats);
     }
 
     std::copy_n(data, floatCount, instanceData.begin() + static_cast<std::ptrdiff_t>(offsetFloats));
-    CreateOrResizeBuffers();
+
+    // See UpdateVertexData for rationale — in-place updates would alias across in-flight draws.
+    const bool insideFrame = VulkanRenderState::GetCurrentCommandBuffer() != VK_NULL_HANDLE;
+    if (needsGrow || instanceBuffer == VK_NULL_HANDLE || insideFrame)
+    {
+        RecreateInstanceBuffer();
+    }
+    else
+    {
+        UploadBuffer(instanceBuffer, instanceMemory, data, floatCount * sizeof(float), offsetFloats * sizeof(float));
+    }
 }
 
 namespace
@@ -1007,6 +1299,83 @@ bool AllBindingsSatisfiable(const std::vector<VulkanPipelineCache::DiscoveredBin
     return true;
 }
 
+bool EnsurePersistentDescriptorPool(const std::shared_ptr<VulkanDeviceContext> &deviceContext)
+{
+    if (g_persistentDescPool != VK_NULL_HANDLE)
+    {
+        return true;
+    }
+    if (deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE)
+    {
+        return false;
+    }
+    const VkDescriptorPoolSize poolSizes[] = {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, kPersistentPoolMaxSets * 4},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, kPersistentPoolMaxSets * 4},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, kPersistentPoolMaxSets * 8},
+    };
+    VkDescriptorPoolCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    info.flags = 0;
+    info.maxSets = kPersistentPoolMaxSets;
+    info.poolSizeCount = static_cast<std::uint32_t>(std::size(poolSizes));
+    info.pPoolSizes = poolSizes;
+    if (vkCreateDescriptorPool(deviceContext->device, &info, nullptr, &g_persistentDescPool) != VK_SUCCESS)
+    {
+        g_persistentDescPool = VK_NULL_HANDLE;
+        return false;
+    }
+    g_persistentDescDevice = deviceContext;
+    return true;
+}
+
+// Hash the live binding state. The resulting key, combined with the descriptor set layout,
+// uniquely identifies a descriptor set's contents — hash collisions are improbable enough
+// (FNV-1a 64-bit over handle pointers) that we skip the linear-equality check.
+std::uint64_t HashCurrentBindingState(const std::vector<VulkanPipelineCache::DiscoveredBinding> &bindings) noexcept
+{
+    std::uint64_t hash = 14695981039346656037ULL;
+    auto mix = [&hash](std::uint64_t v) noexcept {
+        hash ^= v;
+        hash *= 1099511628211ULL;
+    };
+    for (const VulkanPipelineCache::DiscoveredBinding &binding : bindings)
+    {
+        mix(static_cast<std::uint64_t>(binding.binding) | (static_cast<std::uint64_t>(binding.type) << 32));
+        if (binding.type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+        {
+            mix(reinterpret_cast<std::uint64_t>(VulkanRenderState::GetStorageBufferAt(binding.binding)));
+        }
+        else if (binding.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+        {
+            mix(reinterpret_cast<std::uint64_t>(VulkanRenderState::GetUniformBufferAt(binding.binding)));
+        }
+        else if (binding.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+        {
+            VkImageView view = VK_NULL_HANDLE;
+            VkSampler sampler = VK_NULL_HANDLE;
+            VulkanRenderState::GetTextureBinding(binding.binding, &view, &sampler);
+            mix(reinterpret_cast<std::uint64_t>(view));
+            mix(reinterpret_cast<std::uint64_t>(sampler));
+        }
+    }
+    return hash;
+}
+
+// Drop every cached descriptor set. Called when an underlying VkImageView/VkSampler/VkBuffer
+// referenced by the cache is about to be destroyed (or any of those handles could be reused
+// for a different resource later). Resetting the pool wholesale is O(1) and far simpler than
+// scanning the cache for matching entries; cache rebuild cost is paid lazily on next draws.
+void InvalidateDescriptorCache() noexcept
+{
+    if (g_persistentDescPool != VK_NULL_HANDLE && g_persistentDescDevice != nullptr &&
+        g_persistentDescDevice->device != VK_NULL_HANDLE)
+    {
+        vkResetDescriptorPool(g_persistentDescDevice->device, g_persistentDescPool, 0);
+    }
+    g_descriptorCache.clear();
+}
+
 void UpdateDescriptorSet(const std::shared_ptr<VulkanDeviceContext> &deviceContext, VkDescriptorSet set,
                          const std::vector<VulkanPipelineCache::DiscoveredBinding> &bindings)
 {
@@ -1015,46 +1384,55 @@ void UpdateDescriptorSet(const std::shared_ptr<VulkanDeviceContext> &deviceConte
         return;
     }
 
-    // Reserve enough slots in both info vectors so push_back can never move existing elements
-    // (since each VkWriteDescriptorSet stores a raw pointer into one of the vectors).
-    std::vector<VkDescriptorBufferInfo> bufferInfos;
-    std::vector<VkDescriptorImageInfo> imageInfos;
-    std::vector<VkWriteDescriptorSet> writes;
-    bufferInfos.reserve(bindings.size());
-    imageInfos.reserve(bindings.size());
-    writes.reserve(bindings.size());
+    // thread_local fixed-size arrays eliminate the three std::vector heap allocations that the
+    // old code paid on every descriptor-set write (which happened on every cache miss). Shaders
+    // realistically use at most a handful of bindings; 16 is a comfortable upper bound.
+    constexpr std::uint32_t kMaxBindings = 16;
+    thread_local VkDescriptorBufferInfo bufferInfos[kMaxBindings];
+    thread_local VkDescriptorImageInfo imageInfos[kMaxBindings];
+    thread_local VkWriteDescriptorSet writes[kMaxBindings];
+    std::uint32_t bufferCount = 0, imageCount = 0, writeCount = 0;
 
     for (const VulkanPipelineCache::DiscoveredBinding &binding : bindings)
     {
+        if (writeCount >= kMaxBindings)
+        {
+            break;
+        }
         if (binding.type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER || binding.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
         {
+            if (bufferCount >= kMaxBindings)
+            {
+                continue;
+            }
             VkDeviceSize size = 0;
-            const VkBuffer buffer = (binding.type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
-                                        ? VulkanRenderState::GetStorageBufferAt(binding.binding, &size)
-                                        : VulkanRenderState::GetUniformBufferAt(binding.binding, &size);
-            if (buffer == VK_NULL_HANDLE)
+            const VkBuffer buf = (binding.type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+                                     ? VulkanRenderState::GetStorageBufferAt(binding.binding, &size)
+                                     : VulkanRenderState::GetUniformBufferAt(binding.binding, &size);
+            if (buf == VK_NULL_HANDLE)
             {
                 continue;
             }
 
-            VkDescriptorBufferInfo info{};
-            info.buffer = buffer;
-            info.offset = 0;
-            info.range = size > 0 ? size : VK_WHOLE_SIZE;
-            bufferInfos.push_back(info);
+            bufferInfos[bufferCount] = {buf, 0, size > 0 ? size : VK_WHOLE_SIZE};
 
-            VkWriteDescriptorSet write{};
+            VkWriteDescriptorSet &write = writes[writeCount];
+            write = {};
             write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write.dstSet = set;
             write.dstBinding = binding.binding;
-            write.dstArrayElement = 0;
             write.descriptorType = binding.type;
             write.descriptorCount = 1;
-            write.pBufferInfo = &bufferInfos.back();
-            writes.push_back(write);
+            write.pBufferInfo = &bufferInfos[bufferCount];
+            ++bufferCount;
+            ++writeCount;
         }
         else if (binding.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
         {
+            if (imageCount >= kMaxBindings)
+            {
+                continue;
+            }
             VkImageView view = VK_NULL_HANDLE;
             VkSampler sampler = VK_NULL_HANDLE;
             if (!VulkanRenderState::GetTextureBinding(binding.binding, &view, &sampler) || view == VK_NULL_HANDLE ||
@@ -1063,32 +1441,29 @@ void UpdateDescriptorSet(const std::shared_ptr<VulkanDeviceContext> &deviceConte
                 continue;
             }
 
-            VkDescriptorImageInfo info{};
-            info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            info.imageView = view;
-            info.sampler = sampler;
-            imageInfos.push_back(info);
+            imageInfos[imageCount] = {sampler, view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 
-            VkWriteDescriptorSet write{};
+            VkWriteDescriptorSet &write = writes[writeCount];
+            write = {};
             write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             write.dstSet = set;
             write.dstBinding = binding.binding;
-            write.dstArrayElement = 0;
             write.descriptorType = binding.type;
             write.descriptorCount = 1;
-            write.pImageInfo = &imageInfos.back();
-            writes.push_back(write);
+            write.pImageInfo = &imageInfos[imageCount];
+            ++imageCount;
+            ++writeCount;
         }
     }
 
-    if (!writes.empty())
+    if (writeCount > 0)
     {
-        vkUpdateDescriptorSets(deviceContext->device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+        vkUpdateDescriptorSets(deviceContext->device, writeCount, writes, 0, nullptr);
     }
 }
 
 bool RecordDrawSetup(const std::shared_ptr<VulkanDeviceContext> &deviceContext, VkCommandBuffer cmd, const GeometryLayout &layout,
-                     const VulkanShaderProgramResource *program, VkBuffer vertexBuffer, VkBuffer indexBuffer,
+                     const VulkanShaderProgramResource *program, VkBuffer vertexBuffer, VkDeviceSize vertexOffset, VkBuffer indexBuffer,
                      const VulkanPipelineCache::PipelineEntry **outEntry)
 {
     if (program == nullptr)
@@ -1115,16 +1490,52 @@ bool RecordDrawSetup(const std::shared_ptr<VulkanDeviceContext> &deviceContext, 
 
     if (!entry->mergedBindings.empty())
     {
-        VkDescriptorSet set = VulkanPipelineCache::AllocateFrameDescriptorSet(deviceContext, entry->descriptorSetLayout);
+        // Cache hit: reuse a previously-allocated descriptor set with identical bindings,
+        // skipping both vkAllocateDescriptorSets and vkUpdateDescriptorSets. For stable scenes
+        // (TextRenderer drawing the same glyph set every frame, terrain reusing the same
+        // material) this collapses the per-draw cost to a single vkCmdBindDescriptorSets.
+        VkDescriptorSet set = VK_NULL_HANDLE;
+        if (EnsurePersistentDescriptorPool(deviceContext))
+        {
+            const std::uint64_t bindingHash = HashCurrentBindingState(entry->mergedBindings);
+            const DescriptorCacheKey cacheKey{entry->descriptorSetLayout, bindingHash};
+            if (auto it = g_descriptorCache.find(cacheKey); it != g_descriptorCache.end())
+            {
+                set = it->second;
+            }
+            else
+            {
+                VkDescriptorSetAllocateInfo allocInfo{};
+                allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+                allocInfo.descriptorPool = g_persistentDescPool;
+                allocInfo.descriptorSetCount = 1;
+                allocInfo.pSetLayouts = &entry->descriptorSetLayout;
+                if (vkAllocateDescriptorSets(deviceContext->device, &allocInfo, &set) == VK_SUCCESS)
+                {
+                    UpdateDescriptorSet(deviceContext, set, entry->mergedBindings);
+                    g_descriptorCache.emplace(cacheKey, set);
+                }
+                else
+                {
+                    // Pool exhausted — fall back to the per-frame transient pool. Drop the
+                    // persistent cache so the next frame can rebuild from a clean slate.
+                    InvalidateDescriptorCache();
+                    set = VulkanPipelineCache::AllocateFrameDescriptorSet(deviceContext, entry->descriptorSetLayout);
+                    if (set != VK_NULL_HANDLE)
+                    {
+                        UpdateDescriptorSet(deviceContext, set, entry->mergedBindings);
+                    }
+                }
+            }
+        }
+
         if (set != VK_NULL_HANDLE)
         {
-            UpdateDescriptorSet(deviceContext, set, entry->mergedBindings);
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, entry->pipelineLayout, 0, 1, &set, 0, nullptr);
         }
         else
         {
-            LOG_ERROR(1, "[Vulkan] Draw will proceed without descriptor set: AllocateFrameDescriptorSet returned VK_NULL_HANDLE",
-                      " (frame pool exhausted or layout invalid?)");
+            LOG_ERROR(1, "[Vulkan] Draw will proceed without descriptor set: descriptor allocation failed");
         }
     }
 
@@ -1142,8 +1553,7 @@ bool RecordDrawSetup(const std::shared_ptr<VulkanDeviceContext> &deviceContext, 
 
     if (vertexBuffer != VK_NULL_HANDLE)
     {
-        const VkDeviceSize offset = 0;
-        vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &offset);
+        vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &vertexOffset);
     }
     if (indexBuffer != VK_NULL_HANDLE)
     {
@@ -1167,7 +1577,7 @@ void VulkanGeometryResource::DrawIndexed() const
     }
 
     const VulkanPipelineCache::PipelineEntry *entry = nullptr;
-    if (!RecordDrawSetup(deviceContext, cmd, layout, GetCurrentBoundShaderProgram(), vertexBuffer, indexBuffer, &entry))
+    if (!RecordDrawSetup(deviceContext, cmd, layout, GetCurrentBoundShaderProgram(), vertexBuffer, vertexBufferOffset, indexBuffer, &entry))
     {
         return;
     }
@@ -1184,7 +1594,7 @@ void VulkanGeometryResource::DrawIndexedInstanced() const
     }
 
     const VulkanPipelineCache::PipelineEntry *entry = nullptr;
-    if (!RecordDrawSetup(deviceContext, cmd, layout, GetCurrentBoundShaderProgram(), vertexBuffer, indexBuffer, &entry))
+    if (!RecordDrawSetup(deviceContext, cmd, layout, GetCurrentBoundShaderProgram(), vertexBuffer, vertexBufferOffset, indexBuffer, &entry))
     {
         return;
     }
@@ -1201,7 +1611,7 @@ void VulkanGeometryResource::DrawVertices(std::size_t vertexCount) const
     }
 
     const VulkanPipelineCache::PipelineEntry *entry = nullptr;
-    if (!RecordDrawSetup(deviceContext, cmd, layout, GetCurrentBoundShaderProgram(), vertexBuffer, VK_NULL_HANDLE, &entry))
+    if (!RecordDrawSetup(deviceContext, cmd, layout, GetCurrentBoundShaderProgram(), vertexBuffer, vertexBufferOffset, VK_NULL_HANDLE, &entry))
     {
         return;
     }
@@ -1236,14 +1646,134 @@ bool VulkanGeometryResource::CreateOrResizeBuffers()
     return true;
 }
 
-void VulkanGeometryResource::DestroyBuffers() noexcept
+bool VulkanGeometryResource::RecreateVertexBuffer()
 {
-    DestroyBufferHandle(deviceContext, vertexBuffer, vertexMemory);
-    DestroyBufferHandle(deviceContext, indexBuffer, indexMemory);
-    DestroyBufferHandle(deviceContext, instanceBuffer, instanceMemory);
+    // Release the previous vertex buffer reference. Arena-backed slices aren't owned by us — the
+    // arena's VkBuffer is shared and lives in the retirement queue when rotated, so we just drop
+    // the handle. Owned buffers go through the deferred-destroy path.
+    if (vertexBufferFromArena)
+    {
+        vertexBuffer = VK_NULL_HANDLE;
+        vertexMemory = VK_NULL_HANDLE;
+    }
+    else
+    {
+        DestroyBufferHandle(deviceContext, vertexBuffer, vertexMemory);
+    }
+    vertexBufferOffset = 0;
+    vertexBufferFromArena = false;
+
+    const std::size_t vertexBytes = vertexData.size() * sizeof(float);
+    if (vertexBytes == 0)
+    {
+        return true;
+    }
+
+    // In-frame: bump-allocate from the shared transient arena instead of paying for a fresh
+    // vkCreateBuffer + vkAllocateMemory + vkBindBufferMemory per call (TextRenderer hits this
+    // path once per glyph). Out-of-frame (init or static updates): fall back to an owned buffer.
+    if (VulkanRenderState::GetCurrentCommandBuffer() != VK_NULL_HANDLE)
+    {
+        VkBuffer arenaBuffer = VK_NULL_HANDLE;
+        VkDeviceSize arenaOffset = 0;
+        void *arenaPtr = nullptr;
+        if (!VertexArenaAllocate(deviceContext, vertexBytes, arenaBuffer, arenaOffset, arenaPtr))
+        {
+            return false;
+        }
+        std::memcpy(arenaPtr, vertexData.data(), vertexBytes);
+        vertexBuffer = arenaBuffer;
+        vertexMemory = VK_NULL_HANDLE;  // arena owns the memory
+        vertexBufferOffset = arenaOffset;
+        vertexBufferFromArena = true;
+        return true;
+    }
+
+    if (!CreateBufferHandle(deviceContext, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertexBytes, vertexBuffer, vertexMemory))
+    {
+        return false;
+    }
+    UploadBuffer(vertexBuffer, vertexMemory, vertexData.data(), vertexBytes);
+    return true;
 }
 
-void VulkanGeometryResource::UploadBuffer(VkBuffer bufferHandle, VkDeviceMemory memoryHandle, const void *data, std::size_t size) const
+bool VulkanGeometryResource::RecreateInstanceBuffer()
+{
+    if (instanceBufferFromArena)
+    {
+        instanceBuffer = VK_NULL_HANDLE;
+        instanceMemory = VK_NULL_HANDLE;
+    }
+    else
+    {
+        DestroyBufferHandle(deviceContext, instanceBuffer, instanceMemory);
+    }
+    instanceBufferOffset = 0;
+    instanceBufferFromArena = false;
+
+    const std::size_t instanceBytes = instanceData.size() * sizeof(float);
+    if (instanceBytes == 0)
+    {
+        return true;
+    }
+
+    if (VulkanRenderState::GetCurrentCommandBuffer() != VK_NULL_HANDLE)
+    {
+        VkBuffer arenaBuffer = VK_NULL_HANDLE;
+        VkDeviceSize arenaOffset = 0;
+        void *arenaPtr = nullptr;
+        if (!VertexArenaAllocate(deviceContext, instanceBytes, arenaBuffer, arenaOffset, arenaPtr))
+        {
+            return false;
+        }
+        std::memcpy(arenaPtr, instanceData.data(), instanceBytes);
+        instanceBuffer = arenaBuffer;
+        instanceMemory = VK_NULL_HANDLE;
+        instanceBufferOffset = arenaOffset;
+        instanceBufferFromArena = true;
+        return true;
+    }
+
+    if (!CreateBufferHandle(deviceContext, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, instanceBytes, instanceBuffer, instanceMemory))
+    {
+        return false;
+    }
+    UploadBuffer(instanceBuffer, instanceMemory, instanceData.data(), instanceBytes);
+    return true;
+}
+
+void VulkanGeometryResource::DestroyBuffers() noexcept
+{
+    // Arena-backed slices reference the shared arena buffer — never retire it through this path
+    // (the arena owns its lifecycle); just drop the handle.
+    if (vertexBufferFromArena)
+    {
+        vertexBuffer = VK_NULL_HANDLE;
+        vertexMemory = VK_NULL_HANDLE;
+    }
+    else
+    {
+        DestroyBufferHandle(deviceContext, vertexBuffer, vertexMemory);
+    }
+    vertexBufferOffset = 0;
+    vertexBufferFromArena = false;
+
+    DestroyBufferHandle(deviceContext, indexBuffer, indexMemory);
+
+    if (instanceBufferFromArena)
+    {
+        instanceBuffer = VK_NULL_HANDLE;
+        instanceMemory = VK_NULL_HANDLE;
+    }
+    else
+    {
+        DestroyBufferHandle(deviceContext, instanceBuffer, instanceMemory);
+    }
+    instanceBufferOffset = 0;
+    instanceBufferFromArena = false;
+}
+
+void VulkanGeometryResource::UploadBuffer(VkBuffer bufferHandle, VkDeviceMemory memoryHandle, const void *data, std::size_t size, std::size_t byteOffset) const
 {
     static_cast<void>(bufferHandle);
     if (memoryHandle == VK_NULL_HANDLE || data == nullptr || size == 0 || deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE)
@@ -1252,12 +1782,15 @@ void VulkanGeometryResource::UploadBuffer(VkBuffer bufferHandle, VkDeviceMemory 
     }
 
     void *gpuData = nullptr;
-    if (vkMapMemory(deviceContext->device, memoryHandle, 0, size, 0, &gpuData) != VK_SUCCESS || gpuData == nullptr)
+    // Map from offset 0: vkMapMemory requires the offset to be a multiple of minMemoryMapAlignment
+    // (typically 64 bytes), which float-based offsets do not guarantee. Mapping the whole allocation
+    // and adjusting the destination pointer sidesteps the alignment constraint entirely.
+    if (vkMapMemory(deviceContext->device, memoryHandle, 0, VK_WHOLE_SIZE, 0, &gpuData) != VK_SUCCESS || gpuData == nullptr)
     {
         return;
     }
 
-    std::memcpy(gpuData, data, size);
+    std::memcpy(static_cast<std::byte *>(gpuData) + byteOffset, data, size);
     vkUnmapMemory(deviceContext->device, memoryHandle);
 }
 

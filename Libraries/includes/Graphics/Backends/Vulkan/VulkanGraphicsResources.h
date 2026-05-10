@@ -47,7 +47,8 @@ class VulkanShaderProgramResource final : public IShaderProgramResource
     std::vector<ShaderStageSource> stageSources;
     std::vector<VulkanPipelineCache::CompiledShaderStage> compiledStages;
     mutable std::unordered_map<std::string, int> uniformLocations;
-    mutable std::unordered_map<int, std::vector<std::byte>> uniformData;
+    // Direct location→slot map: populated lazily in GetUniformLocation; makes SetXxxUniform O(1).
+    mutable std::unordered_map<int, PushConstantSlot> locationToSlotCache;
     std::unordered_map<std::string, PushConstantSlot> pushConstantSlots;
     mutable std::vector<std::byte> pushConstantBuffer;
     std::uint32_t pushConstantSize = 0;
@@ -109,8 +110,10 @@ class VulkanGeometryResource final : public IGeometryResource
 
   private:
     bool CreateOrResizeBuffers();
+    bool RecreateVertexBuffer();
+    bool RecreateInstanceBuffer();
     void DestroyBuffers() noexcept;
-    void UploadBuffer(VkBuffer buffer, VkDeviceMemory memory, const void *data, std::size_t size) const;
+    void UploadBuffer(VkBuffer buffer, VkDeviceMemory memory, const void *data, std::size_t size, std::size_t byteOffset = 0) const;
 
     std::shared_ptr<VulkanDeviceContext> deviceContext;
     GeometryLayout layout;
@@ -120,10 +123,14 @@ class VulkanGeometryResource final : public IGeometryResource
     std::string debugName;
     VkBuffer vertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory vertexMemory = VK_NULL_HANDLE;
+    VkDeviceSize vertexBufferOffset = 0;
+    bool vertexBufferFromArena = false;  // true when vertexBuffer points into the shared transient arena
     VkBuffer indexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory indexMemory = VK_NULL_HANDLE;
     VkBuffer instanceBuffer = VK_NULL_HANDLE;
     VkDeviceMemory instanceMemory = VK_NULL_HANDLE;
+    VkDeviceSize instanceBufferOffset = 0;
+    bool instanceBufferFromArena = false;
 };
 
 class VulkanTextureResource final : public ITextureResource
@@ -207,6 +214,13 @@ class VulkanRenderTargetResource final : public IRenderTargetResource
     VkRenderPass offscreenRenderPassLoad = VK_NULL_HANDLE;
     VkFramebuffer offscreenFramebuffer = VK_NULL_HANDLE;
 };
+
+// Record all deferred texture uploads into cmd (must be outside a render pass).
+// Staging buffers are retired and freed after the frame completes.
+void FlushPendingTextureUploads(VkCommandBuffer cmd) noexcept;
+
+// Tear down the persistent descriptor pool / cache. Must be called before vkDestroyDevice.
+void DestroyPersistentDescriptorCache(VkDevice device) noexcept;
 
 class VulkanAccelerationStructureResource final : public IAccelerationStructureResource
 {

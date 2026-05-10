@@ -38,6 +38,7 @@ VulkanGraphicsDevice::~VulkanGraphicsDevice()
         vkDeviceWaitIdle(deviceContext->device);
         // Flush any buffers still in the deferred-destroy queue before tearing the device down.
         VulkanRenderState::DrainAllRetirements(deviceContext->device);
+        DestroyPersistentDescriptorCache(deviceContext->device);
         VulkanPipelineCache::DestroyAll(deviceContext);
         vkDestroyDevice(deviceContext->device, nullptr);
         deviceContext->device = VK_NULL_HANDLE;

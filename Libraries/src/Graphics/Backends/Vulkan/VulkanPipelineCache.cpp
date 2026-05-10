@@ -1,11 +1,16 @@
 #include "Graphics/Backends/Vulkan/VulkanPipelineCache.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <regex>
 #include <sstream>
+#include <system_error>
 #include <unordered_map>
 
 #include <shaderc/shaderc.hpp>
@@ -408,9 +413,92 @@ struct CacheState
     std::unordered_map<CachedKey, PipelineEntry, CachedKeyHash> pipelines;
     std::vector<VkDescriptorPool> descriptorPools;  // One per frame slot.
     std::uint32_t activeFrameIndex = 0;
+    VkPipelineCache pipelineCache = VK_NULL_HANDLE;  // Native VkPipelineCache, persisted to disk
 };
 
 CacheState g_cache;
+
+const std::filesystem::path &GetPipelineCacheFilePath() noexcept
+{
+    static const std::filesystem::path path = []() {
+        std::filesystem::path p = "shader_cache";
+        std::error_code ec;
+        std::filesystem::create_directories(p, ec);
+        return p / "pipeline_cache.bin";
+    }();
+    return path;
+}
+
+// Ensure the native VkPipelineCache exists, seeding it from disk if a saved blob is present.
+// vkCreateGraphicsPipelines can then reuse driver-side compilation work across runs.
+VkPipelineCache EnsurePipelineCache(const std::shared_ptr<VulkanDeviceContext> &deviceContext)
+{
+    if (g_cache.pipelineCache != VK_NULL_HANDLE)
+    {
+        return g_cache.pipelineCache;
+    }
+    if (deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE)
+    {
+        return VK_NULL_HANDLE;
+    }
+
+    std::vector<char> blob;
+    {
+        std::error_code ec;
+        const std::filesystem::path &path = GetPipelineCacheFilePath();
+        if (std::filesystem::exists(path, ec))
+        {
+            const std::uintmax_t size = std::filesystem::file_size(path, ec);
+            if (!ec && size > 0)
+            {
+                std::ifstream f(path, std::ios::binary);
+                if (f)
+                {
+                    blob.resize(static_cast<std::size_t>(size));
+                    f.read(blob.data(), static_cast<std::streamsize>(size));
+                    if (!f.good() && !f.eof())
+                    {
+                        blob.clear();
+                    }
+                }
+            }
+        }
+    }
+
+    VkPipelineCacheCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+    info.initialDataSize = blob.size();
+    info.pInitialData = blob.empty() ? nullptr : blob.data();
+
+    if (vkCreatePipelineCache(deviceContext->device, &info, nullptr, &g_cache.pipelineCache) != VK_SUCCESS)
+    {
+        g_cache.pipelineCache = VK_NULL_HANDLE;
+    }
+    return g_cache.pipelineCache;
+}
+
+void SavePipelineCacheToDisk(const std::shared_ptr<VulkanDeviceContext> &deviceContext) noexcept
+{
+    if (g_cache.pipelineCache == VK_NULL_HANDLE || deviceContext == nullptr || deviceContext->device == VK_NULL_HANDLE)
+    {
+        return;
+    }
+    std::size_t size = 0;
+    if (vkGetPipelineCacheData(deviceContext->device, g_cache.pipelineCache, &size, nullptr) != VK_SUCCESS || size == 0)
+    {
+        return;
+    }
+    std::vector<char> blob(size);
+    if (vkGetPipelineCacheData(deviceContext->device, g_cache.pipelineCache, &size, blob.data()) != VK_SUCCESS)
+    {
+        return;
+    }
+    std::ofstream f(GetPipelineCacheFilePath(), std::ios::binary | std::ios::trunc);
+    if (f)
+    {
+        f.write(blob.data(), static_cast<std::streamsize>(size));
+    }
+}
 
 bool EnsureDescriptorPool(const std::shared_ptr<VulkanDeviceContext> &deviceContext, std::uint32_t frameIndex)
 {
@@ -596,9 +684,114 @@ void ComputePushConstantLayout(const std::vector<BareUniformInfo> &uniforms,
     outTotalSize = (offset + 15u) & ~15u;
 }
 
+namespace
+{
+
+// Bump this when we change anything that could affect SPIR-V output for the same input GLSL
+// (e.g. shaderc target version, compile options). Old cache entries with mismatched version
+// are silently rejected.
+constexpr std::uint32_t kSpirvCacheVersion = 1;
+
+// FNV-1a 64-bit, used as cache key. We don't need cryptographic strength — collisions just mean
+// the cache miss falls through to a fresh compile.
+std::uint64_t HashStringFnv1a64(const std::string &s) noexcept
+{
+    std::uint64_t hash = 14695981039346656037ULL;
+    for (char c : s)
+    {
+        hash ^= static_cast<std::uint8_t>(c);
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
+const std::filesystem::path &GetShaderCacheDir() noexcept
+{
+    static const std::filesystem::path dir = []() {
+        std::filesystem::path p = "shader_cache";
+        std::error_code ec;
+        std::filesystem::create_directories(p, ec);
+        return p;
+    }();
+    return dir;
+}
+
+bool TryLoadSpirvFromCache(std::uint64_t key, std::vector<std::uint32_t> &outSpirv) noexcept
+{
+    char nameBuf[32];
+    std::snprintf(nameBuf, sizeof(nameBuf), "%016llx.spv", static_cast<unsigned long long>(key));
+    const std::filesystem::path path = GetShaderCacheDir() / nameBuf;
+
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec))
+    {
+        return false;
+    }
+    const std::uintmax_t fileSize = std::filesystem::file_size(path, ec);
+    if (ec || fileSize < sizeof(std::uint32_t) * 2 || (fileSize % sizeof(std::uint32_t)) != 0)
+    {
+        return false;
+    }
+
+    std::ifstream f(path, std::ios::binary);
+    if (!f)
+    {
+        return false;
+    }
+    std::uint32_t header[2]{};
+    f.read(reinterpret_cast<char *>(header), sizeof(header));
+    if (!f.good() || header[0] != kSpirvCacheVersion)
+    {
+        return false;
+    }
+    const std::size_t payloadWords = (fileSize - sizeof(header)) / sizeof(std::uint32_t);
+    if (payloadWords == 0)
+    {
+        return false;
+    }
+    outSpirv.resize(payloadWords);
+    f.read(reinterpret_cast<char *>(outSpirv.data()), payloadWords * sizeof(std::uint32_t));
+    if (!f.good() && !f.eof())
+    {
+        outSpirv.clear();
+        return false;
+    }
+    return !outSpirv.empty();
+}
+
+void SaveSpirvToCache(std::uint64_t key, const std::vector<std::uint32_t> &spirv) noexcept
+{
+    char nameBuf[32];
+    std::snprintf(nameBuf, sizeof(nameBuf), "%016llx.spv", static_cast<unsigned long long>(key));
+    const std::filesystem::path path = GetShaderCacheDir() / nameBuf;
+    std::ofstream f(path, std::ios::binary);
+    if (!f)
+    {
+        return;
+    }
+    const std::uint32_t header[2] = {kSpirvCacheVersion, static_cast<std::uint32_t>(spirv.size())};
+    f.write(reinterpret_cast<const char *>(header), sizeof(header));
+    f.write(reinterpret_cast<const char *>(spirv.data()), spirv.size() * sizeof(std::uint32_t));
+}
+
+} // namespace
+
 bool CompileGlslToSpirv(ShaderStage stage, const std::string &vulkanGlsl, const std::string &debugName,
                         std::vector<std::uint32_t> &outSpirv)
 {
+    // Cache key folds the stage into the hash so two stages with identical text don't collide.
+    std::string keyInput;
+    keyInput.reserve(vulkanGlsl.size() + 8);
+    keyInput.push_back(static_cast<char>(static_cast<int>(stage) & 0xFF));
+    keyInput.push_back('|');
+    keyInput.append(vulkanGlsl);
+    const std::uint64_t cacheKey = HashStringFnv1a64(keyInput);
+
+    if (TryLoadSpirvFromCache(cacheKey, outSpirv))
+    {
+        return true;
+    }
+
     shaderc::Compiler compiler;
     shaderc::CompileOptions options;
     options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
@@ -615,7 +808,12 @@ bool CompileGlslToSpirv(ShaderStage stage, const std::string &vulkanGlsl, const 
     }
 
     outSpirv.assign(result.cbegin(), result.cend());
-    return !outSpirv.empty();
+    if (outSpirv.empty())
+    {
+        return false;
+    }
+    SaveSpirvToCache(cacheKey, outSpirv);
+    return true;
 }
 
 const PipelineEntry *GetOrCreatePipeline(const std::shared_ptr<VulkanDeviceContext> &deviceContext, const PipelineKey &key,
@@ -851,7 +1049,8 @@ const PipelineEntry *GetOrCreatePipeline(const std::shared_ptr<VulkanDeviceConte
     pipelineCreateInfo.renderPass = key.renderPass;
     pipelineCreateInfo.subpass = 0;
 
-    const VkResult result = vkCreateGraphicsPipelines(deviceContext->device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &entry.pipeline);
+    const VkPipelineCache nativeCache = EnsurePipelineCache(deviceContext);
+    const VkResult result = vkCreateGraphicsPipelines(deviceContext->device, nativeCache, 1, &pipelineCreateInfo, nullptr, &entry.pipeline);
 
     // Modules can be destroyed once the pipeline references them
     for (VkShaderModule m : moduleHandles)
@@ -918,8 +1117,13 @@ void DestroyAll(const std::shared_ptr<VulkanDeviceContext> &deviceContext) noexc
     {
         g_cache.pipelines.clear();
         g_cache.descriptorPools.clear();
+        g_cache.pipelineCache = VK_NULL_HANDLE;
         return;
     }
+
+    // Persist the driver's compiled-pipeline blob so vkCreateGraphicsPipelines on the next run
+    // can skip back-end compilation work for unchanged pipelines.
+    SavePipelineCacheToDisk(deviceContext);
 
     for (auto &[key, entry] : g_cache.pipelines)
     {
@@ -946,6 +1150,12 @@ void DestroyAll(const std::shared_ptr<VulkanDeviceContext> &deviceContext) noexc
         }
     }
     g_cache.descriptorPools.clear();
+
+    if (g_cache.pipelineCache != VK_NULL_HANDLE)
+    {
+        vkDestroyPipelineCache(deviceContext->device, g_cache.pipelineCache, nullptr);
+        g_cache.pipelineCache = VK_NULL_HANDLE;
+    }
 }
 
 } // namespace VulkanPipelineCache

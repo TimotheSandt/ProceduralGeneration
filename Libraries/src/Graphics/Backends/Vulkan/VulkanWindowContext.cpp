@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "Graphics/Backends/Vulkan/VulkanGraphicsDevice.h"
+#include "Graphics/Backends/Vulkan/VulkanGraphicsResources.h"
 #include "Graphics/Backends/Vulkan/VulkanPipelineCache.h"
 #include "Graphics/Backends/Vulkan/VulkanRenderState.h"
 #include "Graphics/Core/GraphicsRuntime.h"
@@ -669,6 +670,11 @@ bool BeginFrame(WindowContextState &state, GLFWwindow *window)
     // fence wait above covers the previous use of this slot, so resources retired then are safe
     // to destroy now.
     VulkanRenderState::DrainExpiredRetirements(state.deviceContext->device, MaxFramesInFlight);
+
+    // Record all deferred texture uploads into the frame command buffer before the render pass
+    // opens. The pipeline barriers inside FlushPendingTextureUploads ensure images reach
+    // SHADER_READ_ONLY before the first draw call in the render pass reads them.
+    FlushPendingTextureUploads(commandBuffer);
 
     const glm::vec4 clearColor = VulkanRenderState::GetClearColor();
 
