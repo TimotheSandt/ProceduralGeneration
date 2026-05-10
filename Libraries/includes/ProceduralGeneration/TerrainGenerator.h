@@ -34,6 +34,7 @@ class TerrainGenerator
     void GenerateCrater(float depth, float radius, glm::vec3 center);
 
     Grid &GetGrid() { return grid; }
+    const Grid &GetGrid() const { return grid; }
     Mesh &GetMesh() { return grid.GetMesh(); }
 
     void SetNoiseSeed(int seed) { noise.SetSeed(seed); }

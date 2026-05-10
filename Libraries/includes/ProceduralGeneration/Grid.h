@@ -3,6 +3,7 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include <array>
+#include <cstdint>
 #include <functional>
 
 #include "Mesh.h"
@@ -10,9 +11,9 @@
 
 struct Vertex
 {
-    glm::vec3 Position;
-    glm::vec3 Normal;
-    glm::vec3 Color;
+    glm::vec3 Position = glm::vec3(0.0f);
+    glm::vec3 Normal = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 Color = glm::vec3(0.45f, 0.7f, 0.35f);
 };
 
 class Grid
@@ -44,14 +45,32 @@ class Grid
 
     unsigned int GetPointCount() { return this->points.size(); }
     unsigned int GetTriangleCount() { return this->triangles.size(); }
+    unsigned int GetChunkCount() const { return static_cast<unsigned int>(this->chunks.size()); }
+    unsigned int GetLastRenderedChunkCount() const { return this->lastRenderedChunkCount; }
+    unsigned int GetLastRenderedTriangleCount() const { return this->lastRenderedTriangleCount; }
 
   private:
+    struct Chunk
+    {
+        Mesh mesh;
+        glm::vec3 minBounds = glm::vec3(0.0f);
+        glm::vec3 maxBounds = glm::vec3(0.0f);
+        unsigned int triangleCount = 0;
+    };
+
+    void DestroyRenderMeshes();
+    void GenerateChunkedMesh();
+    void GenerateSingleMesh();
+
     float size_x;
     float size_z;
     unsigned int resolution_x;
     unsigned int resolution_z;
     std::vector<Vertex> points;
     std::vector<std::array<unsigned int, 3>> triangles;
+    std::vector<Chunk> chunks;
+    unsigned int lastRenderedChunkCount = 0;
+    unsigned int lastRenderedTriangleCount = 0;
 
     Mesh mesh;
 };

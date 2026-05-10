@@ -8,7 +8,65 @@
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <vector>
+
+namespace
+{
+
+bool IsGameLaunchArgument(std::string_view argument) noexcept
+{
+    if (argument == "--world" || argument.rfind("--world=", 0) == 0)
+    {
+        return true;
+    }
+#ifdef DEBUG
+    if (argument == "--no-overlay" || argument == "--no-ui" || argument == "--no-profiler" ||
+        argument == "--benchmark" || argument.rfind("--benchmark=", 0) == 0 || argument == "--benchmark-seconds" ||
+        argument.rfind("--benchmark-seconds=", 0) == 0 || argument == "--benchmark-log-interval" ||
+        argument.rfind("--benchmark-log-interval=", 0) == 0)
+    {
+        return true;
+    }
+#endif
+    return false;
+}
+
+bool GameLaunchArgumentConsumesValue(std::string_view argument) noexcept
+{
+#ifdef DEBUG
+    return argument == "--world" || argument == "--benchmark" || argument == "--benchmark-seconds" ||
+           argument == "--benchmark-log-interval";
+#else
+    return argument == "--world";
+#endif
+}
+
+std::vector<const char *> BuildGraphicsArgv(int argc, char **argv)
+{
+    std::vector<const char *> graphicsArgv;
+    graphicsArgv.reserve(static_cast<std::size_t>(argc));
+    graphicsArgv.push_back(argv[0]);
+
+    for (int index = 1; index < argc; ++index)
+    {
+        const std::string_view argument(argv[index]);
+        if (IsGameLaunchArgument(argument))
+        {
+            if (GameLaunchArgumentConsumesValue(argument) && index + 1 < argc)
+            {
+                ++index;
+            }
+            continue;
+        }
+        graphicsArgv.push_back(argv[index]);
+    }
+
+    return graphicsArgv;
+}
+
+} // namespace
 
 int main(int argc, char **argv)
 {
@@ -26,11 +84,14 @@ int main(int argc, char **argv)
         SET_LOG_FILE_DEFAULT;
 #endif
 
-        const GraphicsLaunchOptions launchOptions = ParseGraphicsLaunchOptions(argc, argv);
+        const GameLaunchOptions gameOptions = ParseGameLaunchOptions(argc, argv);
+        const std::vector<const char *> graphicsArgv = BuildGraphicsArgv(argc, argv);
+        const GraphicsLaunchOptions launchOptions = ParseGraphicsLaunchOptions(static_cast<int>(graphicsArgv.size()), graphicsArgv.data());
 
         if (launchOptions.showHelp)
         {
             PrintGraphicsAPIUsage(std::cout);
+            PrintGameLaunchUsage(std::cout);
             return EXIT_SUCCESS;
         }
 
@@ -87,7 +148,7 @@ int main(int argc, char **argv)
             BindGraphicsRuntime({.api = selectedApi, .backend = graphicsBackend.get(), .device = graphicsDevice.get()});
             LOG_INFO("Starting game with graphics API: ", GraphicsAPIToString(selectedApi));
 
-            Game game;
+            Game game(gameOptions);
             LOG_TRACE("Game created");
             game.init();
             LOG_TRACE("Game initialized");

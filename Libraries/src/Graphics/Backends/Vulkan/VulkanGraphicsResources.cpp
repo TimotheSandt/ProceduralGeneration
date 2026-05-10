@@ -227,6 +227,9 @@ struct CommandBindingCache
     VkDeviceSize vertexOffset = 0;
     VkBuffer indexBuffer = VK_NULL_HANDLE;
     VkIndexType indexType = VK_INDEX_TYPE_UINT32;
+    VkPipelineLayout pushConstantLayout = VK_NULL_HANDLE;
+    std::uint32_t pushConstantSize = 0;
+    std::byte pushConstantData[128]{};
 };
 CommandBindingCache g_commandBindingCache;
 
@@ -1579,8 +1582,17 @@ bool RecordDrawSetup(const std::shared_ptr<VulkanDeviceContext> &deviceContext, 
         {
             const std::vector<std::byte> &data = boundProgram->GetPushConstantData();
             const std::uint32_t pushSize = std::min<std::uint32_t>(entry->pushConstantSizeBytes, static_cast<std::uint32_t>(data.size()));
-            vkCmdPushConstants(cmd, entry->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, pushSize,
-                               data.data());
+            const bool layoutChanged = g_commandBindingCache.pushConstantLayout != entry->pipelineLayout;
+            const bool dataChanged = pushSize != g_commandBindingCache.pushConstantSize ||
+                                     std::memcmp(g_commandBindingCache.pushConstantData, data.data(), pushSize) != 0;
+            if (layoutChanged || dataChanged)
+            {
+                vkCmdPushConstants(cmd, entry->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, pushSize,
+                                   data.data());
+                g_commandBindingCache.pushConstantLayout = entry->pipelineLayout;
+                g_commandBindingCache.pushConstantSize = pushSize;
+                std::memcpy(g_commandBindingCache.pushConstantData, data.data(), pushSize);
+            }
         }
     }
 
