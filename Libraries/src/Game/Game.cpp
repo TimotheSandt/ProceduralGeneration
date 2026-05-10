@@ -1,6 +1,8 @@
 #include "Game.h"
 
+#include <format>
 #include <stdexcept>
+#include <string>
 
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Graphics/Core/WindowContext.h"
@@ -163,18 +165,14 @@ void Game::render()
 
     rendererUI.SetOutputResolution(windowWidth, windowHeight);
     rendererUI.BeginPass();
-    rendererUI.RenderText(*textRenderer, "fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, glm::vec3(1.0f, 0.8f, 1.0f),
+    const glm::vec3 overlayColor(1.0f, 0.8f, 1.0f);
+    rendererUI.RenderText(*textRenderer, "fps: " + std::to_string(int(window.GetAverageFPS())), 10, 10, 0.5f, overlayColor,
                           UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("Render: {:.3f}ms", averageTimeMs("Render")), 10, 50, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("Render World: {:.3f}ms", averageTimeMs("RenderWorld")), 10, 70, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("Upscale: {:.3f}ms", averageTimeMs("Upscale")), 10, 90, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("UI Upscale: {:.3f}ms", averageTimeMs("UIUpscale")), 10, 110, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
-    rendererUI.RenderText(*textRenderer, std::format("Swap Buffers: {:.3f}ms", averageTimeMs("SwapBuffers")), 10, 130, 0.3f,
-                          glm::vec3(1.0f, 0.8f, 1.0f), UI::TextAnchor::TopLeft);
+    const std::string statsText =
+        std::format("Render: {:.3f}ms\nRender World: {:.3f}ms\nUpscale: {:.3f}ms\nUI Upscale: {:.3f}ms\nSwap Buffers: {:.3f}ms",
+                    averageTimeMs("Render"), averageTimeMs("RenderWorld"), averageTimeMs("Upscale"), averageTimeMs("UIUpscale"),
+                    averageTimeMs("SwapBuffers"));
+    rendererUI.RenderText(*textRenderer, statsText, 10, 50, 0.3f, overlayColor, UI::TextAnchor::TopLeft);
     UI::Manager::Instance().Render(rendererUI, windowWidth, windowHeight);
     Profiler::ProfileGPU("UIUpscale", &Renderer2D::EndPass, &rendererUI);
 }

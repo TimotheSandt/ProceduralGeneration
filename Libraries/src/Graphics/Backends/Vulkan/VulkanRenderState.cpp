@@ -4,6 +4,7 @@
 #include "Graphics/Backends/Vulkan/VulkanWindowContext.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
@@ -35,9 +36,16 @@ int scissorRect[4] = {0, 0, 0, 0};
 VkCommandBuffer currentCommandBuffer = VK_NULL_HANDLE;
 VkExtent2D currentExtent{};
 VkRenderPass currentRenderPass = VK_NULL_HANDLE;
-std::unordered_map<std::uint32_t, BoundBuffer> uniformBindings;
-std::unordered_map<std::uint32_t, BoundBuffer> storageBindings;
-std::unordered_map<std::uint32_t, BoundTexture> textureBindings;
+constexpr std::uint32_t kFastBindingSlots = 64;
+std::array<BoundBuffer, kFastBindingSlots> uniformBindingSlots{};
+std::array<BoundBuffer, kFastBindingSlots> storageBindingSlots{};
+std::array<BoundTexture, kFastBindingSlots> textureBindingSlots{};
+std::array<bool, kFastBindingSlots> uniformBindingValid{};
+std::array<bool, kFastBindingSlots> storageBindingValid{};
+std::array<bool, kFastBindingSlots> textureBindingValid{};
+std::unordered_map<std::uint32_t, BoundBuffer> overflowUniformBindings;
+std::unordered_map<std::uint32_t, BoundBuffer> overflowStorageBindings;
+std::unordered_map<std::uint32_t, BoundTexture> overflowTextureBindings;
 int wireframePushConstant = 0;
 
 struct PendingBufferDestroy
@@ -73,7 +81,8 @@ void BindFramebuffer(unsigned int framebuffer) noexcept
         return;
     }
 
-    const auto endActiveRenderPass = [&]() {
+    const auto endActiveRenderPass = [&]()
+    {
         if (currentRenderPass != VK_NULL_HANDLE)
         {
             vkCmdEndRenderPass(cmd);
@@ -83,7 +92,8 @@ void BindFramebuffer(unsigned int framebuffer) noexcept
 
     if (framebuffer == 0)
     {
-        if (VulkanRenderTargetResource *currentTarget = VulkanRenderTargetResource::FindByHandle(state.framebuffer); currentTarget != nullptr)
+        if (VulkanRenderTargetResource *currentTarget = VulkanRenderTargetResource::FindByHandle(state.framebuffer);
+            currentTarget != nullptr)
         {
             currentTarget->Unbind();
         }
@@ -155,10 +165,7 @@ glm::vec4 GetClearColor() noexcept { return clearColor; }
 
 FramebufferState CaptureFramebufferState() noexcept { return state; }
 
-void RestoreFramebufferState(const FramebufferState &captured) noexcept
-{
-    state = captured;
-}
+void RestoreFramebufferState(const FramebufferState &captured) noexcept { state = captured; }
 
 void PrepareScreenPass(int width, int height) noexcept
 {
@@ -180,19 +187,51 @@ VkExtent2D GetCurrentExtent() noexcept { return currentExtent; }
 
 void RegisterBufferBinding(BufferBindingKind kind, std::uint32_t bindingPoint, VkBuffer buffer, VkDeviceSize size) noexcept
 {
-    auto &map = (kind == BufferBindingKind::Storage) ? storageBindings : uniformBindings;
-    if (buffer == VK_NULL_HANDLE)
+    auto &slots = (kind == BufferBindingKind::Storage) ? storageBindingSlots : uniformBindingSlots;
+    auto &valid = (kind == BufferBindingKind::Storage) ? storageBindingValid : uniformBindingValid;
+    auto &overflow = (kind == BufferBindingKind::Storage) ? overflowStorageBindings : overflowUniformBindings;
+    if (bindingPoint < kFastBindingSlots)
     {
-        map.erase(bindingPoint);
+        if (buffer == VK_NULL_HANDLE)
+        {
+            valid[bindingPoint] = false;
+            slots[bindingPoint] = {};
+            return;
+        }
+        slots[bindingPoint] = {buffer, size};
+        valid[bindingPoint] = true;
         return;
     }
-    map[bindingPoint] = {buffer, size};
+
+    if (buffer == VK_NULL_HANDLE)
+    {
+        overflow.erase(bindingPoint);
+        return;
+    }
+    overflow[bindingPoint] = {buffer, size};
 }
 
 VkBuffer GetUniformBufferAt(std::uint32_t bindingPoint, VkDeviceSize *outSize) noexcept
 {
-    const auto it = uniformBindings.find(bindingPoint);
-    if (it == uniformBindings.end())
+    if (bindingPoint < kFastBindingSlots)
+    {
+        if (!uniformBindingValid[bindingPoint])
+        {
+            if (outSize != nullptr)
+            {
+                *outSize = 0;
+            }
+            return VK_NULL_HANDLE;
+        }
+        if (outSize != nullptr)
+        {
+            *outSize = uniformBindingSlots[bindingPoint].size;
+        }
+        return uniformBindingSlots[bindingPoint].buffer;
+    }
+
+    const auto it = overflowUniformBindings.find(bindingPoint);
+    if (it == overflowUniformBindings.end())
     {
         if (outSize != nullptr)
         {
@@ -209,8 +248,25 @@ VkBuffer GetUniformBufferAt(std::uint32_t bindingPoint, VkDeviceSize *outSize) n
 
 VkBuffer GetStorageBufferAt(std::uint32_t bindingPoint, VkDeviceSize *outSize) noexcept
 {
-    const auto it = storageBindings.find(bindingPoint);
-    if (it == storageBindings.end())
+    if (bindingPoint < kFastBindingSlots)
+    {
+        if (!storageBindingValid[bindingPoint])
+        {
+            if (outSize != nullptr)
+            {
+                *outSize = 0;
+            }
+            return VK_NULL_HANDLE;
+        }
+        if (outSize != nullptr)
+        {
+            *outSize = storageBindingSlots[bindingPoint].size;
+        }
+        return storageBindingSlots[bindingPoint].buffer;
+    }
+
+    const auto it = overflowStorageBindings.find(bindingPoint);
+    if (it == overflowStorageBindings.end())
     {
         if (outSize != nullptr)
         {
@@ -227,33 +283,69 @@ VkBuffer GetStorageBufferAt(std::uint32_t bindingPoint, VkDeviceSize *outSize) n
 
 void RegisterTextureBinding(std::uint32_t bindingPoint, VkImageView imageView, VkSampler sampler) noexcept
 {
-    if (imageView == VK_NULL_HANDLE || sampler == VK_NULL_HANDLE)
+    if (bindingPoint < kFastBindingSlots)
     {
-        textureBindings.erase(bindingPoint);
+        if (imageView == VK_NULL_HANDLE || sampler == VK_NULL_HANDLE)
+        {
+            textureBindingValid[bindingPoint] = false;
+            textureBindingSlots[bindingPoint] = {};
+            return;
+        }
+        textureBindingSlots[bindingPoint] = {imageView, sampler};
+        textureBindingValid[bindingPoint] = true;
         return;
     }
-    textureBindings[bindingPoint] = {imageView, sampler};
+
+    if (imageView == VK_NULL_HANDLE || sampler == VK_NULL_HANDLE)
+    {
+        overflowTextureBindings.erase(bindingPoint);
+        return;
+    }
+    overflowTextureBindings[bindingPoint] = {imageView, sampler};
 }
 
 bool GetTextureBinding(std::uint32_t bindingPoint, VkImageView *outView, VkSampler *outSampler) noexcept
 {
-    const auto it = textureBindings.find(bindingPoint);
-    if (it == textureBindings.end())
+    BoundTexture texture{};
+    if (bindingPoint < kFastBindingSlots)
+    {
+        if (!textureBindingValid[bindingPoint])
+        {
+            return false;
+        }
+        texture = textureBindingSlots[bindingPoint];
+    }
+    else
+    {
+        const auto it = overflowTextureBindings.find(bindingPoint);
+        if (it == overflowTextureBindings.end())
+        {
+            return false;
+        }
+        texture = it->second;
+    }
+
+    if (texture.imageView == VK_NULL_HANDLE || texture.sampler == VK_NULL_HANDLE)
     {
         return false;
     }
     if (outView != nullptr)
     {
-        *outView = it->second.imageView;
+        *outView = texture.imageView;
     }
     if (outSampler != nullptr)
     {
-        *outSampler = it->second.sampler;
+        *outSampler = texture.sampler;
     }
     return true;
 }
 
-void ClearTextureBindings() noexcept { textureBindings.clear(); }
+void ClearTextureBindings() noexcept
+{
+    textureBindingValid.fill(false);
+    textureBindingSlots = {};
+    overflowTextureBindings.clear();
+}
 
 void SetCurrentRenderPass(VkRenderPass rp) noexcept { currentRenderPass = rp; }
 
@@ -280,7 +372,8 @@ void DrainExpiredRetirements(VkDevice device, std::uint32_t maxFramesInFlight) n
     // An entry is safe to destroy once `maxFramesInFlight` full frames have elapsed since it was
     // retired — by then the GPU has finished any frame that could still reference it.
     pendingDestroys.erase(std::remove_if(pendingDestroys.begin(), pendingDestroys.end(),
-                                         [maxFramesInFlight](const PendingBufferDestroy &entry) {
+                                         [maxFramesInFlight](const PendingBufferDestroy &entry)
+                                         {
                                              if (frameCounter - entry.retiredAtFrame > maxFramesInFlight)
                                              {
                                                  if (entry.device != VK_NULL_HANDLE)
@@ -324,4 +417,3 @@ void DrainAllRetirements(VkDevice device) noexcept
 }
 
 } // namespace VulkanRenderState
-

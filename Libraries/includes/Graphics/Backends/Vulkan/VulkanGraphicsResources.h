@@ -124,7 +124,7 @@ class VulkanGeometryResource final : public IGeometryResource
     VkBuffer vertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory vertexMemory = VK_NULL_HANDLE;
     VkDeviceSize vertexBufferOffset = 0;
-    bool vertexBufferFromArena = false;  // true when vertexBuffer points into the shared transient arena
+    bool vertexBufferFromArena = false; // true when vertexBuffer points into the shared transient arena
     VkBuffer indexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory indexMemory = VK_NULL_HANDLE;
     VkBuffer instanceBuffer = VK_NULL_HANDLE;
@@ -218,6 +218,9 @@ class VulkanRenderTargetResource final : public IRenderTargetResource
 // Record all deferred texture uploads into cmd (must be outside a render pass).
 // Staging buffers are retired and freed after the frame completes.
 void FlushPendingTextureUploads(VkCommandBuffer cmd) noexcept;
+
+// Reset cached command-buffer binding state after a command buffer is reset/begun.
+void ResetVulkanResourceBindingCache() noexcept;
 
 // Tear down the persistent descriptor pool / cache. Must be called before vkDestroyDevice.
 void DestroyPersistentDescriptorCache(VkDevice device) noexcept;

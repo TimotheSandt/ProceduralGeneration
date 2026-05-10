@@ -49,7 +49,7 @@ struct WindowContextState
     VkImageView depthImageView = VK_NULL_HANDLE;
     VkFormat depthFormat = VK_FORMAT_UNDEFINED;
     VkRenderPass renderPass = VK_NULL_HANDLE;
-    VkRenderPass renderPassLoad = VK_NULL_HANDLE;  // LOAD_OP_LOAD variant for resumed swapchain pass
+    VkRenderPass renderPassLoad = VK_NULL_HANDLE; // LOAD_OP_LOAD variant for resumed swapchain pass
     std::vector<VkFramebuffer> framebuffers;
     VkCommandPool commandPool = VK_NULL_HANDLE;
     std::array<WindowFrameSync, MaxFramesInFlight> frameSync{};
@@ -230,7 +230,8 @@ VkFormat ChooseDepthFormat(VkPhysicalDevice physicalDevice)
     return VK_FORMAT_UNDEFINED;
 }
 
-std::uint32_t FindMemoryTypeLocal(const VkPhysicalDeviceMemoryProperties &memProps, std::uint32_t typeFilter, VkMemoryPropertyFlags properties)
+std::uint32_t FindMemoryTypeLocal(const VkPhysicalDeviceMemoryProperties &memProps, std::uint32_t typeFilter,
+                                  VkMemoryPropertyFlags properties)
 {
     for (std::uint32_t i = 0; i < memProps.memoryTypeCount; ++i)
     {
@@ -398,8 +399,8 @@ bool CreateSwapchain(WindowContextState &state, GLFWwindow *window, bool enableV
         vkGetPhysicalDeviceSurfaceFormatsKHR(state.deviceContext->backend->physicalDevice, state.surface, &formatCount, nullptr) !=
             VK_SUCCESS ||
         formatCount == 0 ||
-        vkGetPhysicalDeviceSurfacePresentModesKHR(state.deviceContext->backend->physicalDevice, state.surface, &presentModeCount, nullptr) !=
-            VK_SUCCESS ||
+        vkGetPhysicalDeviceSurfacePresentModesKHR(state.deviceContext->backend->physicalDevice, state.surface, &presentModeCount,
+                                                  nullptr) != VK_SUCCESS ||
         presentModeCount == 0)
     {
         LOG_ERROR(1, "Failed to query Vulkan surface capabilities");
@@ -544,7 +545,7 @@ bool CreateSwapchain(WindowContextState &state, GLFWwindow *window, bool enableV
     // LOAD variant: same structure but LOAD instead of CLEAR — used when resuming the swapchain
     // render pass after an off-screen render target pass (so 3D content isn't wiped).
     attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    attachments[0].initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;  // already written by the CLEAR pass
+    attachments[0].initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // already written by the CLEAR pass
     attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
@@ -636,8 +637,7 @@ bool BeginFrame(WindowContextState &state, GLFWwindow *window)
     }
 
     // If this swapchain image was last used by a still-in-flight frame, wait for it to finish.
-    if (state.currentImageIndex < state.imagesInFlight.size() &&
-        state.imagesInFlight[state.currentImageIndex] != VK_NULL_HANDLE &&
+    if (state.currentImageIndex < state.imagesInFlight.size() && state.imagesInFlight[state.currentImageIndex] != VK_NULL_HANDLE &&
         state.imagesInFlight[state.currentImageIndex] != frameSync.inFlightFence)
     {
         vkWaitForFences(state.deviceContext->device, 1, &state.imagesInFlight[state.currentImageIndex], VK_TRUE, UINT64_MAX);
@@ -659,6 +659,7 @@ bool BeginFrame(WindowContextState &state, GLFWwindow *window)
         LOG_ERROR(1, "[Vulkan] BeginFrame: failed to begin command buffer");
         return false;
     }
+    ResetVulkanResourceBindingCache();
 
     // Reset this frame slot's descriptor pool. Pools are per-slot so resetting one cannot recycle
     // descriptors still in use by another in-flight frame's GPU work — the fence wait above

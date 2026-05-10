@@ -3,8 +3,9 @@
 #include "Graphics/Core/GraphicsRuntime.h"
 #include "Logger.h"
 
-#include <array>
 #include <algorithm>
+#include <array>
+#include <cstring>
 #include <glm/gtc/matrix_transform.hpp>
 #include <utility>
 
@@ -43,6 +44,40 @@ void main() {
 
 constexpr std::size_t GlyphQuadVertexCount = 6;
 constexpr std::size_t GlyphQuadFloatCount = GlyphQuadVertexCount * 4;
+constexpr int GlyphAtlasWidth = 1024;
+constexpr int GlyphAtlasPadding = 1;
+
+struct GlyphBitmap
+{
+    char character = '\0';
+    int width = 0;
+    int height = 0;
+    int bearingX = 0;
+    int bearingY = 0;
+    unsigned int advance = 0;
+    int atlasX = 0;
+    int atlasY = 0;
+    std::vector<unsigned char> pixels;
+};
+
+void CopyGlyphBitmap(const FT_Bitmap &bitmap, std::vector<unsigned char> &pixels)
+{
+    const int width = static_cast<int>(bitmap.width);
+    const int height = static_cast<int>(bitmap.rows);
+    pixels.assign(static_cast<std::size_t>(width) * static_cast<std::size_t>(height), 0);
+    if (bitmap.buffer == nullptr || width <= 0 || height <= 0)
+    {
+        return;
+    }
+
+    const int pitch = bitmap.pitch;
+    for (int row = 0; row < height; ++row)
+    {
+        const unsigned char *source = pitch >= 0 ? bitmap.buffer + row * pitch : bitmap.buffer + (height - 1 - row) * (-pitch);
+        std::memcpy(pixels.data() + static_cast<std::size_t>(row) * static_cast<std::size_t>(width), source,
+                    static_cast<std::size_t>(width));
+    }
+}
 
 } // namespace
 
@@ -80,6 +115,9 @@ bool TextRenderer::init(unsigned int width, unsigned int height)
     shaderProgram.SetShaderCode(VERTEX_SHADER, FRAGMENT_SHADER);
     projection = glm::ortho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height));
     setupRenderData();
+    projectionUniform = shaderProgram.GetUniformLocation("projection");
+    textColorUniform = shaderProgram.GetUniformLocation("textColor");
+    textSamplerUniform = shaderProgram.GetUniformLocation("text");
 
     return shaderProgram.IsCompiled() && glyphGeometry != nullptr;
 }
@@ -93,9 +131,8 @@ void TextRenderer::setupRenderData()
         GeometryCreateInfo createInfo{};
         createInfo.layout.vertexAttributes = {4};
         createInfo.vertexData.assign(GlyphQuadFloatCount, 0.0f);
-        createInfo.indexData = {0, 1, 2, 3, 4, 5};
         createInfo.dynamicVertexData = true;
-        createInfo.debugName = "ui_text_glyph_quad";
+        createInfo.debugName = "ui_text_batch";
         glyphGeometry = device->CreateGeometry(createInfo);
     }
 }
@@ -120,10 +157,76 @@ bool TextRenderer::loadFont(const std::string &fontPath, const std::string &font
     fontData.face = face;
     fontData.fontSize = fontSize;
 
+    std::vector<GlyphBitmap> glyphs;
+    glyphs.reserve(128);
     for (unsigned char c = 0; c < 128; ++c)
     {
-        fontData.characters.emplace(static_cast<char>(c), loadCharacter(face, static_cast<char>(c)));
+        if (FT_Load_Char(face, c, FT_LOAD_RENDER) != 0)
+        {
+            LOG_ERROR(1, "ERROR::FREETYPE: Failed to load glyph '", static_cast<char>(c), "'");
+            continue;
+        }
+
+        GlyphBitmap glyph;
+        glyph.character = static_cast<char>(c);
+        glyph.width = static_cast<int>(face->glyph->bitmap.width);
+        glyph.height = static_cast<int>(face->glyph->bitmap.rows);
+        glyph.bearingX = face->glyph->bitmap_left;
+        glyph.bearingY = face->glyph->bitmap_top;
+        glyph.advance = static_cast<unsigned int>(face->glyph->advance.x);
+        CopyGlyphBitmap(face->glyph->bitmap, glyph.pixels);
+        glyphs.push_back(std::move(glyph));
     }
+
+    int cursorX = GlyphAtlasPadding;
+    int cursorY = GlyphAtlasPadding;
+    int rowHeight = 0;
+    for (GlyphBitmap &glyph : glyphs)
+    {
+        if (glyph.width > 0 && cursorX + glyph.width + GlyphAtlasPadding > GlyphAtlasWidth)
+        {
+            cursorX = GlyphAtlasPadding;
+            cursorY += rowHeight + GlyphAtlasPadding;
+            rowHeight = 0;
+        }
+
+        glyph.atlasX = cursorX;
+        glyph.atlasY = cursorY;
+        cursorX += glyph.width + GlyphAtlasPadding;
+        rowHeight = std::max(rowHeight, glyph.height);
+    }
+
+    fontData.atlasWidth = GlyphAtlasWidth;
+    fontData.atlasHeight = std::max(1, cursorY + rowHeight + GlyphAtlasPadding);
+    std::vector<unsigned char> atlasPixels(static_cast<std::size_t>(fontData.atlasWidth) * static_cast<std::size_t>(fontData.atlasHeight),
+                                           0);
+
+    for (const GlyphBitmap &glyph : glyphs)
+    {
+        Character character;
+        character.size = {glyph.width, glyph.height};
+        character.bearing = {glyph.bearingX, glyph.bearingY};
+        character.advance = glyph.advance;
+        if (glyph.width > 0 && glyph.height > 0)
+        {
+            character.uvMin = {static_cast<float>(glyph.atlasX) / static_cast<float>(fontData.atlasWidth),
+                               static_cast<float>(glyph.atlasY) / static_cast<float>(fontData.atlasHeight)};
+            character.uvMax = {static_cast<float>(glyph.atlasX + glyph.width) / static_cast<float>(fontData.atlasWidth),
+                               static_cast<float>(glyph.atlasY + glyph.height) / static_cast<float>(fontData.atlasHeight)};
+
+            for (int row = 0; row < glyph.height; ++row)
+            {
+                const std::size_t dstOffset = static_cast<std::size_t>(glyph.atlasY + row) * static_cast<std::size_t>(fontData.atlasWidth) +
+                                              static_cast<std::size_t>(glyph.atlasX);
+                const std::size_t srcOffset = static_cast<std::size_t>(row) * static_cast<std::size_t>(glyph.width);
+                std::memcpy(atlasPixels.data() + dstOffset, glyph.pixels.data() + srcOffset, static_cast<std::size_t>(glyph.width));
+            }
+        }
+        fontData.characters.emplace(glyph.character, std::move(character));
+    }
+
+    fontData.atlasTexture = Texture(atlasPixels.data(), fontData.atlasWidth, fontData.atlasHeight, "text", 0, TextureFormat::R8,
+                                    TexturePixelType::UnsignedByte, TextureFilterMode::Linear);
 
     fonts[fontName] = std::move(fontData);
     if (activeFontName.empty())
@@ -162,6 +265,10 @@ void TextRenderer::setActiveFont(const std::string &fontName)
 
 void TextRenderer::updateScreenSize(unsigned int width, unsigned int height)
 {
+    if (screenWidth == width && screenHeight == height)
+    {
+        return;
+    }
     screenWidth = width;
     screenHeight = height;
     projection = glm::ortho(0.0f, static_cast<float>(width), 0.0f, static_cast<float>(height));
@@ -221,13 +328,9 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
     const float startX = x + anchorOffset.x;
     const float startY = y + anchorOffset.y;
 
-    shaderProgram.Bind();
-    shaderProgram.SetUniformMatrix4(shaderProgram.GetUniformLocation("projection"), &projection[0][0]);
-    shaderProgram.SetUniformFloats(shaderProgram.GetUniformLocation("textColor"), &color[0], 3);
-    const int textureSlot = 0;
-    shaderProgram.SetUniformInts(shaderProgram.GetUniformLocation("text"), &textureSlot, 1);
+    batchedVertices.clear();
+    batchedVertices.reserve(text.size() * GlyphQuadFloatCount);
 
-    glyphGeometry->Bind();
     float cursorX = startX;
     float cursorY = startY;
 
@@ -247,6 +350,12 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
         }
 
         Character &ch = characterIt->second;
+        const float advance = static_cast<float>(ch.advance >> 6U) * scale;
+        if (ch.size.x <= 0 || ch.size.y <= 0)
+        {
+            cursorX += advance;
+            continue;
+        }
 
         const float xpos = cursorX + static_cast<float>(ch.bearing.x) * scale;
         const float baselineY = cursorY + static_cast<float>(fontData.fontSize) * scale;
@@ -255,19 +364,35 @@ void TextRenderer::renderText(const std::string &text, float x, float y, float s
         const float ypos = static_cast<float>(screenHeight) - glyphBottom;
         const float w = static_cast<float>(ch.size.x) * scale;
         const float h = static_cast<float>(ch.size.y) * scale;
+        const float u0 = ch.uvMin.x;
+        const float v0 = ch.uvMin.y;
+        const float u1 = ch.uvMax.x;
+        const float v1 = ch.uvMax.y;
 
         const std::array<float, GlyphQuadFloatCount> vertices = {
-            xpos, ypos + h, 0.0f, 0.0f, xpos,     ypos, 0.0f, 1.0f, xpos + w, ypos,     1.0f, 1.0f,
-            xpos, ypos + h, 0.0f, 0.0f, xpos + w, ypos, 1.0f, 1.0f, xpos + w, ypos + h, 1.0f, 0.0f,
+            xpos, ypos + h, u0, v0, xpos,     ypos, u0, v1, xpos + w, ypos,     u1, v1,
+            xpos, ypos + h, u0, v0, xpos + w, ypos, u1, v1, xpos + w, ypos + h, u1, v0,
         };
 
-        glyphGeometry->UpdateVertexData(vertices.data(), vertices.size(), 0);
-        ch.texture.Bind();
-        glyphGeometry->DrawIndexed();
-
-        cursorX += static_cast<float>(ch.advance >> 6U) * scale;
+        batchedVertices.insert(batchedVertices.end(), vertices.begin(), vertices.end());
+        cursorX += advance;
     }
 
+    if (batchedVertices.empty())
+    {
+        return;
+    }
+
+    shaderProgram.Bind();
+    shaderProgram.SetUniformMatrix4(projectionUniform, &projection[0][0]);
+    shaderProgram.SetUniformFloats(textColorUniform, &color[0], 3);
+    const int textureSlot = 0;
+    shaderProgram.SetUniformInts(textSamplerUniform, &textureSlot, 1);
+
+    fontData.atlasTexture.Bind();
+    glyphGeometry->Bind();
+    glyphGeometry->UpdateVertexData(batchedVertices.data(), batchedVertices.size(), 0);
+    glyphGeometry->DrawVertices(batchedVertices.size() / 4);
     glyphGeometry->Unbind();
     shaderProgram.Unbind();
 }
