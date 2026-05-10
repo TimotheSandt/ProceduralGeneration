@@ -136,8 +136,8 @@ jobs:
             --no-print-usage
 
       # ── Build dist package + engine tool ───────────────────────────────────────
-      # 'engine-tool' builds debug+release archives, packages the dist/, and
-      # compiles the standalone engine binary (embeds dist/ without vcpkg_installed).
+      # 'engine-tool' builds debug+release archives, packages the dist/ into a zip,
+      # and compiles the engine binary (downloads the pkg from GitHub at runtime).
       - name: Build engine tool (Unix)
         if: runner.os != 'Windows'
         run: |
@@ -153,27 +153,10 @@ jobs:
             VCPKG_TRIPLET=${{ matrix.triplet }} \
             VCPKG_INSTALLED_ROOT=./vcpkg_installed
 
-      # ── Package artifacts ──────────────────────────────────────────────────────
-      # Produces per platform:
-      #   engine-<platform>[.exe]      — standalone engine tool (self-contained, embeds dist/)
-      #   engine-pkg-<platform>.zip    — package only: headers, libs, make/, tools/, vcpkg.json
-      #                                  (vcpkg_installed/ is populated by 'make install' in the user's project)
-      - name: Package artifacts (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          PLAT="${{ matrix.platform }}"
-          cp "dist/engine-$PLAT/engine" "dist/engine-$PLAT"
-          cd "dist/engine-$PLAT" && zip -r "../../dist/engine-pkg-$PLAT.zip" "dist/"
-
-      - name: Package artifacts (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $plat = "${{ matrix.platform }}"
-          Copy-Item "dist\engine-$plat\engine.exe" "dist\engine-$plat.exe"
-          Compress-Archive -Force -Path "dist\engine-$plat\dist" `
-            -DestinationPath "dist\engine-pkg-$plat.zip"
-
+      # ── Upload artifacts ───────────────────────────────────────────────────────
+      # 'make engine-tool' already produces:
+      #   dist/engine-<platform>[.exe]      — standalone engine tool binary
+      #   dist/engine-pkg-<platform>.zip    — engine package (headers, libs, make/, tools/)
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -209,19 +192,24 @@ jobs:
 
             ### Download
 
-            | Platform | Engine tool | Package only |
+            | Platform | Engine tool | Engine package |
             |---|---|---|
             | Windows x64 (MinGW) | `engine-windows-x64.exe` | `engine-pkg-windows-x64.zip` |
             | Linux x64           | `engine-linux-x64`       | `engine-pkg-linux-x64.zip`   |
             | macOS arm64 (M1+)   | `engine-macos-arm64`     | `engine-pkg-macos-arm64.zip` |
             | macOS x64 (Intel)   | `engine-macos-x64`       | `engine-pkg-macos-x64.zip`   |
 
-            **Engine tool** — binary standalone qui scaffolde de nouveaux projets et met à jour les existants.
+            **Engine tool** — downloads the engine package automatically from this release.
             ```sh
+            # New project
             ./engine init myproject
-            cd myproject && make debug
+            cd myproject && make install && make debug
+
+            # Update existing project
+            cd myproject && ./engine update
             ```
 
-            **Package only** — headers, libs pre-built, `engine.mk`, tools, and `vcpkg.json`. Run `make install` in your project to populate `engine/vcpkg_installed/` automatically.
+            **Engine package** — headers, pre-built libs (debug + release), `engine.mk`, CUI tools, and `vcpkg.json`.
+            Downloaded automatically by `engine init` / `engine update`. Run `make install` to populate `vcpkg_installed/`.
           generate_release_notes: true
           files: dist/*

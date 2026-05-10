@@ -1,4 +1,4 @@
-use std::{env, fs, io::Write, path::{Path, PathBuf}};
+use std::{collections::HashMap, env, fs, io::Write, path::{Path, PathBuf}};
 use zip::write::SimpleFileOptions;
 
 fn main() {
@@ -35,14 +35,56 @@ fn main() {
     // Emit rerun-if-changed for every file under demo/src/
     visit_files(&src_dir, &mut |p| println!("cargo:rerun-if-changed={}", p.display()));
 
-    // Engine payload zip (set by Libraries/Makefile during dist build)
+    // ── Engine identity from Libraries/config.mk ──────────────────────────────
+    // Priority: env var (set by Makefile) > Libraries/config.mk > built-in default.
+    // This lets `cargo build` work without the Makefile, using the file as fallback.
+    let engine_config_path = root.join("Libraries").join("config.mk");
+    let engine_config = parse_mk_config(&engine_config_path);
+    println!("cargo:rerun-if-changed={}", engine_config_path.display());
+
+    let bake = |key: &str, default: &str| {
+        let val = env::var(key)
+            .ok()
+            .filter(|v| !v.is_empty())
+            .or_else(|| engine_config.get(key).cloned())
+            .unwrap_or_else(|| default.to_string());
+        println!("cargo:rustc-env={key}={val}");
+        println!("cargo:rerun-if-env-changed={key}");
+    };
+
+    bake("ENGINE_NAME",        "GameEngine");
+    bake("ENGINE_VERSION",     env!("CARGO_PKG_VERSION"));
+    bake("ENGINE_PUBLISHER",   "");
+    bake("ENGINE_AUTHOR",      "");
+    bake("ENGINE_EMAIL",       "");
+    bake("ENGINE_DESCRIPTION", "");
+    bake("ENGINE_HOMEPAGE",    "");
+
+    // Git host and repo slug — set by the Makefile's remote detection.
+    let repo_host   = env::var("REPO_HOST").unwrap_or_else(|_| "github.com".to_string());
+    let github_repo = env::var("GITHUB_REPO")
+        .unwrap_or_else(|_| "TimotheSandt/ProceduralGeneration".to_string());
+    println!("cargo:rustc-env=REPO_HOST={repo_host}");
+    println!("cargo:rustc-env=GITHUB_REPO={github_repo}");
+    println!("cargo:rerun-if-env-changed=REPO_HOST");
+    println!("cargo:rerun-if-env-changed=GITHUB_REPO");
+
+    // Engine payload zip — embedded as offline fallback.
+    // If ENGINE_PAYLOAD_ZIP is not set (dev build), an empty stub is written so
+    // include_bytes! still compiles; the runtime detects the stub and skips fallback.
     println!("cargo:rerun-if-env-changed=ENGINE_PAYLOAD_ZIP");
-    let zip_src = env::var("ENGINE_PAYLOAD_ZIP")
-        .expect("ENGINE_PAYLOAD_ZIP must point to the engine dist zip (set by Libraries/Makefile)");
     let zip_dst = out_dir.join("engine_payload.zip");
-    fs::copy(&zip_src, &zip_dst)
-        .unwrap_or_else(|e| panic!("failed to copy engine payload from {zip_src}: {e}"));
-    println!("cargo:rerun-if-changed={zip_src}");
+    match env::var("ENGINE_PAYLOAD_ZIP") {
+        Ok(zip_src) => {
+            fs::copy(&zip_src, &zip_dst)
+                .unwrap_or_else(|e| panic!("failed to copy engine payload from {zip_src}: {e}"));
+            println!("cargo:rerun-if-changed={zip_src}");
+        }
+        Err(_) => {
+            // No payload provided — write a zero-byte stub; GitHub will be used at runtime.
+            fs::write(&zip_dst, b"").expect("failed to create stub engine_payload.zip");
+        }
+    }
 }
 
 fn zip_dir(
@@ -69,6 +111,30 @@ fn zip_dir(
                 .unwrap_or_else(|e| panic!("failed to write {name} to zip: {e}"));
         }
     }
+}
+
+fn parse_mk_config(path: &Path) -> HashMap<String, String> {
+    let mut map = HashMap::new();
+    let content = match fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(_) => return map,
+    };
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with('#') || line.is_empty() { continue; }
+        // Match KEY ?= VALUE or KEY := VALUE
+        let (key, val) = if let Some(pos) = line.find("?=") {
+            (&line[..pos], &line[pos + 2..])
+        } else if let Some(pos) = line.find(":=") {
+            (&line[..pos], &line[pos + 2..])
+        } else {
+            continue;
+        };
+        // Strip inline comments and trim whitespace
+        let val = val.split('#').next().unwrap_or("").trim();
+        map.insert(key.trim().to_string(), val.to_string());
+    }
+    map
 }
 
 fn visit_files(dir: &Path, f: &mut impl FnMut(&Path)) {

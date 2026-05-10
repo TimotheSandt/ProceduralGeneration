@@ -28,6 +28,11 @@
 
 SHELL := sh
 
+# ── Engine identity (single source of truth) ──────────────────────────────────
+# Path relative to wherever make is invoked (always from project root).
+_MK_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+-include $(_MK_DIR)config.mk
+
 # ── Overridable by the root Makefile ─────────────────────────────────────────
 BUILD_TYPE ?= release
 CXX        ?= g++
@@ -153,6 +158,18 @@ ThirdParty_OBJS := $(call obj_from_src,$(ThirdParty_SRCS))
 
 ALL_ENGINE_OBJS := $(Graphics_OBJS) $(UI_OBJS) $(Noise_OBJS) $(Profiler_OBJS) $(Utilities_OBJS) $(ThirdParty_OBJS)
 
+# ── Git remote detection ──────────────────────────────────────────────────────
+# Reads the 'origin' remote and extracts the host and owner/repo slug.
+# Supports HTTPS (https://host/owner/repo[.git]) and SSH (git@host:owner/repo[.git]).
+# Override REPO_HOST or REPO_SLUG on the command line if needed.
+_GIT_REMOTE_URL := $(shell git remote get-url origin 2>/dev/null)
+_GIT_REPO_HOST  := $(shell printf '%s' "$(_GIT_REMOTE_URL)" | \
+    sed -E 's|https://([^/]+)/.*|\1|; t; s|git@([^:]+):.*|\1|' 2>/dev/null)
+_GIT_REPO_SLUG  := $(shell printf '%s' "$(_GIT_REMOTE_URL)" | \
+    sed -E 's|https://[^/]+/||; s|git@[^:]+:||; s|\.git$$||' 2>/dev/null)
+REPO_HOST ?= $(_GIT_REPO_HOST)
+REPO_SLUG ?= $(_GIT_REPO_SLUG)
+
 # ── Rust tools workspace — variables only, rules come after main targets ───────
 TOOLS_WORKSPACE   := tools/Cargo.toml
 TOOLS_BUILD_RS    := $(wildcard tools/cui-rs/build.rs tools/engine-init-rs/build.rs)
@@ -170,24 +187,26 @@ endif
 _CUI_INSTALLED := tools/$(notdir $(CUI_EXE))
 
 # ── Distribution paths ─────────────────────────────────────────────────────────
-# Layout:
-#   dist/engine-<platform>/
-#     engine[.exe]   ← scaffolding tool
-#     dist/          ← engine package (headers, libs, tools) — embedded in tool
-DIST_DIR      := dist/engine-$(ENGINE_PLATFORM)
-DIST_PKG_DIR  := $(DIST_DIR)/dist
-DIST_ZIP      := dist/engine-$(ENGINE_PLATFORM).zip
+# Layout (GitHub release artifacts):
+#   dist/engine-<platform>[.exe]      — standalone engine tool binary
+#   dist/engine-pkg-<platform>.zip    — engine package (headers, libs, tools)
+#
+# Staging directory (build-time only, not uploaded):
+#   dist/pkg-<platform>/              — package contents before zipping
+_DIST_STAGING    := dist/pkg-$(ENGINE_PLATFORM)
+DIST_PKG_DIR     := $(_DIST_STAGING)
+ENGINE_PKG_ZIP   := dist/engine-pkg-$(ENGINE_PLATFORM).zip
 ENGINE_PAYLOAD_DIR := build/engine-payload
 ENGINE_PAYLOAD_ZIP := $(ENGINE_PAYLOAD_DIR)/engine-$(ENGINE_PLATFORM)-$(shell date +%s%N 2>/dev/null || date +%s).zip
 
 ifeq ($(DETECTED_OS),Windows)
-    ENGINE_TOOL_EXE := $(DIST_DIR)/engine.exe
+    ENGINE_TOOL_EXE := dist/engine-$(ENGINE_PLATFORM).exe
 else
-    ENGINE_TOOL_EXE := $(DIST_DIR)/engine
+    ENGINE_TOOL_EXE := dist/engine-$(ENGINE_PLATFORM)
 endif
 
 # ── Main targets ──────────────────────────────────────────────────────────────
-.PHONY: all debug release dev engine dist engine-tool install-demo clean fclean info
+.PHONY: all debug release dev engine dist engine-tool install-demo clean fclean info sync-demo
 
 # ── Tool check helper ─────────────────────────────────────────────────────────
 # Usage: $(call _chk,binary,install hint)
@@ -223,7 +242,7 @@ all debug release dev: $(ENGINE_LIBS) $(_CUI_INSTALLED)
 	@echo "Engine [$(BUILD_TYPE)] — all archives up to date"
 
 engine: install-demo
-	@echo "Engine fully prepared in $(DIST_DIR)/ and demo/engine/"
+	@echo "Engine fully prepared in demo/engine/"
 
 # ── Archive rules ─────────────────────────────────────────────────────────────
 $(LIB_GRAPHICS): $(Graphics_OBJS)
@@ -287,8 +306,8 @@ endif
 cui-tool: $(_CUI_INSTALLED)
 
 # ── Distribution package ──────────────────────────────────────────────────────
-# Builds debug+release archives, packages headers, engine.mk, and CUI binary
-# into $(DIST_PKG_DIR)/. The engine tool binary goes at $(DIST_DIR)/engine[.exe].
+# Builds debug+release archives, packages headers, engine.mk, CUI, and vcpkg.json
+# into $(DIST_PKG_DIR)/ then zips it as $(ENGINE_PKG_ZIP).
 
 dist: $(_CUI_INSTALLED)
 	@$(MAKE) -f Libraries/Makefile BUILD_TYPE=debug debug
@@ -296,7 +315,6 @@ dist: $(_CUI_INSTALLED)
 ifeq ($(DETECTED_OS),Windows)
 	@mkdir -p "$(DIST_PKG_DIR)/includes" "$(DIST_PKG_DIR)/lib/debug" "$(DIST_PKG_DIR)/lib/release" \
 	          "$(DIST_PKG_DIR)/make" "$(DIST_PKG_DIR)/tools"
-	@powershell -NoProfile -Command "Remove-Item -Path '$(DIST_DIR)/engine-payload-*.zip' -Force -ErrorAction SilentlyContinue"
 	@powershell -NoProfile -Command "Copy-Item -Path '$(INCLUDES_BASE)/*' -Destination '$(DIST_PKG_DIR)/includes' -Recurse -Force"
 	@powershell -NoProfile -Command "Copy-Item -Path 'lib/debug/*.a' -Destination '$(DIST_PKG_DIR)/lib/debug' -Force"
 	@powershell -NoProfile -Command "Copy-Item -Path 'lib/release/*.a' -Destination '$(DIST_PKG_DIR)/lib/release' -Force"
@@ -306,7 +324,7 @@ ifeq ($(DETECTED_OS),Windows)
 	@powershell -NoProfile -Command "Copy-Item -Path 'engine-sdk/dist.gitignore' -Destination '$(DIST_PKG_DIR)/.gitignore' -Force"
 	@powershell -NoProfile -Command "Copy-Item -Path 'engine-sdk/dist-README.md' -Destination '$(DIST_PKG_DIR)/README.md' -Force"
 else
-	@rm -rf "$(DIST_DIR)"
+	@rm -rf "$(_DIST_STAGING)"
 	@mkdir -p "$(DIST_PKG_DIR)/lib/debug" "$(DIST_PKG_DIR)/lib/release" \
 	          "$(DIST_PKG_DIR)/make" "$(DIST_PKG_DIR)/tools"
 	@cp -r $(INCLUDES_BASE)       "$(DIST_PKG_DIR)/includes"
@@ -320,56 +338,66 @@ else
 endif
 	@echo "Engine package ready: $(DIST_PKG_DIR)/"
 
-# ── engine tool binary (embeds the dist pkg as a zip) ─────────────────────────
-# The zip contains dist/ as its top-level so strip_top_dir() in Rust works correctly.
-# $(call _DO_ZIP,output.zip[,subdir_to_exclude])  — exclude is relative to dist/
+# ── zip helper ────────────────────────────────────────────────────────────────
+# Zips from the *parent* of _DIST_STAGING so the top-level dir in the archive
+# is the staging dir name (e.g. pkg-linux-x64/...).  strip_top_dir() in Rust
+# strips that prefix, placing files directly under engine/.
+_STAGING_PARENT := $(patsubst %/,%,$(dir $(_DIST_STAGING)))
+_STAGING_NAME   := $(notdir $(_DIST_STAGING))
 define _DO_ZIP
-	cd "$(DIST_DIR)" && \
+	cd "$(_STAGING_PARENT)" && \
 	if command -v zip >/dev/null 2>&1; then \
-	    zip -r "$(abspath $(1))" "dist/" $(if $(2),-x "dist/$(2)/*"); \
+	    zip -r "$(abspath $(1))" "$(_STAGING_NAME)/"; \
 	elif command -v 7z >/dev/null 2>&1; then \
-	    7z a -tzip "$(abspath $(1))" "dist/" $(if $(2),-x!"dist/$(2)") > /dev/null; \
+	    7z a -tzip "$(abspath $(1))" "$(_STAGING_NAME)/" > /dev/null; \
 	else \
-	    python3 -c " \
-import zipfile, os, sys; \
-excl=sys.argv[3] if len(sys.argv)>3 else ''; \
-root=sys.argv[2]; out=sys.argv[1]; \
+	    python3 -c "\
+import zipfile,os,sys; \
+out=sys.argv[1]; top=sys.argv[2]; cwd=os.getcwd(); src=os.path.join(cwd,top); \
 z=zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED); \
-[z.write(os.path.join(d,f), os.path.relpath(os.path.join(d,f))) \
- for d,_,fs in os.walk(root) for f in fs \
- if not excl or not os.path.relpath(os.path.join(d,f)).startswith(excl)]; \
-z.close()" "$(abspath $(1))" "dist/" $(if $(2),"dist/$(2)"); \
+[z.write(os.path.join(d,f),os.path.join(top,os.path.relpath(os.path.join(d,f),src))) \
+ for d,_,fs in os.walk(src) for f in fs]; \
+z.close()" "$(abspath $(1))" "$(_STAGING_NAME)"; \
 	fi
 endef
 
-# Sentinel tracks freshness of the engine package without globbing every file.
-_DIST_SENTINEL := $(DIST_PKG_DIR)/.gitignore
+$(ENGINE_PKG_ZIP): dist
+	@mkdir -p dist
+	$(call _DO_ZIP,$(ENGINE_PKG_ZIP))
+	@echo "Zipped: $(ENGINE_PKG_ZIP)"
 
-$(DIST_ZIP): $(_DIST_SENTINEL)
-	$(call _DO_ZIP,$(DIST_ZIP))
-	@echo "Zipped: $(DIST_ZIP)"
-
-# engine tool embeds the zip at compile time via build.rs / include_bytes!
+# ── engine tool binary ────────────────────────────────────────────────────────
+# Embeds the engine package zip as an offline fallback via ENGINE_PAYLOAD_ZIP.
+# GITHUB_REPO is baked in at compile time so the URL is not hardcoded in source.
 $(ENGINE_INIT_EXE): $(TOOLS_WORKSPACE) $(TOOLS_RS_SRCS) dist
 	@mkdir -p "$(ENGINE_PAYLOAD_DIR)"
 	$(call _DO_ZIP,$(ENGINE_PAYLOAD_ZIP))
+	REPO_HOST="$(REPO_HOST)" \
+	GITHUB_REPO="$(REPO_SLUG)" \
+	ENGINE_NAME="$(ENGINE_NAME)" \
+	ENGINE_VERSION="$(ENGINE_VERSION)" \
+	ENGINE_PUBLISHER="$(ENGINE_PUBLISHER)" \
+	ENGINE_AUTHOR="$(ENGINE_AUTHOR)" \
+	ENGINE_EMAIL="$(ENGINE_EMAIL)" \
+	ENGINE_DESCRIPTION="$(ENGINE_DESCRIPTION)" \
+	ENGINE_HOMEPAGE="$(ENGINE_HOMEPAGE)" \
 	ENGINE_PAYLOAD_ZIP="$(abspath $(ENGINE_PAYLOAD_ZIP))" \
 	CARGO_TARGET_DIR="$(abspath $(CARGO_TARGET_DIR))" \
 	    $(CARGO) build --release --manifest-path $(TOOLS_WORKSPACE) --bin engine
 	@echo "Built: $(ENGINE_INIT_EXE)"
 
 $(ENGINE_TOOL_EXE): $(ENGINE_INIT_EXE)
-	@mkdir -p "$(DIST_DIR)"
+	@mkdir -p dist
 ifeq ($(DETECTED_OS),Windows)
 	@powershell -NoProfile -Command "Copy-Item -Path '$(ENGINE_INIT_EXE)' -Destination '$@' -Force"
 else
 	cp "$(ENGINE_INIT_EXE)" "$@"
 endif
-	@echo "Installed engine tool: $@"
+	@echo "Engine tool: $@"
 
 .PHONY: engine-tool
-engine-tool: $(ENGINE_TOOL_EXE)
-	@echo "engine tool ready: $(ENGINE_TOOL_EXE)"
+engine-tool: $(ENGINE_PKG_ZIP) $(ENGINE_TOOL_EXE)
+	@echo "engine-tool done: $(ENGINE_TOOL_EXE)  $(ENGINE_PKG_ZIP)"
 
 # ── Sync demo ─────────────────────────────────────────────────────────────────
 # Copies the current BUILD_TYPE artifacts directly into demo/engine/.
